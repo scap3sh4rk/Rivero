@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart';
 import 'package:rivero/core/database/daos/settings_dao.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/account_role.dart';
@@ -23,6 +24,36 @@ class LedgerService {
     TransactionType.atmWithdrawal,
     TransactionType.cashExpenditure,
   };
+
+  /// Records a user-entered transaction as confirmed and applies its effects.
+  /// [amountMinorUnits] is signed (negative = money out).
+  Future<void> recordManual({
+    required String accountId,
+    required int amountMinorUnits,
+    required TransactionType type,
+    required String merchant,
+    required String category,
+    String? bucketId,
+  }) async {
+    final now = DateTime.now();
+    final id = 'txn-manual-${now.microsecondsSinceEpoch}';
+    await db.transactionsDao.insertTransaction(
+      TransactionsCompanion(
+        id: Value(id),
+        physicalAccountId: Value(accountId),
+        allocationBucketId: Value(bucketId),
+        amountMinorUnits: Value(amountMinorUnits),
+        transactionType: Value(type),
+        transactionState: const Value(TransactionState.confirmed),
+        merchant: Value(merchant),
+        category: Value(category),
+        transactionTimestamp: Value(now),
+        createdAt: Value(now),
+      ),
+    );
+    final saved = await db.transactionsDao.getTransactionById(id);
+    if (saved != null) await applyEffects(saved);
+  }
 
   /// Moves a pending transaction to confirmed and applies its effects once.
   Future<void> confirm(String transactionId) async {

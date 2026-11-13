@@ -24,81 +24,50 @@ void main() {
     await db.close();
   });
 
-  testWidgets(
-    'MainScreen renders bottom navigation bar and switches tabs smoothly',
-    (tester) async {
-      tester.view.physicalSize = const Size(1080, 2400);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
+  testWidgets('MainScreen switches between pages and opens settings', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [databaseProvider.overrideWithValue(db)],
-          child: const MaterialApp(home: MainScreen()),
-        ),
-      );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [databaseProvider.overrideWithValue(db)],
+        child: const MaterialApp(home: MainScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
 
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 150));
+    expect(find.text('SAFE TO SPEND'), findsOneWidget);
 
-      // 1. Initial Overview Tab
-      for (final label in [
-        'Overview',
-        'Accounts',
-        'Budgets',
-        'Transactions',
-        'Settings',
-      ]) {
-        expect(nav(label), findsOneWidget);
-      }
-
-      expect(find.text('SAFE TO SPEND'), findsOneWidget);
-
-      // 2. Switch to Accounts Tab
-      await tester.tap(nav('Accounts'));
+    Future<void> open(String tab) async {
+      await tester.tap(nav(tab));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 600));
+    }
 
-      expect(find.text('CUSTODIAL ACCOUNTS'), findsOneWidget);
-      expect(find.text('CREDIT LINE USAGE'), findsOneWidget);
+    await open('Accounts');
+    expect(find.text('CUSTODIAL ACCOUNTS'), findsOneWidget);
 
-      // 3. Switch to Budgets Tab
-      await tester.tap(nav('Budgets'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 600));
+    await open('Log');
+    expect(find.byKey(const ValueKey('key-5')), findsOneWidget);
 
-      expect(find.text('MONTHLY SALARY POOL'), findsOneWidget);
-      expect(find.text('MONTHLY ALLOCATION PURPOSES'), findsOneWidget);
+    await open('Activity');
+    expect(find.text('Encrypted Expense Ledger'), findsOneWidget);
 
-      // 4. Switch to Transactions Tab
-      await tester.tap(nav('Transactions'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 600));
+    await open('Plan');
+    expect(find.text('MONTHLY SALARY POOL'), findsOneWidget);
 
-      expect(find.text('Encrypted Expense Ledger'), findsOneWidget);
+    // Settings is reached from the profile button
+    await tester.tap(find.byTooltip('Profile & Settings').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(find.text('PAYCYCLE CONFIGURATION'), findsOneWidget);
 
-      // 5. Switch to Settings Tab
-      await tester.tap(nav('Settings'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 600));
-
-      expect(find.text('PAYCYCLE CONFIGURATION'), findsOneWidget);
-
-      // 6. Test Quick Action FAB
-      final quickFab = find.byTooltip('Quick Actions');
-      expect(quickFab, findsOneWidget);
-      await tester.tap(quickFab);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-
-      expect(find.text('Quick Actions'), findsOneWidget);
-      expect(find.text('Log Expense / Income'), findsOneWidget);
-      expect(find.text('Create Account'), findsOneWidget);
-      expect(find.text('New Monthly Purpose Bucket'), findsOneWidget);
-
-      await tester.pumpWidget(const SizedBox());
-      await tester.pump(const Duration(milliseconds: 50));
-    },
-  );
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 50));
+  });
 }

@@ -1,7 +1,5 @@
-import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
@@ -80,40 +78,16 @@ class _CreateTransactionSheetState
     }
 
     final merchant = _merchantController.text.trim();
-    final now = DateTime.now();
-    final txnId = 'txn-manual-${now.millisecondsSinceEpoch}';
-
-    final db = ref.read(databaseProvider);
-
-    final bucketId = _selectedBucketId;
-    final accountId = _selectedAccountId;
-    if (accountId == null) return;
-
-    // 1. Insert transaction
-    await db.transactionsDao.insertTransaction(
-      TransactionsCompanion(
-        id: drift.Value(txnId),
-        physicalAccountId: drift.Value(accountId),
-        allocationBucketId: bucketId != null
-            ? drift.Value(bucketId)
-            : const drift.Value.absent(),
-        amountMinorUnits: drift.Value(minorUnits),
-        transactionType: drift.Value(_type),
-        transactionState: const drift.Value(TransactionState.confirmed),
-        merchant: drift.Value(
-          merchant.isNotEmpty ? merchant : _selectedCategory,
-        ),
-        category: drift.Value(_selectedCategory),
-        transactionTimestamp: drift.Value(now),
-        createdAt: drift.Value(now),
-      ),
-    );
-
-    // 2. Apply balance + budget effects (default expense bucket if none chosen)
-    final saved = await db.transactionsDao.getTransactionById(txnId);
-    if (saved != null) {
-      await ref.read(ledgerServiceProvider).applyEffects(saved);
-    }
+    await ref
+        .read(ledgerServiceProvider)
+        .recordManual(
+          accountId: _selectedAccountId!,
+          amountMinorUnits: minorUnits,
+          type: _type,
+          merchant: merchant.isNotEmpty ? merchant : _selectedCategory,
+          category: _selectedCategory,
+          bucketId: _selectedBucketId,
+        );
 
     if (mounted) {
       Navigator.pop(context);
