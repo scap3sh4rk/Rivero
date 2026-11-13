@@ -9,6 +9,7 @@ import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
 import 'package:rivero/design_system/widgets/role_badge.dart';
 import 'package:rivero/features/budgets/widgets/create_budget_sheet.dart';
+import 'package:rivero/features/plan/salary_plan_screen.dart';
 
 /// Screen managing monthly salary waterfall allocations and purpose-driven spending budgets.
 class BudgetsScreen extends ConsumerWidget {
@@ -26,6 +27,11 @@ class BudgetsScreen extends ConsumerWidget {
         title: 'Budgets & Allocations',
         subtitle: 'Purpose-Driven Monthly Waterfall',
         actions: [
+          IconButton(
+            tooltip: 'Salary Plan',
+            icon: const Icon(Icons.call_split_rounded),
+            onPressed: () => SalaryPlanScreen.open(context),
+          ),
           IconButton(
             tooltip: 'Add Purpose Bucket',
             icon: const Icon(
@@ -56,16 +62,7 @@ class BudgetsScreen extends ConsumerWidget {
           final accounts = accountsAsync.value ?? [];
 
           // Compute total salary received from salary accounts
-          var salaryMinorUnits = 0;
-          for (final acc in accounts) {
-            if (acc.accountType.toLowerCase().contains('salary') ||
-                acc.name.toLowerCase().contains('salary')) {
-              salaryMinorUnits += acc.balanceMinorUnits;
-            }
-          }
-          if (salaryMinorUnits == 0) {
-            salaryMinorUnits = 15000000; // Default ₹1,50,000 baseline
-          }
+          final salaryMinorUnits = ref.watch(monthlySalaryProvider);
 
           var totalAllocatedMinorUnits = 0;
           var totalSpentMinorUnits = 0;

@@ -12,6 +12,17 @@ class TransactionsDao extends DatabaseAccessor<RiveroDatabase>
   TransactionsDao(super.attachedDatabase);
 
   /// Watch all transactions ordered newest first.
+  /// One-shot read of every transaction, newest first.
+  Future<List<LedgerTransaction>> getAllTransactions() {
+    return (select(transactions)..orderBy([
+          (t) => OrderingTerm(
+            expression: t.transactionTimestamp,
+            mode: OrderingMode.desc,
+          ),
+        ]))
+        .get();
+  }
+
   Stream<List<LedgerTransaction>> watchAllTransactions() {
     return (select(transactions)..orderBy([
           (t) => OrderingTerm(

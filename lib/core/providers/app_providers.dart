@@ -12,6 +12,7 @@ import 'package:rivero/core/ingestion/deduplication_engine.dart';
 import 'package:rivero/core/ingestion/ingestion_service.dart';
 import 'package:rivero/core/ingestion/parser/financial_parser.dart';
 import 'package:rivero/core/ledger/ledger_service.dart';
+import 'package:rivero/core/plan/salary_plan_service.dart';
 import 'package:rivero/core/reconciliation/balance_reconciler.dart';
 import 'package:rivero/core/reconciliation/internal_transfer_matcher.dart';
 import 'package:rivero/core/reconciliation/reconciliation_service.dart';
@@ -143,6 +144,23 @@ final ingestionServiceProvider = Provider<IngestionService>((ref) {
     parser: parser,
     deduplicator: deduplicator,
   );
+});
+
+final salaryPlanServiceProvider = Provider<SalaryPlanService>((ref) {
+  return SalaryPlanService(ref.watch(databaseProvider));
+});
+
+/// A salary credit this cycle that has not been split into buckets yet.
+final pendingSalaryProvider = FutureProvider<LedgerTransaction?>((ref) {
+  ref.watch(allTransactionsStreamProvider); // re-check when ledger changes
+  final cycle = ref.watch(currentPaycycleProvider);
+  final expected = ref.watch(monthlySalaryProvider);
+  return ref
+      .read(salaryPlanServiceProvider)
+      .pendingSalary(
+        cycleStart: cycle.cycleStartDate,
+        expectedSalary: expected,
+      );
 });
 
 /// Applies balance and budget effects for confirmed transactions.

@@ -4,6 +4,7 @@ import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/features/home/widgets/safe_to_spend_hero_card.dart';
+import 'package:rivero/features/home/widgets/salary_prompt.dart';
 import 'package:rivero/features/home/widgets/simulate_sms_sheet.dart';
 import 'package:rivero/features/home/widgets/transaction_swiper_section.dart';
 
@@ -53,6 +54,7 @@ class HomeScreen extends ConsumerWidget {
           children: const [
             SafeToSpendHeroCard(),
             SizedBox(height: RiveroSpacing.huge),
+            SalaryPrompt(),
             TransactionSwiperSection(),
           ],
         ),

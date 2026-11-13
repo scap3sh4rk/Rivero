@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/database/database_seeder.dart';
 import 'package:rivero/core/providers/app_providers.dart';
+import 'package:rivero/core/utils/amount_parser.dart';
 import 'package:rivero/features/log/quick_log_screen.dart';
 
 import '../../test_helper.dart';
