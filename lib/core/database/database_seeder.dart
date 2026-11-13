@@ -10,6 +10,15 @@ class DatabaseSeeder {
 
   final RiveroDatabase database;
 
+  /// Force resets and reseeds default financial accounts, buckets, and transactions.
+  Future<void> forceReseed() async {
+    await database.transactions.deleteAll();
+    await database.mandates.deleteAll();
+    await database.allocationBuckets.deleteAll();
+    await database.physicalAccounts.deleteAll();
+    await seedIfEmpty();
+  }
+
   /// Seeds default financial profile if no physical accounts exist.
   Future<void> seedIfEmpty() async {
     final existingAccounts = await database.accountsDao
@@ -27,7 +36,9 @@ class DatabaseSeeder {
         name: const Value('Primary HDFC Salary'),
         institution: const Value('HDFC Bank'),
         accountMask: const Value('4012'),
+        accountType: const Value('Salary'),
         balanceMinorUnits: const Value(15000000), // ₹1,50,000
+        creditLimitMinorUnits: const Value(0),
         isActive: const Value(true),
         isLiability: const Value(false),
         createdAt: Value(now),
@@ -41,7 +52,9 @@ class DatabaseSeeder {
         name: const Value('ICICI Daily Expenses'),
         institution: const Value('ICICI Bank'),
         accountMask: const Value('8841'),
+        accountType: const Value('Daily Expense'),
         balanceMinorUnits: const Value(4825000), // ₹48,250
+        creditLimitMinorUnits: const Value(0),
         isActive: const Value(true),
         isLiability: const Value(false),
         createdAt: Value(now),
@@ -55,7 +68,11 @@ class DatabaseSeeder {
         name: const Value('ICICI Sapphiro Card'),
         institution: const Value('ICICI Bank'),
         accountMask: const Value('7102'),
+        accountType: const Value('Credit Card'),
         balanceMinorUnits: const Value(-1425000), // -₹14,250 liability
+        creditLimitMinorUnits: const Value(
+          15000000,
+        ), // ₹1,50,000 limit (~9.5% safe usage)
         isActive: const Value(true),
         isLiability: const Value(true),
         createdAt: Value(now),

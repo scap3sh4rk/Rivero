@@ -87,6 +87,27 @@ class AccountsDao extends DatabaseAccessor<RiveroDatabase>
     return await updateAccountBalance(accountId, updatedBalance);
   }
 
+  /// Deactivate (soft delete) a physical account.
+  Future<bool> deactivatePhysicalAccount(String accountId) async {
+    final updatedRows =
+        await (update(
+          physicalAccounts,
+        )..where((tbl) => tbl.id.equals(accountId))).write(
+          PhysicalAccountsCompanion(
+            isActive: const Value(false),
+            updatedAt: Value(DateTime.now()),
+          ),
+        );
+    return updatedRows > 0;
+  }
+
+  /// Permanently delete a physical account.
+  Future<int> deletePhysicalAccountPermanently(String accountId) {
+    return (delete(
+      physicalAccounts,
+    )..where((tbl) => tbl.id.equals(accountId))).go();
+  }
+
   // --- Allocation Buckets ---
 
   /// Watch all virtual allocation buckets ordered by priority.
@@ -136,6 +157,13 @@ class AccountsDao extends DatabaseAccessor<RiveroDatabase>
           ),
         );
     return updatedRows > 0;
+  }
+
+  /// Delete an allocation bucket.
+  Future<int> deleteBucket(String bucketId) {
+    return (delete(
+      allocationBuckets,
+    )..where((tbl) => tbl.id.equals(bucketId))).go();
   }
 
   /// Reset allocations for a new paycycle.

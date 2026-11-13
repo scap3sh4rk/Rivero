@@ -11,6 +11,17 @@ class TransactionsDao extends DatabaseAccessor<RiveroDatabase>
     with _$TransactionsDaoMixin {
   TransactionsDao(super.attachedDatabase);
 
+  /// Watch all transactions ordered newest first.
+  Stream<List<LedgerTransaction>> watchAllTransactions() {
+    return (select(transactions)..orderBy([
+          (t) => OrderingTerm(
+            expression: t.transactionTimestamp,
+            mode: OrderingMode.desc,
+          ),
+        ]))
+        .watch();
+  }
+
   /// Watch recent transactions ordered newest first.
   Stream<List<LedgerTransaction>> watchRecentTransactions({int limit = 50}) {
     return (select(transactions)
@@ -123,6 +134,35 @@ class TransactionsDao extends DatabaseAccessor<RiveroDatabase>
         isInternalTransfer: const Value(true),
       ),
     );
+  }
+
+  /// Update category and merchant description for a transaction.
+  Future<bool> updateTransactionCategory(
+    String transactionId, {
+    String? category,
+    String? merchant,
+    String? bucketId,
+  }) async {
+    final updatedRows =
+        await (update(
+          transactions,
+        )..where((tbl) => tbl.id.equals(transactionId))).write(
+          TransactionsCompanion(
+            category: category != null ? Value(category) : const Value.absent(),
+            merchant: merchant != null ? Value(merchant) : const Value.absent(),
+            allocationBucketId: bucketId != null
+                ? Value(bucketId)
+                : const Value.absent(),
+          ),
+        );
+    return updatedRows > 0;
+  }
+
+  /// Delete a transaction by ID.
+  Future<int> deleteTransaction(String transactionId) {
+    return (delete(
+      transactions,
+    )..where((tbl) => tbl.id.equals(transactionId))).go();
   }
 
   /// Find potential duplicate candidates within a timestamp window with matching amount.

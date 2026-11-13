@@ -18,6 +18,14 @@ class PhysicalAccounts extends Table {
   /// Current balance strictly stored as integer minor units (paise in INR).
   IntColumn get balanceMinorUnits => integer().withDefault(const Constant(0))();
 
+  /// Credit limit in minor units (for credit cards / credit lines, e.g. 15000000 for ₹1,50,000).
+  IntColumn get creditLimitMinorUnits =>
+      integer().withDefault(const Constant(0))();
+
+  /// Custom account type / category (e.g. "Salary", "Savings", "Credit Card", "Cash", or custom).
+  TextColumn get accountType =>
+      text().withLength(min: 1, max: 50).withDefault(const Constant('Bank'))();
+
   /// ISO-4217 three-letter currency code.
   TextColumn get currencyCode =>
       text().withLength(min: 3, max: 3).withDefault(const Constant('INR'))();

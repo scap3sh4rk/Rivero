@@ -99,11 +99,15 @@ class SafeToSpendHeroCard extends ConsumerWidget {
                   color: RiveroColors.expenseAccent,
                 ),
                 const SizedBox(width: RiveroSpacing.xs),
-                Text(
-                  'Deficit: Commitments exceed balance by '
-                  '${CurrencyFormatter.format(stsResult.deficitAmount)}',
-                  style: RiveroTypography.bodySmall.copyWith(
-                    color: RiveroColors.expenseAccent,
+                Expanded(
+                  child: Text(
+                    'Deficit: Commitments exceed balance by '
+                    '${CurrencyFormatter.format(stsResult.deficitAmount)}',
+                    style: RiveroTypography.bodySmall.copyWith(
+                      color: RiveroColors.expenseAccent,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
@@ -117,10 +121,14 @@ class SafeToSpendHeroCard extends ConsumerWidget {
                   color: RiveroColors.savingsAccent,
                 ),
                 const SizedBox(width: RiveroSpacing.xs),
-                Text(
-                  'Pace: ${CurrencyFormatter.format(stsResult.dailySpendingPace)} / day · '
-                  '${paycycle.daysRemaining} days left in cycle',
-                  style: RiveroTypography.bodySmall,
+                Expanded(
+                  child: Text(
+                    'Pace: ${CurrencyFormatter.format(stsResult.dailySpendingPace)} / day · '
+                    '${paycycle.daysRemaining} days left in cycle',
+                    style: RiveroTypography.bodySmall,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),

@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -e
 
+# Ensure Flutter and Dart are in PATH
+export PATH="$HOME/flutter/bin:$PATH"
+
 echo "=== 1. Checking Dart formatting ==="
 dart format --output=none --set-exit-if-changed .
 

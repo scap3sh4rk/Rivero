@@ -164,18 +164,26 @@ class AccountsAndBucketsList extends ConsumerWidget {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Row(
-                              children: [
-                                RoleBadge(role: bucket.role, isCompact: true),
-                                const SizedBox(width: RiveroSpacing.sm),
-                                Text(
-                                  bucket.name,
-                                  style: RiveroTypography.bodyLarge.copyWith(
-                                    fontWeight: FontWeight.w600,
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  RoleBadge(role: bucket.role, isCompact: true),
+                                  const SizedBox(width: RiveroSpacing.sm),
+                                  Expanded(
+                                    child: Text(
+                                      bucket.name,
+                                      style: RiveroTypography.bodyLarge
+                                          .copyWith(
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
+                            const SizedBox(width: RiveroSpacing.sm),
                             if (isPrivacy)
                               Text(
                                 '••••••••',

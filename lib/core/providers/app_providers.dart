@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/database/database_seeder.dart';
 import 'package:rivero/core/domain/account_role.dart';
+import 'package:rivero/core/domain/custom_account_types.dart';
 import 'package:rivero/core/engine/paycycle.dart';
 import 'package:rivero/core/engine/safe_to_spend_calculator.dart';
 import 'package:rivero/core/engine/waterfall_allocator.dart';
@@ -200,4 +201,20 @@ final liveSafeToSpendResultProvider = Provider<AsyncValue<SafeToSpendResult>>((
   );
 
   return AsyncValue.data(result);
+});
+
+/// Active bottom navigation tab index (0: Overview, 1: Accounts, 2: Budgets, 3: Transactions, 4: Settings).
+final selectedNavIndexProvider = StateProvider<int>((ref) => 0);
+
+/// Stream of all transactions across the ledger.
+final allTransactionsStreamProvider = StreamProvider<List<LedgerTransaction>>((
+  ref,
+) {
+  final db = ref.watch(databaseProvider);
+  return db.transactionsDao.watchAllTransactions();
+});
+
+/// List of account types (starts with default presets, can hold up to 100 custom types).
+final customAccountTypesProvider = StateProvider<List<String>>((ref) {
+  return List.from(StandardAccountTypes.defaultList);
 });

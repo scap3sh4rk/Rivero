@@ -115,6 +115,7 @@ class _TransactionSwiperSectionState
               SizedBox(
                 height: 260,
                 child: CardSwiper(
+                  key: ValueKey('swiper-${pendingTransactions.length}'),
                   controller: _controller,
                   cardsCount: pendingTransactions.length,
                   numberOfCardsDisplayed: pendingTransactions.length > 1
@@ -148,6 +149,9 @@ class _TransactionSwiperSectionState
                     return true;
                   },
                   cardBuilder: (context, index, percentX, percentY) {
+                    if (index < 0 || index >= pendingTransactions.length) {
+                      return const SizedBox.shrink();
+                    }
                     final txn = pendingTransactions[index];
                     return TransactionSwiperCard(
                       transaction: txn,
