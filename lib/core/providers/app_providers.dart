@@ -174,6 +174,15 @@ final pendingSalaryProvider = FutureProvider<LedgerTransaction?>((ref) {
       );
 });
 
+/// A new pay cycle began and its salary has not been split yet.
+final awaitingSalaryProvider = FutureProvider<bool>((ref) {
+  ref.watch(allAllocationBucketsProvider); // re-check after a plan is applied
+  final cycle = ref.watch(currentPaycycleProvider);
+  return ref
+      .read(salaryPlanServiceProvider)
+      .awaitingSalary(cycle.cycleStartDate);
+});
+
 /// Applies balance and budget effects for confirmed transactions.
 final ledgerServiceProvider = Provider<LedgerService>((ref) {
   return LedgerService(ref.watch(databaseProvider));
@@ -281,7 +290,8 @@ final liveSafeToSpendResultProvider = Provider<AsyncValue<SafeToSpendResult>>((
   var expenseBalance = 0;
   for (final b in buckets) {
     if (b.role == AccountRole.expense) {
-      expenseBalance += b.allocatedMinorUnits - b.spentMinorUnits;
+      expenseBalance +=
+          b.allocatedMinorUnits + b.carryOverMinorUnits - b.spentMinorUnits;
     }
   }
 

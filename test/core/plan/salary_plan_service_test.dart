@@ -121,4 +121,84 @@ void main() {
       );
     },
   );
+
+  test('unspent spending money carries over; overspend does not', () async {
+    await plan.apply(salary: 10000000, allocations: {'exp': 6000000});
+    await db.accountsDao.recordBucketSpend('exp', 4000000); // 20k unspent
+    await plan.apply(salary: 10000000, allocations: {'exp': 6000000});
+    var exp = (await db.accountsDao.getBucketById('exp'))!;
+    expect(exp.allocatedMinorUnits, 6000000); // allocation never exceeds salary
+    expect(exp.carryOverMinorUnits, 2000000);
+    expect(exp.spentMinorUnits, 0);
+
+    await db.accountsDao.recordBucketSpend('exp', 9000000); // overspend by 1k
+    await plan.apply(salary: 10000000, allocations: {'exp': 6000000});
+    exp = (await db.accountsDao.getBucketById('exp'))!;
+    expect(exp.carryOverMinorUnits, 0);
+
+    await db.accountsDao.recordBucketSpend('exp', 1000000);
+    await plan.apply(
+      salary: 10000000,
+      allocations: {'exp': 6000000},
+      carryOver: false,
+    );
+    expect((await db.accountsDao.getBucketById('exp'))!.carryOverMinorUnits, 0);
+  });
+
+  test('awaiting salary once a new cycle starts without a split', () async {
+    final nov = DateTime(2026, 11);
+    final dec = DateTime(2026, 12);
+    expect(await plan.awaitingSalary(dec), isFalse); // never planned: no nag
+    await plan.apply(salary: 100, allocations: {'exp': 100}, cycleStart: nov);
+    expect(await plan.awaitingSalary(nov), isFalse);
+    expect(await plan.awaitingSalary(dec), isTrue);
+  });
+
+  test(
+    'custom categories: add, reject duplicates/blank, remove only custom',
+    () async {
+      final id = await plan.addCustomCategory('Rent', 2500000);
+      final rent = (await db.accountsDao.getBucketById(id))!;
+      expect(rent.role, AccountRole.custom);
+      expect(rent.targetMinorUnits, 2500000);
+      expect(
+        () => plan.addCustomCategory(' rent ', 1),
+        throwsA(isA<PlanValidationException>()),
+      );
+      expect(
+        () => plan.addCustomCategory('   ', 1),
+        throwsA(isA<PlanValidationException>()),
+      );
+      // Rent is set aside before spending gets the rest
+      final p = plan.preview(10000000, await db.accountsDao.getAllBuckets());
+      expect(p[id], 2500000);
+      expect(p['exp'], 10000000 - 3000000 - 1000000 - 2500000);
+
+      await plan.removeCategory('inv'); // default bucket: kept
+      expect(await db.accountsDao.getBucketById('inv'), isNotNull);
+      await plan.removeCategory(id);
+      expect(await db.accountsDao.getBucketById(id), isNull);
+    },
+  );
+
+  test('a salary landing two days before pay day still counts', () async {
+    await db.transactionsDao.insertTransaction(
+      TransactionsCompanion(
+        id: const Value('early'),
+        physicalAccountId: const Value('a'),
+        amountMinorUnits: const Value(9000000),
+        transactionType: const Value(TransactionType.income),
+        transactionState: const Value(TransactionState.confirmed),
+        merchant: const Value('ACME SALARY'),
+        category: const Value('Income'),
+        transactionTimestamp: Value(DateTime(2026, 11, 29)),
+        createdAt: Value(now),
+      ),
+    );
+    final found = await plan.pendingSalary(
+      cycleStart: DateTime(2026, 12),
+      expectedSalary: 10000000,
+    );
+    expect(found?.id, 'early');
+  });
 }

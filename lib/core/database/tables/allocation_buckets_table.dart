@@ -18,6 +18,11 @@ class AllocationBuckets extends Table {
   IntColumn get allocatedMinorUnits =>
       integer().withDefault(const Constant(0))();
 
+  /// Unspent money carried in from the previous cycle (expense buckets).
+  /// Kept apart from [allocatedMinorUnits] so allocations never exceed salary.
+  IntColumn get carryOverMinorUnits =>
+      integer().withDefault(const Constant(0))();
+
   /// Total spent from this bucket in the current cycle (integer minor units).
   IntColumn get spentMinorUnits => integer().withDefault(const Constant(0))();
 

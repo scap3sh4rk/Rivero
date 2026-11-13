@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/account_role.dart';
+import 'package:rivero/core/plan/salary_plan_service.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/amount_parser.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
@@ -9,8 +10,8 @@ import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
 
-/// Split a month's salary across buckets. Expense takes whatever is left, so
-/// the split can never exceed the salary. Set a bucket to 0 to skip it.
+/// Split a month's salary. Fixed categories (investments, savings, rent, ...)
+/// come first; spending gets the rest, so the plan can never exceed salary.
 class SalaryPlanScreen extends ConsumerStatefulWidget {
   const SalaryPlanScreen({super.key, this.salaryTransaction});
 
@@ -34,6 +35,7 @@ class _SalaryPlanScreenState extends ConsumerState<SalaryPlanScreen> {
   late final TextEditingController _salary;
   final _fields = <String, TextEditingController>{};
   bool _remember = true;
+  bool _carry = true;
   bool _saving = false;
 
   @override
@@ -65,6 +67,93 @@ class _SalaryPlanScreenState extends ConsumerState<SalaryPlanScreen> {
     ),
   );
 
+  void _toast(String text) => ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(content: Text(text), behavior: SnackBarBehavior.floating),
+    );
+
+  Future<void> _addCategory() async {
+    final name = TextEditingController();
+    final amount = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('New category'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              key: const ValueKey('cat-name'),
+              controller: name,
+              autofocus: true,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(
+                labelText: 'Name',
+                hintText: 'Rent, Family, Loan EMI…',
+              ),
+            ),
+            const SizedBox(height: RiveroSpacing.md),
+            TextField(
+              key: const ValueKey('cat-amount'),
+              controller: amount,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: const InputDecoration(
+                labelText: 'Every month',
+                prefixText: '₹',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      final id = await ref
+          .read(salaryPlanServiceProvider)
+          .addCustomCategory(name.text, parseAmountMinorUnits(amount.text));
+      _fields[id] = TextEditingController(text: amount.text.trim());
+      if (mounted) setState(() {});
+    } on PlanValidationException catch (e) {
+      _toast(e.message);
+    }
+  }
+
+  Future<void> _remove(AllocationBucket b) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Remove ${b.name}?'),
+        content: const Text('Past transactions stay in your history.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Keep'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await ref.read(salaryPlanServiceProvider).removeCategory(b.id);
+    _fields.remove(b.id)?.dispose();
+  }
+
   Future<void> _apply(int salary, Map<String, int> split) async {
     setState(() => _saving = true);
     await ref
@@ -73,32 +162,44 @@ class _SalaryPlanScreenState extends ConsumerState<SalaryPlanScreen> {
           salary: salary,
           allocations: split,
           salaryTransactionId: widget.salaryTransaction?.id,
+          cycleStart: ref.read(currentPaycycleProvider).cycleStartDate,
           rememberAsDefault: _remember,
+          carryOver: _carry,
         );
-    if (ref.read(monthlySalaryProvider) == 0) {
+    // Planning without a credit sets the expected salary; a real credit
+    // updates it only when this split becomes the default.
+    if (widget.salaryTransaction == null || _remember) {
       ref.read(monthlySalaryProvider.notifier).state = salary;
     }
-    ref.invalidate(pendingSalaryProvider);
+    ref
+      ..invalidate(pendingSalaryProvider)
+      ..invalidate(awaitingSalaryProvider);
     if (mounted) Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
     final buckets = ref.watch(allAllocationBucketsProvider).value ?? const [];
+    final privacy = ref.watch(privacyModeProvider);
     final salary = parseAmountMinorUnits(_salary.text);
-    final expense = buckets
+    final spending = buckets
         .where((b) => b.role == AccountRole.expense)
-        .toList();
-    final others = buckets.where((b) => b.role != AccountRole.expense).toList()
+        .firstOrNull;
+    final fixed = buckets.where((b) => b.role != AccountRole.expense).toList()
       ..sort((a, b) => a.priorityOrder.compareTo(b.priorityOrder));
 
     final split = <String, int>{
-      for (final b in others) b.id: parseAmountMinorUnits(_field(b).text),
+      for (final b in fixed) b.id: parseAmountMinorUnits(_field(b).text),
     };
-    final othersTotal = split.values.fold<int>(0, (a, b) => a + b);
-    final remaining = salary - othersTotal;
-    final over = remaining < 0;
-    if (expense.isNotEmpty) split[expense.first.id] = over ? 0 : remaining;
+    final fixedTotal = split.values.fold<int>(0, (a, b) => a + b);
+    final rest = salary - fixedTotal;
+    final over = rest < 0;
+    final carry = spending == null || !_carry
+        ? 0
+        : SalaryPlanService.carryFor(spending);
+    if (spending != null) split[spending.id] = over ? 0 : rest;
+
+    String money(int v) => privacy ? '••••' : CurrencyFormatter.format(v);
 
     return Scaffold(
       backgroundColor: RiveroColors.background,
@@ -108,117 +209,107 @@ class _SalaryPlanScreenState extends ConsumerState<SalaryPlanScreen> {
         leading: BackButton(onPressed: () => Navigator.of(context).pop()),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(RiveroSpacing.lg),
+        padding: const EdgeInsets.fromLTRB(
+          RiveroSpacing.xl,
+          RiveroSpacing.sm,
+          RiveroSpacing.xl,
+          RiveroSpacing.huge,
+        ),
         children: [
+          Text(
+            widget.salaryTransaction == null
+                ? 'Monthly salary'
+                : 'Salary received',
+            style: RiveroTypography.bodyMedium,
+          ),
+          TextField(
+            key: const ValueKey('salary-field'),
+            controller: _salary,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            style: RiveroTypography.financialLarge,
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(
+              prefixText: '₹',
+              hintText: '0',
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              filled: false,
+            ),
+          ),
+          const SizedBox(height: RiveroSpacing.lg),
+          Text('Set aside first', style: RiveroTypography.titleMedium),
+          const SizedBox(height: RiveroSpacing.xs),
+          Text(
+            'Leave a category empty to skip it this month.',
+            style: RiveroTypography.bodySmall,
+          ),
+          const SizedBox(height: RiveroSpacing.md),
+          for (final b in fixed)
+            _CategoryRow(
+              key: ValueKey('row-${b.id}'),
+              bucket: b,
+              controller: _field(b),
+              tooBig: salary > 0 && (split[b.id] ?? 0) > salary,
+              onChanged: () => setState(() {}),
+              onRemove: b.role == AccountRole.custom ? () => _remove(b) : null,
+            ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: _addCategory,
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Add category'),
+            ),
+          ),
+          const SizedBox(height: RiveroSpacing.md),
           RiveroCard(
-            isElevated: true,
+            borderColor: over ? RiveroColors.danger : null,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  widget.salaryTransaction == null
-                      ? 'MONTHLY SALARY'
-                      : 'SALARY RECEIVED',
-                  style: RiveroTypography.labelSmall.copyWith(
-                    letterSpacing: 1.5,
-                  ),
-                ),
-                TextField(
-                  key: const ValueKey('salary-field'),
-                  controller: _salary,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  style: RiveroTypography.financialLarge,
-                  onChanged: (_) => setState(() {}),
-                  decoration: const InputDecoration(
-                    prefixText: '₹',
-                    border: InputBorder.none,
-                    hintText: '0',
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: RiveroSpacing.xl),
-          Text(
-            'WHERE IT GOES',
-            style: RiveroTypography.labelSmall.copyWith(letterSpacing: 1.5),
-          ),
-          const SizedBox(height: RiveroSpacing.sm),
-          for (final b in others)
-            Padding(
-              padding: const EdgeInsets.only(bottom: RiveroSpacing.sm),
-              child: RiveroCard(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: RiveroSpacing.lg,
-                  vertical: RiveroSpacing.sm,
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(b.name, style: RiveroTypography.titleMedium),
-                    ),
-                    SizedBox(
-                      width: 120,
-                      child: TextField(
-                        key: ValueKey('plan-${b.id}'),
-                        controller: _field(b),
-                        textAlign: TextAlign.end,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        onChanged: (_) => setState(() {}),
-                        decoration: const InputDecoration(
-                          prefixText: '₹',
-                          border: InputBorder.none,
-                          hintText: '0 (skip)',
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          RiveroCard(
-            borderColor: over ? RiveroColors.danger : null,
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        expense.isEmpty ? 'Left over' : expense.first.name,
-                        style: RiveroTypography.titleMedium,
-                      ),
-                      Text(
-                        over ? 'Plan exceeds salary' : 'The rest goes here',
-                        style: RiveroTypography.bodySmall.copyWith(
-                          color: over ? RiveroColors.danger : null,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Text(
-                  CurrencyFormatter.format(remaining),
-                  key: const ValueKey('plan-rest'),
-                  style: RiveroTypography.financialMedium.copyWith(
+                  over
+                      ? 'This plan is ${money(-rest)} more than your salary'
+                      : 'Left for spending',
+                  style: RiveroTypography.bodyMedium.copyWith(
                     color: over ? RiveroColors.danger : null,
                   ),
                 ),
+                const SizedBox(height: RiveroSpacing.xs),
+                Text(
+                  over ? 'Reduce a category to continue' : money(rest),
+                  key: const ValueKey('plan-rest'),
+                  style: over
+                      ? RiveroTypography.titleMedium
+                      : RiveroTypography.financialMedium,
+                ),
+                if (!over && carry > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(top: RiveroSpacing.xs),
+                    child: Text(
+                      '+ ${money(carry)} unspent from last month',
+                      style: RiveroTypography.bodySmall,
+                    ),
+                  ),
               ],
             ),
+          ),
+          const SizedBox(height: RiveroSpacing.sm),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Carry over unspent money'),
+            value: _carry,
+            onChanged: (v) => setState(() => _carry = v),
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Use this split every month'),
-            subtitle: const Text('Turn off to skip or change just this month'),
+            subtitle: const Text('Turn off to change only this month'),
             value: _remember,
             onChanged: (v) => setState(() => _remember = v),
           ),
-          const SizedBox(height: RiveroSpacing.md),
+          const SizedBox(height: RiveroSpacing.lg),
           SizedBox(
             height: 56,
             child: FilledButton(
@@ -230,9 +321,68 @@ class _SalaryPlanScreenState extends ConsumerState<SalaryPlanScreen> {
               onPressed: salary == 0 || over || _saving
                   ? null
                   : () => _apply(salary, split),
-              child: const Text('Apply'),
+              child: Text(salary == 0 ? 'Enter your salary' : 'Apply'),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CategoryRow extends StatelessWidget {
+  const _CategoryRow({
+    required this.bucket,
+    required this.controller,
+    required this.tooBig,
+    required this.onChanged,
+    super.key,
+    this.onRemove,
+  });
+
+  final AllocationBucket bucket;
+  final TextEditingController controller;
+  final bool tooBig;
+  final VoidCallback onChanged;
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: RiveroSpacing.sm),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(top: RiveroSpacing.md),
+              child: Text(bucket.name, style: RiveroTypography.bodyLarge),
+            ),
+          ),
+          const SizedBox(width: RiveroSpacing.md),
+          SizedBox(
+            width: 140,
+            child: TextField(
+              key: ValueKey('plan-${bucket.id}'),
+              controller: controller,
+              textAlign: TextAlign.end,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              onChanged: (_) => onChanged(),
+              decoration: InputDecoration(
+                prefixText: '₹',
+                hintText: 'Skip',
+                errorText: tooBig ? 'Over salary' : null,
+              ),
+            ),
+          ),
+          if (onRemove != null)
+            IconButton(
+              tooltip: 'Remove ${bucket.name}',
+              onPressed: onRemove,
+              icon: const Icon(Icons.close_rounded, size: 18),
+            ),
         ],
       ),
     );

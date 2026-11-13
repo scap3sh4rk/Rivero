@@ -11,6 +11,8 @@ abstract final class SettingKeys {
   static const reserveCreditCards = 'reserve_credit_cards';
   static const onboarded = 'onboarded';
   static const lastPlannedSalaryTxn = 'last_planned_salary_txn';
+  static const lastPlannedCycleStart = 'last_planned_cycle_start';
+  static const openOnLog = 'open_on_log';
 }
 
 @DriftAccessor(tables: [AppSettings])

@@ -35,7 +35,7 @@ class SafeToSpendHeroCard extends ConsumerWidget {
     var limit = 0;
     var spent = 0;
     for (final b in buckets.where((b) => b.role == AccountRole.expense)) {
-      limit += b.allocatedMinorUnits;
+      limit += b.allocatedMinorUnits + b.carryOverMinorUnits;
       spent += b.spentMinorUnits;
     }
     final remaining = limit > 0

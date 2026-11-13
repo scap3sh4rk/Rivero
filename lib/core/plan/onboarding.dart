@@ -3,6 +3,7 @@ import 'package:rivero/core/database/daos/settings_dao.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/account_role.dart';
 import 'package:rivero/core/domain/custom_account_types.dart';
+import 'package:rivero/core/engine/paycycle.dart';
 import 'package:rivero/core/plan/salary_plan_service.dart';
 
 /// Everything the first-run flow collects. Amounts are minor units (paise).
@@ -146,6 +147,8 @@ Future<void> completeOnboarding(RiveroDatabase db, OnboardingData d) async {
   await plan.apply(
     salary: d.salaryMinor,
     allocations: plan.preview(d.salaryMinor, buckets),
+    cycleStart: Paycycle.fromSalaryDay(salaryCreditDay: d.salaryDay)
+        .cycleStartDate,
   );
 
   await db.settingsDao.set(SettingKeys.salaryDay, '${d.salaryDay}');

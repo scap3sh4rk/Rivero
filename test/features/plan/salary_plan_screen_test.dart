@@ -74,6 +74,12 @@ void main() {
     expect(alloc('bucket-savings'), 0);
     expect(alloc('bucket-expense'), 7000000);
 
+    // The expected salary (the Plan page "pool") follows what was applied.
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(MaterialApp)),
+    );
+    expect(container.read(monthlySalaryProvider), 10000000);
+
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 100));
   });
