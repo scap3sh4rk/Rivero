@@ -22,6 +22,17 @@ class IngestionLogsDao extends DatabaseAccessor<RiveroDatabase>
         .watch();
   }
 
+  /// Watch recent ingestion logs.
+  Stream<List<RawIngestionLog>> watchRecentLogs({int limit = 50}) {
+    return (select(rawIngestionLogs)
+          ..orderBy([
+            (t) =>
+                OrderingTerm(expression: t.receivedAt, mode: OrderingMode.desc),
+          ])
+          ..limit(limit))
+        .watch();
+  }
+
   /// Insert a raw ingestion log event.
   Future<int> insertLog(RawIngestionLogsCompanion log) {
     return into(rawIngestionLogs).insert(log);

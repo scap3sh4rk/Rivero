@@ -1,7 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/engine/paycycle.dart';
 import 'package:rivero/core/engine/safe_to_spend_calculator.dart';
 import 'package:rivero/core/engine/waterfall_allocator.dart';
+import 'package:rivero/core/ingestion/deduplication_engine.dart';
+import 'package:rivero/core/ingestion/ingestion_service.dart';
+import 'package:rivero/core/ingestion/parser/financial_parser.dart';
 
 /// Provider holding the current Safe-to-Spend amount in minor units (paise).
 /// Initial baseline provider for Phase 1.
@@ -38,3 +42,32 @@ final currentPaycycleProvider = Provider<Paycycle>((ref) {
 final includePendingReimbursementsProvider = StateProvider<bool>(
   (ref) => false,
 );
+
+/// Central database provider.
+final databaseProvider = Provider<RiveroDatabase>((ref) {
+  final db = RiveroDatabase();
+  ref.onDispose(db.close);
+  return db;
+});
+
+/// Financial parser provider.
+final financialParserProvider = Provider<FinancialParser>((ref) {
+  return const FinancialParser();
+});
+
+/// Deduplication engine provider.
+final deduplicationEngineProvider = Provider<DeduplicationEngine>((ref) {
+  return const DeduplicationEngine();
+});
+
+/// Ingestion service provider coordinating parsing, deduplication, and persistence.
+final ingestionServiceProvider = Provider<IngestionService>((ref) {
+  final db = ref.watch(databaseProvider);
+  final parser = ref.watch(financialParserProvider);
+  final deduplicator = ref.watch(deduplicationEngineProvider);
+  return IngestionService(
+    database: db,
+    parser: parser,
+    deduplicator: deduplicator,
+  );
+});
