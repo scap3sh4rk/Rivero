@@ -46,7 +46,7 @@ void main() {
       expect(find.textContaining('CUSTOM ACCOUNT TYPES'), findsOneWidget);
       expect(find.text('CREDIT SCORE MONITORING'), findsOneWidget);
       expect(find.text('PRIVACY & SECURITY'), findsOneWidget);
-      expect(find.text('DATA CONTROLS'), findsOneWidget);
+      expect(find.text('DEBUG'), findsOneWidget);
 
       // Verify credit rules text
       expect(find.textContaining('<= 10% Utilization'), findsOneWidget);

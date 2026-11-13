@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivero/core/domain/custom_account_types.dart';
@@ -315,30 +316,32 @@ class SettingsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: RiveroSpacing.lg),
 
-          // 5. Data Controls
-          _buildSectionHeader('DATA CONTROLS'),
-          RiveroCard(
-            padding: const EdgeInsets.all(RiveroSpacing.md),
-            child: Material(
-              color: Colors.transparent,
-              child: ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(
-                  Icons.restore_rounded,
-                  color: RiveroColors.salaryAccent,
+          if (kDebugMode) ...[
+            // 5. Debug-only demo data
+            _buildSectionHeader('DEBUG'),
+            RiveroCard(
+              padding: const EdgeInsets.all(RiveroSpacing.md),
+              child: Material(
+                color: Colors.transparent,
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(
+                    Icons.restore_rounded,
+                    color: RiveroColors.salaryAccent,
+                  ),
+                  title: Text(
+                    'Load demo data',
+                    style: RiveroTypography.titleMedium.copyWith(fontSize: 15),
+                  ),
+                  subtitle: Text(
+                    'Replaces everything with sample accounts and transactions (debug builds only)',
+                    style: RiveroTypography.bodySmall,
+                  ),
+                  onTap: () => _confirmReset(context, ref),
                 ),
-                title: Text(
-                  'Reset to Default Financial Baseline',
-                  style: RiveroTypography.titleMedium.copyWith(fontSize: 15),
-                ),
-                subtitle: Text(
-                  'Reseeds default HDFC salary, ICICI expense, credit card, and sample review transactions',
-                  style: RiveroTypography.bodySmall,
-                ),
-                onTap: () => _confirmReset(context, ref),
               ),
             ),
-          ),
+          ],
           const SizedBox(height: 80),
         ],
       ),
@@ -484,6 +487,7 @@ class SettingsScreen extends ConsumerWidget {
     if (confirm == true) {
       final seeder = ref.read(databaseSeederProvider);
       await seeder.forceReseed();
+      await ref.read(settingsSyncProvider).load();
       ref
         ..invalidate(allAllocationBucketsProvider)
         ..invalidate(activePhysicalAccountsProvider)

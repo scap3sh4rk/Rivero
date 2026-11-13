@@ -8,6 +8,7 @@ import 'package:rivero/core/ingestion/platform/notification_bridge.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/features/main/main_screen.dart';
+import 'package:rivero/features/onboarding/onboarding_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -47,11 +48,8 @@ class _RiveroAppState extends ConsumerState<RiveroApp>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     Future.microtask(() {
-      ref.read(databaseSeederProvider).seedIfEmpty().then((_) async {
-        final sync = ref.read(settingsSyncProvider);
-        await sync.load();
-        sync.listen();
-      });
+      final sync = ref.read(settingsSyncProvider);
+      sync.load().then((_) => sync.listen());
       _drain();
       _loadTheme();
     });
@@ -115,7 +113,11 @@ class _RiveroAppState extends ConsumerState<RiveroApp>
         title: 'Rivero',
         debugShowCheckedModeBanner: false,
         theme: RiveroTheme.build(light: light),
-        home: const MainScreen(),
+        home: switch (ref.watch(onboardedProvider)) {
+          null => Scaffold(backgroundColor: RiveroColors.background),
+          true => const MainScreen(),
+          false => const OnboardingScreen(),
+        },
       ),
     );
   }

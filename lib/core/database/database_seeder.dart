@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:rivero/core/database/daos/settings_dao.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/account_role.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
@@ -204,5 +205,9 @@ class DatabaseSeeder {
         createdAt: Value(now),
       ),
     );
+
+    // Demo salary so the Plan screen has a pool to show.
+    await database.settingsDao.set(SettingKeys.monthlySalary, '15000000');
+    await database.settingsDao.set(SettingKeys.onboarded, '1');
   }
 }

@@ -71,8 +71,18 @@ class SettingsSync {
         await dao.getInt(SettingKeys.monthlySalary) ?? 0;
     ref.read(reserveCreditCardsProvider.notifier).state =
         (await dao.get(SettingKeys.reserveCreditCards)) != '0';
-    ref.read(onboardedProvider.notifier).state =
-        (await dao.get(SettingKeys.onboarded)) == '1';
+    var onboarded = (await dao.get(SettingKeys.onboarded)) == '1';
+    if (!onboarded &&
+        (await ref
+                .read(databaseProvider)
+                .accountsDao
+                .getAllActivePhysicalAccounts())
+            .isNotEmpty) {
+      // Existing install that predates onboarding: don't make them redo setup.
+      onboarded = true;
+      await dao.set(SettingKeys.onboarded, '1');
+    }
+    ref.read(onboardedProvider.notifier).state = onboarded;
   }
 
   /// Persist every change to the three user-editable settings.
