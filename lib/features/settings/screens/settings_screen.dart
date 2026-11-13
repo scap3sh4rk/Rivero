@@ -83,6 +83,19 @@ class SettingsScreen extends ConsumerWidget {
                     trailing: const Icon(Icons.chevron_right_rounded),
                     onTap: () => MandatesScreen.open(context),
                   ),
+                  Divider(color: RiveroColors.borderSubtle),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    secondary: const Icon(Icons.credit_card_outlined),
+                    title: const Text('Reserve credit card spend'),
+                    subtitle: Text(
+                      'Keep money aside for unpaid card bills in Safe-to-Spend',
+                      style: RiveroTypography.bodySmall,
+                    ),
+                    value: ref.watch(reserveCreditCardsProvider),
+                    onChanged: (v) =>
+                        ref.read(reserveCreditCardsProvider.notifier).state = v,
+                  ),
                   if (NotificationBridge.supported) ...[
                     Divider(color: RiveroColors.borderSubtle),
                     ListTile(

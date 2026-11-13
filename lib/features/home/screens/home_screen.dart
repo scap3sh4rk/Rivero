@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivero/core/providers/app_providers.dart';
@@ -24,11 +25,12 @@ class HomeScreen extends ConsumerWidget {
         title: 'Rivero',
         subtitle: 'Paycycle · ${paycycle.daysRemaining} days left',
         actions: [
-          IconButton(
-            tooltip: 'Simulate Notification',
-            icon: Icon(Icons.bolt_rounded, color: RiveroColors.textSecondary),
-            onPressed: () => SimulateSmsSheet.show(context),
-          ),
+          if (kDebugMode)
+            IconButton(
+              tooltip: 'Simulate Notification',
+              icon: Icon(Icons.bolt_rounded, color: RiveroColors.textSecondary),
+              onPressed: () => SimulateSmsSheet.show(context),
+            ),
           IconButton(
             tooltip: 'Toggle Privacy Mode',
             icon: Icon(

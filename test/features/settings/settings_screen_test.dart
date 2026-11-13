@@ -53,7 +53,10 @@ void main() {
       expect(find.textContaining('> 30% Utilization'), findsOneWidget);
 
       // Verify privacy mode toggle switch
-      final privacySwitch = find.byType(Switch);
+      final privacySwitch = find.descendant(
+        of: find.widgetWithText(SwitchListTile, 'Privacy Mode (Mask Balances)'),
+        matching: find.byType(Switch),
+      );
       expect(privacySwitch, findsOneWidget);
       await tester.tap(privacySwitch);
       await tester.pump();
