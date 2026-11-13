@@ -85,6 +85,36 @@ class LedgerService {
     }
   }
 
+  /// Turns two matched legs into an internal transfer (money moved between the
+  /// user's own accounts): not an expense and not income. If the debit leg was
+  /// already confirmed it had consumed budget, so that spend is given back.
+  Future<void> convertToTransfer(
+    LedgerTransaction debit,
+    LedgerTransaction credit,
+  ) async {
+    final debitApplied =
+        debit.transactionState == TransactionState.confirmed ||
+        debit.transactionState == TransactionState.reconciled;
+    if (debitApplied) {
+      final spend = await _budgetSpend(debit);
+      if (spend > 0) {
+        final bucketId =
+            debit.allocationBucketId ?? await _defaultExpenseBucketId();
+        if (bucketId != null) {
+          await db.accountsDao.recordBucketSpend(bucketId, -spend);
+        }
+      }
+    }
+    await db.transactionsDao.updateTransactionType(
+      debit.id,
+      TransactionType.internalTransfer,
+    );
+    await db.transactionsDao.updateTransactionType(
+      credit.id,
+      TransactionType.internalTransfer,
+    );
+  }
+
   /// Positive = budget consumed, negative = budget returned, 0 = no effect.
   Future<int> _budgetSpend(LedgerTransaction t) async {
     final account = await db.accountsDao.getPhysicalAccountById(

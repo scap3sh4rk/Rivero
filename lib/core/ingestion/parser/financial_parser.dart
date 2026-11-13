@@ -2,6 +2,7 @@ import 'package:rivero/core/domain/account_role.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/ingestion/models/parsed_transaction.dart';
 import 'package:rivero/core/ingestion/models/raw_notification.dart';
+import 'package:rivero/core/ingestion/parser/message_intent.dart';
 import 'package:rivero/core/ingestion/trai_dlt_validator.dart';
 
 /// Production-grade financial parser for Indian banking SMS and UPI app push notifications.
@@ -65,6 +66,17 @@ class FinancialParser {
     caseSensitive: false,
   );
 
+  // Bank-side leg of paying a card bill: "towards ICICI Credit Card XX7102 bill"
+  static final RegExp _ccBillPaymentRegex = RegExp(
+    r'(?:\b(?:towards|for|to)\b[^.]{0,50}credit\s*card|credit\s*card\s*(?:bill|payment|dues?)|\bcc\s*(?:bill|payment))',
+    caseSensitive: false,
+  );
+
+  static final RegExp _cardSpendRegex = RegExp(
+    r'\b(?:spent|purchase|used\s+at|swiped|pos|txn\s+of)\b',
+    caseSensitive: false,
+  );
+
   static final RegExp _atmRegex = RegExp(
     r'\b(?:atm|cash withdrawal)\b',
     caseSensitive: false,
@@ -110,6 +122,10 @@ class FinancialParser {
   ParsedTransaction? parse(RawNotification notification) {
     final text = notification.body;
 
+    // Reminders, OTPs, mandate lifecycle and statement notices are not money
+    // movements; the ingestion service handles them separately.
+    if (classify(text) != MessageIntent.transaction) return null;
+
     // Stage 1: Fast filter
     if (!_isPotentiallyFinancial(text, notification)) {
       return null;
@@ -139,7 +155,11 @@ class FinancialParser {
       isAtm: _atmRegex.hasMatch(text),
       isCreditCard: _creditCardRegex.hasMatch(text),
       isSalary: _salaryRegex.hasMatch(text),
-      isCcSettlement: _ccSettlementRegex.hasMatch(text),
+      isCcSettlement:
+          _ccSettlementRegex.hasMatch(text) ||
+          (isDebit &&
+              _ccBillPaymentRegex.hasMatch(text) &&
+              !_cardSpendRegex.hasMatch(text)),
     );
 
     final role = _determineRole(txType, isDebit);
@@ -177,6 +197,13 @@ class FinancialParser {
       financialInstitution: institution,
     );
   }
+
+  /// What this message is about (see `MessageIntent`).
+  MessageIntent classify(String text) => classifyMessage(text);
+
+  /// Details of a mandate / pre-debit message.
+  MandateNotice parseNotice(String text, MessageIntent intent) =>
+      parseMandateNotice(text, intent);
 
   bool _isPotentiallyFinancial(String text, RawNotification notification) {
     if (notification.packageName != null &&

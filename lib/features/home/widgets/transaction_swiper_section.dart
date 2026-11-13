@@ -137,6 +137,9 @@ class _TransactionSwiperSectionState
 
                     if (direction == CardSwiperDirection.right) {
                       await ref.read(ledgerServiceProvider).confirm(txn.id);
+                      await ref
+                          .read(reconciliationServiceProvider)
+                          .reconcileAll();
                     } else if (direction == CardSwiperDirection.left) {
                       await db.transactionsDao.updateTransactionState(
                         txn.id,

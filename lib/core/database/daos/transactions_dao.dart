@@ -112,6 +112,26 @@ class TransactionsDao extends DatabaseAccessor<RiveroDatabase>
     return updatedRows > 0;
   }
 
+  /// Change a transaction's type (e.g. expense -> internalTransfer).
+  Future<bool> updateTransactionType(String id, TransactionType type) async {
+    final rows = await (update(transactions)..where((t) => t.id.equals(id)))
+        .write(TransactionsCompanion(transactionType: Value(type)));
+    return rows > 0;
+  }
+
+  /// Newest [limit] transactions as a plain future.
+  Future<List<LedgerTransaction>> getRecentTransactions({int limit = 100}) {
+    return (select(transactions)
+          ..orderBy([
+            (t) => OrderingTerm(
+              expression: t.transactionTimestamp,
+              mode: OrderingMode.desc,
+            ),
+          ])
+          ..limit(limit))
+        .get();
+  }
+
   /// Reclassify transaction bucket.
   Future<bool> updateTransactionBucket(
     String transactionId,

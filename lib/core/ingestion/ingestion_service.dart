@@ -2,11 +2,14 @@ import 'package:drift/drift.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/ingestion/deduplication_engine.dart';
+import 'package:rivero/core/ingestion/mandate_tracker.dart';
 import 'package:rivero/core/ingestion/models/ingestion_result.dart';
 import 'package:rivero/core/ingestion/models/parsed_transaction.dart';
 import 'package:rivero/core/ingestion/models/raw_notification.dart';
 import 'package:rivero/core/ingestion/parser/financial_parser.dart';
+import 'package:rivero/core/ingestion/parser/message_intent.dart';
 import 'package:rivero/core/ledger/ledger_service.dart';
+import 'package:rivero/core/reconciliation/reconciliation_service.dart';
 import 'package:uuid/uuid.dart';
 
 /// Central ingestion orchestrator coordinating the audit trail,
@@ -30,6 +33,13 @@ class IngestionService {
   ) async {
     final now = DateTime.now();
     final logId = notification.id.isNotEmpty ? notification.id : uuid.v4();
+
+    // 0. Non-transactions (OTP, pre-debit reminders, mandate lifecycle,
+    // statement notices) never reach the ledger.
+    final intent = parser.classify(notification.body);
+    if (intent != MessageIntent.transaction) {
+      return await _handleNotice(notification, intent, logId, now);
+    }
 
     // 1. Attempt parsing
     final parsed = parser.parse(notification);
@@ -154,6 +164,23 @@ class IngestionService {
     if (state == TransactionState.confirmed) {
       final saved = await database.transactionsDao.getTransactionById(txnId);
       if (saved != null) await LedgerService(database).applyEffects(saved);
+      // The bank's own "available balance" is the source of truth for the
+      // account; adopting it self-corrects any drift.
+      final reported = parsed.balanceMinorUnits;
+      if (reported != null) {
+        final acc = await database.accountsDao.getPhysicalAccountById(
+          accountId,
+        );
+        if (acc != null && !acc.isLiability) {
+          await database.accountsDao.updateAccountBalance(accountId, reported);
+        }
+      }
+      await ReconciliationService(database: database).reconcileAll();
+    }
+
+    if (parsed.isDebit) {
+      await MandateTracker(database)
+          .onDebit(merchant: parsed.merchant, at: parsed.timestamp);
     }
 
     return IngestionResult(
@@ -162,6 +189,53 @@ class IngestionService {
       isDuplicate: false,
       parsedTransaction: parsed,
       persistedTransactionId: txnId,
+    );
+  }
+
+  Future<IngestionResult> _handleNotice(
+    RawNotification notification,
+    MessageIntent intent,
+    String logId,
+    DateTime now,
+  ) async {
+    final isOtp = intent == MessageIntent.otp;
+    final mandateRelated =
+        intent == MessageIntent.preDebit ||
+        intent == MessageIntent.mandateCreated ||
+        intent == MessageIntent.mandateCancelled;
+
+    await database.ingestionLogsDao.insertLog(
+      RawIngestionLogsCompanion(
+        id: Value(logId),
+        sourceChannel: Value(notification.channel),
+        senderHeader: Value(notification.sender ?? notification.packageName),
+        // Never persist one-time passwords.
+        rawPayload: Value(
+          isOtp ? '[OTP message not stored]' : notification.body,
+        ),
+        receivedAt: Value(notification.receivedAt),
+        parseStatus: Value(
+          mandateRelated ? ParseStatus.parsed : ParseStatus.ignored,
+        ),
+        confidenceScore: const Value(1),
+        failureReason: Value(
+          mandateRelated ? null : 'Not a transaction: ${intent.name}',
+        ),
+        createdAt: Value(now),
+      ),
+    );
+
+    if (mandateRelated) {
+      await MandateTracker(database).apply(
+        parser.parseNotice(notification.body, intent),
+        now: notification.receivedAt,
+      );
+    }
+
+    return IngestionResult(
+      rawLogId: logId,
+      status: mandateRelated ? ParseStatus.parsed : ParseStatus.ignored,
+      isDuplicate: false,
     );
   }
 

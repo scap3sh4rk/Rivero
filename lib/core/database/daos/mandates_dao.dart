@@ -11,6 +11,9 @@ class MandatesDao extends DatabaseAccessor<RiveroDatabase>
     with _$MandatesDaoMixin {
   MandatesDao(super.attachedDatabase);
 
+  /// One-shot read of every mandate.
+  Future<List<Mandate>> getAllMandates() => select(mandates).get();
+
   /// Watch every mandate regardless of status (for the Autopay screen).
   Stream<List<Mandate>> watchAllMandates() {
     return (select(
@@ -63,6 +66,11 @@ class MandatesDao extends DatabaseAccessor<RiveroDatabase>
   /// Insert or update a mandate record.
   Future<int> upsertMandate(MandatesCompanion mandate) {
     return into(mandates).insertOnConflictUpdate(mandate);
+  }
+
+  /// Update only the given fields of an existing mandate.
+  Future<int> patchMandate(String id, MandatesCompanion changes) {
+    return (update(mandates)..where((t) => t.id.equals(id))).write(changes);
   }
 
   /// Update mandate status (e.g. pause, revoke, expire).

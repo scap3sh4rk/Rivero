@@ -1,5 +1,6 @@
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
+import 'package:rivero/core/ledger/ledger_service.dart';
 import 'package:rivero/core/reconciliation/balance_reconciler.dart';
 import 'package:rivero/core/reconciliation/internal_transfer_matcher.dart';
 import 'package:rivero/core/reconciliation/models/reconciliation_models.dart';
@@ -27,16 +28,23 @@ class ReconciliationService {
     int scanLimit = 100,
     Duration? window,
   }) async {
-    final recent = await database.transactionsDao
-        .watchRecentTransactions(limit: scanLimit)
-        .first;
+    // Only confirmed legs: unconfirmed ones have not touched balances yet and
+    // must not be marked reconciled (that would skip their effects).
+    final recent = (await database.transactionsDao.getRecentTransactions(
+      limit: scanLimit,
+    )).where((t) => t.transactionState == TransactionState.confirmed).toList();
 
     final pairs = transferMatcher.findTransferPairs(
       unlinkedTransactions: recent,
       window: window,
     );
 
+    final ledger = LedgerService(database);
     for (final pair in pairs) {
+      await ledger.convertToTransfer(
+        pair.debitTransaction,
+        pair.creditTransaction,
+      );
       await database.transactionsDao.linkTransactionLegs(
         pair.debitTransaction.id,
         pair.creditTransaction.id,
@@ -59,9 +67,9 @@ class ReconciliationService {
   /// Scans active transactions, detects unlinked refunds or reversals,
   /// and links them back to their originating debit purchases.
   Future<List<RefundMatch>> reconcileRefunds({int scanLimit = 100}) async {
-    final recent = await database.transactionsDao
-        .watchRecentTransactions(limit: scanLimit)
-        .first;
+    final recent = (await database.transactionsDao.getRecentTransactions(
+      limit: scanLimit,
+    )).where((t) => t.transactionState == TransactionState.confirmed).toList();
 
     final matches = refundMatcher.findRefundMatches(transactions: recent);
 
@@ -78,6 +86,12 @@ class ReconciliationService {
     }
 
     return matches;
+  }
+
+  /// Runs every matcher; call after new transactions are confirmed.
+  Future<void> reconcileAll() async {
+    await reconcileInternalTransfers();
+    await reconcileRefunds();
   }
 
   /// Reconciles an account balance against its calculated ledger running balance.

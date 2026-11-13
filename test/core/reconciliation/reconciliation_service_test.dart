@@ -124,7 +124,7 @@ void main() {
           physicalAccountId: const Value('acc-expense'),
           amountMinorUnits: const Value(149900), // +₹1,499.00
           transactionType: const Value(TransactionType.refund),
-          transactionState: const Value(TransactionState.parsed),
+          transactionState: const Value(TransactionState.confirmed),
           merchant: const Value('Amazon Refund'),
           category: const Value('Shopping'),
           transactionTimestamp: Value(now.add(const Duration(days: 2))),
