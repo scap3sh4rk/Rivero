@@ -56,7 +56,7 @@ void main() {
     expect(find.byKey(const ValueKey('key-5')), findsOneWidget);
 
     await open('Activity');
-    expect(find.text('Encrypted Expense Ledger'), findsOneWidget);
+    expect(find.text('Activity'), findsWidgets);
 
     await open('Plan');
     expect(find.text('MONTHLY SALARY POOL'), findsOneWidget);

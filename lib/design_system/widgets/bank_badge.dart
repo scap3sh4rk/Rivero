@@ -4,10 +4,18 @@ import 'package:rivero/design_system/rivero_tokens.dart';
 /// Coloured monogram for an institution (no licensed logos).
 /// The tint is derived from the name so it is stable across launches.
 class BankBadge extends StatelessWidget {
-  const BankBadge({required this.name, super.key, this.size = 44});
+  const BankBadge({
+    required this.name,
+    super.key,
+    this.size = 44,
+    this.circle = false,
+  });
 
   final String name;
   final double size;
+
+  /// Round (Slice activity rows) instead of a rounded square.
+  final bool circle;
 
   static const List<Color> _tints = [
     RiveroColors.salaryAccent,
@@ -35,7 +43,8 @@ class BankBadge extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: tint.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(size * 0.3),
+        shape: circle ? BoxShape.circle : BoxShape.rectangle,
+        borderRadius: circle ? null : BorderRadius.circular(size * 0.3),
       ),
       child: Text(
         initials(name),

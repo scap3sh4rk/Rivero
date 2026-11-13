@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
+import 'package:rivero/design_system/widgets/bank_badge.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
-import 'package:rivero/design_system/widgets/rivero_card.dart';
-import 'package:rivero/features/transactions/widgets/create_transaction_sheet.dart';
 
-/// Comprehensive expense tracker and ledger transaction stream with multi-criteria filtering.
+/// Activity: every transaction, newest first, with search and a type filter.
 class TransactionsScreen extends ConsumerStatefulWidget {
   const TransactionsScreen({super.key});
 
@@ -16,386 +17,203 @@ class TransactionsScreen extends ConsumerStatefulWidget {
   ConsumerState<TransactionsScreen> createState() => _TransactionsScreenState();
 }
 
+enum _Filter { all, expenses, income, transfers }
+
 class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
-  TransactionType? _selectedTypeFilter;
-  String? _selectedCategoryFilter;
+  _Filter _filter = _Filter.all;
+  String _query = '';
+
+  static const Set<TransactionType> _transferTypes = {
+    TransactionType.internalTransfer,
+    TransactionType.bucketFunding,
+    TransactionType.investmentContribution,
+    TransactionType.investmentRedemption,
+    TransactionType.creditCardSettlement,
+    TransactionType.walletTopup,
+  };
+
+  bool _matches(LedgerTransaction t) {
+    final q = _query.trim().toLowerCase();
+    if (q.isNotEmpty &&
+        !'${t.merchant} ${t.category}'.toLowerCase().contains(q)) {
+      return false;
+    }
+    return switch (_filter) {
+      _Filter.all => true,
+      _Filter.expenses =>
+        t.amountMinorUnits < 0 && !_transferTypes.contains(t.transactionType),
+      _Filter.income =>
+        t.amountMinorUnits > 0 && !_transferTypes.contains(t.transactionType),
+      _Filter.transfers => _transferTypes.contains(t.transactionType),
+    };
+  }
+
+  void _openFilter() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: RiveroColors.surface,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(RiveroSpacing.xl),
+          child: Wrap(
+            spacing: RiveroSpacing.sm,
+            children: [
+              for (final f in _Filter.values)
+                ChoiceChip(
+                  label: Text(switch (f) {
+                    _Filter.all => 'All',
+                    _Filter.expenses => 'Expenses',
+                    _Filter.income => 'Income',
+                    _Filter.transfers => 'Transfers',
+                  }),
+                  selected: _filter == f,
+                  showCheckmark: false,
+                  shape: const StadiumBorder(),
+                  onSelected: (_) {
+                    setState(() => _filter = f);
+                    Navigator.pop(ctx);
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final transactionsAsync = ref.watch(allTransactionsStreamProvider);
-    final accountsAsync = ref.watch(activePhysicalAccountsProvider);
-    final isPrivacy = ref.watch(privacyModeProvider);
+    final txns = ref.watch(allTransactionsStreamProvider).value ?? const [];
+    final privacy = ref.watch(privacyModeProvider);
+    final shown = txns.where(_matches).toList();
 
     return Scaffold(
       backgroundColor: RiveroColors.background,
-      appBar: RiveroAppBar(
-        title: 'Transactions',
-        subtitle: 'Encrypted Expense Ledger',
-        actions: [
-          IconButton(
-            tooltip: 'Log Transaction',
-            icon: const Icon(
-              Icons.add_circle_outline_rounded,
-              color: RiveroColors.expenseAccent,
-            ),
-            onPressed: () => CreateTransactionSheet.show(context),
-          ),
-        ],
-      ),
+      appBar: const RiveroAppBar(title: 'Activity'),
       body: Column(
         children: [
-          // Filter Chips Horizontal Scroll
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(
-              horizontal: RiveroSpacing.lg,
-              vertical: RiveroSpacing.sm,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              RiveroSpacing.xl,
+              0,
+              RiveroSpacing.xl,
+              RiveroSpacing.md,
             ),
             child: Row(
               children: [
-                _buildFilterChip(
-                  label: 'All',
-                  isSelected: _selectedTypeFilter == null,
-                  onSelected: () {
-                    setState(() => _selectedTypeFilter = null);
-                  },
+                Expanded(
+                  child: TextField(
+                    onChanged: (v) => setState(() => _query = v),
+                    decoration: InputDecoration(
+                      hintText: 'Search transactions',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      contentPadding: EdgeInsets.zero,
+                      filled: false,
+                      border: OutlineInputBorder(
+                        borderRadius: RiveroRadii.borderFull,
+                        borderSide: BorderSide(
+                          color: RiveroColors.borderMedium,
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: RiveroRadii.borderFull,
+                        borderSide: BorderSide(
+                          color: RiveroColors.borderMedium,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
                 const SizedBox(width: RiveroSpacing.sm),
-                _buildFilterChip(
-                  label: 'Expenses',
-                  isSelected: _selectedTypeFilter == TransactionType.expense,
-                  onSelected: () {
-                    setState(
-                      () => _selectedTypeFilter = TransactionType.expense,
-                    );
-                  },
-                ),
-                const SizedBox(width: RiveroSpacing.sm),
-                _buildFilterChip(
-                  label: 'Income',
-                  isSelected: _selectedTypeFilter == TransactionType.income,
-                  onSelected: () {
-                    setState(
-                      () => _selectedTypeFilter = TransactionType.income,
-                    );
-                  },
-                ),
-                const SizedBox(width: RiveroSpacing.sm),
-                _buildFilterChip(
-                  label: 'Transfers',
-                  isSelected:
-                      _selectedTypeFilter == TransactionType.internalTransfer,
-                  onSelected: () {
-                    setState(
-                      () => _selectedTypeFilter =
-                          TransactionType.internalTransfer,
-                    );
-                  },
+                IconButton.outlined(
+                  tooltip: 'Filter',
+                  onPressed: _openFilter,
+                  icon: Icon(
+                    Icons.tune_rounded,
+                    color: _filter == _Filter.all
+                        ? RiveroColors.textPrimary
+                        : RiveroColors.salaryAccent,
+                  ),
                 ),
               ],
             ),
           ),
-
-          // Transaction Stream List
           Expanded(
-            child: transactionsAsync.when(
-              loading: () => const Center(
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    RiveroColors.expenseAccent,
-                  ),
-                ),
-              ),
-              error: (err, _) => Center(
-                child: Text(
-                  'Failed to load transactions: $err',
-                  style: RiveroTypography.bodyMedium.copyWith(
-                    color: RiveroColors.danger,
-                  ),
-                ),
-              ),
-              data: (allTxns) {
-                final accounts = accountsAsync.value ?? [];
-
-                // Apply type and category filters
-                var filtered = allTxns;
-                if (_selectedTypeFilter != null) {
-                  filtered = filtered
-                      .where((t) => t.transactionType == _selectedTypeFilter)
-                      .toList();
-                }
-                if (_selectedCategoryFilter != null) {
-                  filtered = filtered
-                      .where((t) => t.category == _selectedCategoryFilter)
-                      .toList();
-                }
-
-                if (filtered.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.receipt_long_outlined,
-                          size: 48,
-                          color: RiveroColors.textMuted,
-                        ),
-                        const SizedBox(height: RiveroSpacing.md),
-                        Text(
-                          'No Transactions Found',
-                          style: RiveroTypography.titleMedium,
-                        ),
-                        const SizedBox(height: RiveroSpacing.xs),
-                        Text(
-                          'Transactions logged or captured from notifications will appear here.',
-                          style: RiveroTypography.bodySmall,
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
+            child: shown.isEmpty
+                ? Center(
+                    child: Text(
+                      txns.isEmpty ? 'Nothing logged yet' : 'No matches',
+                      style: RiveroTypography.bodyMedium,
                     ),
-                  );
-                }
-
-                return RefreshIndicator(
-                  color: RiveroColors.expenseAccent,
-                  backgroundColor: RiveroColors.surfaceElevated,
-                  onRefresh: () async {
-                    ref.invalidate(allTransactionsStreamProvider);
-                  },
-                  child: ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(
-                      RiveroSpacing.lg,
-                      RiveroSpacing.sm,
-                      RiveroSpacing.lg,
-                      80,
+                  )
+                : ListView.builder(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: RiveroSpacing.xl,
                     ),
-                    itemCount: filtered.length,
-                    separatorBuilder: (_, _) =>
-                        const SizedBox(height: RiveroSpacing.xs),
-                    itemBuilder: (context, index) {
-                      final txn = filtered[index];
-                      final isExpense = txn.amountMinorUnits < 0;
-                      final account = accounts
-                          .where((a) => a.id == txn.physicalAccountId)
-                          .firstOrNull;
-
-                      final accountLabel = account != null
-                          ? '${account.institution} ••${account.accountMask}'
-                          : 'Account';
-
-                      return Dismissible(
-                        key: ValueKey(txn.id),
-                        direction: DismissDirection.endToStart,
-                        background: Container(
-                          alignment: Alignment.centerRight,
-                          padding: const EdgeInsets.only(
-                            right: RiveroSpacing.lg,
-                          ),
-                          decoration: BoxDecoration(
-                            color: RiveroColors.danger.withValues(alpha: 0.8),
-                            borderRadius: BorderRadius.circular(RiveroRadii.md),
-                          ),
-                          child: const Icon(
-                            Icons.delete_outline_rounded,
-                            color: Colors.white,
-                          ),
-                        ),
-                        onDismissed: (_) async {
-                          final db = ref.read(databaseProvider);
-                          await db.transactionsDao.deleteTransaction(txn.id);
-                          // Reverse the balance adjustment
-                          await db.accountsDao.adjustAccountBalance(
-                            txn.physicalAccountId,
-                            -txn.amountMinorUnits,
-                          );
-                        },
-                        child: RiveroCard(
-                          padding: const EdgeInsets.all(RiveroSpacing.md),
-                          child: Row(
-                            children: [
-                              // Category icon
-                              Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  color: isExpense
-                                      ? RiveroColors.expenseAccent.withValues(
-                                          alpha: 0.12,
-                                        )
-                                      : RiveroColors.investmentAccent
-                                            .withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(
-                                    RiveroRadii.md,
-                                  ),
-                                ),
-                                child: Icon(
-                                  _categoryIcon(txn.category),
-                                  size: 20,
-                                  color: isExpense
-                                      ? RiveroColors.expenseAccent
-                                      : RiveroColors.investmentAccent,
-                                ),
-                              ),
-                              const SizedBox(width: RiveroSpacing.md),
-
-                              // Description & metadata
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      txn.merchant.isNotEmpty
-                                          ? txn.merchant
-                                          : txn.category,
-                                      style: RiveroTypography.bodyLarge
-                                          .copyWith(
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 14,
-                                          ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Row(
-                                      children: [
-                                        Text(
-                                          txn.category,
-                                          style: RiveroTypography.bodySmall
-                                              .copyWith(
-                                                fontSize: 11,
-                                                color:
-                                                    RiveroColors.textSecondary,
-                                              ),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          '·',
-                                          style: TextStyle(
-                                            color: RiveroColors.textMuted,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          accountLabel,
-                                          style: RiveroTypography.bodySmall
-                                              .copyWith(
-                                                fontSize: 11,
-                                                color: RiveroColors.textMuted,
-                                              ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-
-                              // Amount
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  if (isPrivacy)
-                                    Text(
-                                      '••••••',
-                                      style: RiveroTypography.monoMedium,
-                                    )
-                                  else
-                                    Text(
-                                      CurrencyFormatter.format(
-                                        txn.amountMinorUnits,
-                                      ),
-                                      style: RiveroTypography.monoMedium
-                                          .copyWith(
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.w700,
-                                            color: isExpense
-                                                ? RiveroColors.textPrimary
-                                                : RiveroColors.investmentAccent,
-                                          ),
-                                    ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    _formatTime(txn.transactionTimestamp),
-                                    style: RiveroTypography.labelSmall.copyWith(
-                                      fontSize: 10,
-                                      color: RiveroColors.textMuted,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
+                    itemCount: shown.length,
+                    itemBuilder: (_, i) =>
+                        _ActivityRow(shown[i], privacy: privacy),
                   ),
-                );
-              },
-            ),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildFilterChip({
-    required String label,
-    required bool isSelected,
-    required VoidCallback onSelected,
-  }) {
-    return FilterChip(
-      selected: isSelected,
-      label: Text(label),
-      labelStyle: RiveroTypography.labelSmall.copyWith(
-        color: isSelected ? RiveroColors.background : RiveroColors.textPrimary,
-        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+class _ActivityRow extends StatelessWidget {
+  const _ActivityRow(this.t, {required this.privacy});
+
+  final LedgerTransaction t;
+  final bool privacy;
+
+  @override
+  Widget build(BuildContext context) {
+    final credit = t.amountMinorUnits > 0;
+    final pending = t.transactionState == TransactionState.needsReview;
+    final ignored = t.transactionState == TransactionState.ignored;
+    final amount = CurrencyFormatter.format(t.amountMinorUnits.abs());
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: RiveroSpacing.md),
+      child: Row(
+        children: [
+          BankBadge(name: t.merchant, size: 48, circle: true),
+          const SizedBox(width: RiveroSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  t.merchant,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: RiveroTypography.titleMedium.copyWith(fontSize: 15),
+                ),
+                Text(
+                  '${DateFormat("d MMM ''yy").format(t.transactionTimestamp)}'
+                  ' · ${pending ? 'Needs review' : t.category}',
+                  style: RiveroTypography.bodySmall.copyWith(
+                    color: pending ? RiveroColors.warning : null,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            privacy ? '••••' : '${credit ? '+' : ''}$amount',
+            style: RiveroTypography.titleMedium.copyWith(
+              fontSize: 15,
+              color: ignored
+                  ? RiveroColors.textMuted
+                  : credit
+                  ? RiveroColors.success
+                  : RiveroColors.textPrimary,
+              decoration: ignored ? TextDecoration.lineThrough : null,
+            ),
+          ),
+        ],
       ),
-      backgroundColor: RiveroColors.surfaceElevated,
-      selectedColor: RiveroColors.expenseAccent,
-      checkmarkColor: RiveroColors.background,
-      side: BorderSide(
-        color: isSelected
-            ? RiveroColors.expenseAccent
-            : RiveroColors.borderSubtle,
-      ),
-      onSelected: (_) => onSelected(),
     );
-  }
-
-  IconData _categoryIcon(String category) {
-    final lower = category.toLowerCase();
-    if (lower.contains('food') || lower.contains('dining')) {
-      return Icons.restaurant_rounded;
-    }
-    if (lower.contains('grocer')) return Icons.shopping_basket_rounded;
-    if (lower.contains('shop')) return Icons.shopping_bag_rounded;
-    if (lower.contains('transport') ||
-        lower.contains('fuel') ||
-        lower.contains('cab')) {
-      return Icons.directions_car_rounded;
-    }
-    if (lower.contains('entertain') || lower.contains('movie')) {
-      return Icons.movie_creation_outlined;
-    }
-    if (lower.contains('bill') || lower.contains('utilit')) {
-      return Icons.receipt_long_rounded;
-    }
-    if (lower.contains('health') || lower.contains('med')) {
-      return Icons.medical_services_outlined;
-    }
-    if (lower.contains('salary') || lower.contains('income')) {
-      return Icons.account_balance_wallet_rounded;
-    }
-    if (lower.contains('invest') || lower.contains('sip')) {
-      return Icons.trending_up_rounded;
-    }
-    if (lower.contains('transfer')) return Icons.swap_horiz_rounded;
-    return Icons.credit_card_rounded;
-  }
-
-  String _formatTime(DateTime dt) {
-    final hour = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
-    final period = dt.hour >= 12 ? 'PM' : 'AM';
-    final minute = dt.minute.toString().padLeft(2, '0');
-    return '$hour:$minute $period';
   }
 }
