@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/database/database_seeder.dart';
+import 'package:rivero/core/domain/transaction_enums.dart';
+import 'package:rivero/core/ledger/ledger_service.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/features/transactions/screens/transactions_screen.dart';
 
@@ -116,6 +118,51 @@ void main() {
       ),
       isNull,
     );
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 100));
+  });
+
+  testWidgets('month overview totals real spends; tapping a category filters', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final db = RiveroDatabase.memory();
+    addTearDown(db.close);
+    await DatabaseSeeder(db).seedIfEmpty();
+    await tester.runAsync(
+      () => LedgerService(db).recordManual(
+        accountId: 'acc-expense',
+        amountMinorUnits: -24000,
+        type: TransactionType.expense,
+        merchant: 'Groceries run',
+        category: 'Shopping',
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [databaseProvider.overrideWithValue(db)],
+        child: const MaterialApp(home: TransactionsScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.textContaining('Spent since'), findsOneWidget);
+    final total = tester.widget<Text>(
+      find.byKey(const ValueKey('spent-total')),
+    );
+    expect(total.data, contains('240'));
+
+    await tester.tap(find.text('Shopping').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Groceries run'), findsOneWidget);
+    expect(find.text('Zomato'), findsNothing);
 
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 100));

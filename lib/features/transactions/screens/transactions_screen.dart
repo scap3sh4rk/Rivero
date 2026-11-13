@@ -9,6 +9,7 @@ import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/bank_badge.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
+import 'package:rivero/features/transactions/widgets/spending_overview.dart';
 import 'package:rivero/features/transactions/widgets/transaction_detail_sheet.dart';
 
 /// Activity: every transaction, newest first, with search and a type filter.
@@ -24,6 +25,13 @@ enum _Filter { all, expenses, income, transfers }
 class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
   _Filter _filter = _Filter.all;
   String _query = '';
+  final _search = TextEditingController();
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
 
   static const Set<TransactionType> _transferTypes = {
     TransactionType.internalTransfer,
@@ -105,6 +113,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
               children: [
                 Expanded(
                   child: TextField(
+                    controller: _search,
                     onChanged: (v) => setState(() => _query = v),
                     decoration: InputDecoration(
                       hintText: 'Search transactions',
@@ -141,24 +150,50 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
             ),
           ),
           Expanded(
-            child: shown.isEmpty
-                ? Center(
-                    child: Text(
-                      txns.isEmpty ? 'Nothing logged yet' : 'No matches',
-                      style: RiveroTypography.bodyMedium,
-                    ),
-                  )
-                : ListView.builder(
-                    physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: RiveroSpacing.xl,
-                    ),
-                    itemCount: shown.length,
-                    itemBuilder: (_, i) => _ActivityRow(
-                      shown[i],
-                      privacy: privacy,
-                    ).animate().fadeIn(duration: 220.ms),
-                  ),
+            child: ListView.builder(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(
+                RiveroSpacing.xl,
+                0,
+                RiveroSpacing.xl,
+                RiveroSpacing.huge,
+              ),
+              // Row 0: the month overview (only when not searching/filtering).
+              itemCount: shown.length + 1,
+              itemBuilder: (_, i) {
+                if (i == 0) {
+                  final browsing = _query.isEmpty && _filter == _Filter.all;
+                  return Column(
+                    children: [
+                      if (browsing && txns.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(
+                            bottom: RiveroSpacing.md,
+                          ),
+                          child: SpendingOverview(
+                            onCategoryTap: (c) => setState(() {
+                              _search.text = c;
+                              _query = c;
+                            }),
+                          ),
+                        ),
+                      if (shown.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.all(RiveroSpacing.huge),
+                          child: Text(
+                            txns.isEmpty ? 'Nothing logged yet' : 'No matches',
+                            style: RiveroTypography.bodyMedium,
+                          ),
+                        ),
+                    ],
+                  );
+                }
+                return _ActivityRow(
+                  shown[i - 1],
+                  privacy: privacy,
+                ).animate().fadeIn(duration: 220.ms);
+              },
+            ),
           ),
         ],
       ),
