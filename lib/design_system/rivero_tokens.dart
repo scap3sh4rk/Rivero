@@ -266,6 +266,13 @@ abstract final class RiveroTheme {
       brightness: light ? Brightness.light : Brightness.dark,
       scaffoldBackgroundColor: RiveroColors.background,
       colorScheme: scheme,
+      // No ink splash spreading past a control's visible shape; press states
+      // come from highlights clipped to the same shape (or the card's scale).
+      splashFactory: NoSplash.splashFactory,
+      highlightColor: RiveroColors.textPrimary.withValues(alpha: 0.06),
+      listTileTheme: const ListTileThemeData(
+        shape: RoundedRectangleBorder(borderRadius: RiveroRadii.borderLg),
+      ),
       cardTheme: CardThemeData(
         color: RiveroColors.surface,
         elevation: 0,

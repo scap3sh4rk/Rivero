@@ -248,33 +248,37 @@ class _Row extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: RiveroSpacing.xl,
-        vertical: RiveroSpacing.xs,
-      ),
-      leading: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: RiveroColors.borderMedium),
+    // Inset so the rounded press highlight sits inside the screen edges.
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: RiveroSpacing.sm),
+      child: ListTile(
+        onTap: onTap,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: RiveroSpacing.md,
+          vertical: RiveroSpacing.xs,
         ),
-        child: Icon(icon, size: 20, color: RiveroColors.textSecondary),
+        leading: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: RiveroColors.borderMedium),
+          ),
+          child: Icon(icon, size: 20, color: RiveroColors.textSecondary),
+        ),
+        title: Text(title, style: RiveroTypography.bodyLarge),
+        subtitle: subtitle == null
+            ? null
+            : Text(subtitle!, style: RiveroTypography.bodySmall),
+        trailing:
+            trailing ??
+            (onTap == null
+                ? null
+                : Icon(
+                    Icons.chevron_right_rounded,
+                    color: RiveroColors.textMuted,
+                  )),
       ),
-      title: Text(title, style: RiveroTypography.bodyLarge),
-      subtitle: subtitle == null
-          ? null
-          : Text(subtitle!, style: RiveroTypography.bodySmall),
-      trailing:
-          trailing ??
-          (onTap == null
-              ? null
-              : Icon(
-                  Icons.chevron_right_rounded,
-                  color: RiveroColors.textMuted,
-                )),
     );
   }
 }

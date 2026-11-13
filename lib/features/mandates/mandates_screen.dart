@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/providers/app_providers.dart';
+import 'package:rivero/core/utils/amount_parser.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/bank_badge.dart';
@@ -242,15 +243,11 @@ class _AddMandateSheetState extends ConsumerState<_AddMandateSheet> {
   }
 
   Future<void> _save(List<PhysicalAccount> accounts) async {
-    final rupees = double.tryParse(_amount.text);
+    final minor = parseAmountMinorUnits(_amount.text.trim());
     final accountId = _accountId ?? accounts.firstOrNull?.id;
-    if (_payee.text.trim().isEmpty ||
-        rupees == null ||
-        rupees <= 0 ||
-        accountId == null) {
+    if (_payee.text.trim().isEmpty || minor <= 0 || accountId == null) {
       return;
     }
-    final minor = (rupees * 100).round();
     final now = DateTime.now();
     await ref
         .read(databaseProvider)

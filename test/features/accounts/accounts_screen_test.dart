@@ -64,7 +64,33 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
 
       expect(find.byType(CreateAccountSheet), findsOneWidget);
-      expect(find.text('Create New Account'), findsOneWidget);
+      expect(
+        find.widgetWithText(ElevatedButton, 'Add account'),
+        findsOneWidget,
+      );
+
+      // Close the add sheet, then edit an existing account by tapping it.
+      Navigator.of(tester.element(find.byType(CreateAccountSheet))).pop();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.tap(find.text('Primary HDFC Salary'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('Edit account'), findsOneWidget);
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Primary HDFC Salary'),
+        'HDFC Salary',
+      );
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Save changes'));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 300)),
+      );
+      await tester.pump(const Duration(milliseconds: 400));
+      final renamed = (await tester.runAsync(
+        () => db.accountsDao.getPhysicalAccountById('acc-salary'),
+      ))!;
+      expect(renamed.name, 'HDFC Salary');
+      expect(renamed.balanceMinorUnits, 15000000); // untouched by the edit
 
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(milliseconds: 50));

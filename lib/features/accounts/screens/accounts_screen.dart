@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
@@ -183,10 +182,9 @@ class AccountsScreen extends ConsumerWidget {
                   ...creditAccounts.map(
                     (account) => Padding(
                       padding: const EdgeInsets.only(bottom: RiveroSpacing.md),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(RiveroRadii.lg),
-                        onLongPress: () =>
-                            _confirmDeactivate(context, ref, account),
+                      child: GestureDetector(
+                        onTap: () =>
+                            CreateAccountSheet.show(context, existing: account),
                         child: CreditUtilizationCard(account: account),
                       ),
                     ),
@@ -230,43 +228,38 @@ class AccountsScreen extends ConsumerWidget {
                     return Padding(
                       padding: const EdgeInsets.only(bottom: RiveroSpacing.sm),
                       child: RiveroCard(
-                        padding: const EdgeInsets.all(RiveroSpacing.md),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            leading: BankBadge(name: account.institution),
-                            title: Text(
-                              account.name,
-                              style: RiveroTypography.titleMedium.copyWith(
-                                fontSize: 15,
+                        onTap: () =>
+                            CreateAccountSheet.show(context, existing: account),
+                        child: Row(
+                          children: [
+                            BankBadge(name: account.institution),
+                            const SizedBox(width: RiveroSpacing.md),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    account.name,
+                                    style: RiveroTypography.bodyLarge,
+                                  ),
+                                  Text(
+                                    '${account.institution} '
+                                    '••${account.accountMask}',
+                                    style: RiveroTypography.bodySmall,
+                                  ),
+                                ],
                               ),
                             ),
-                            subtitle: Text(
-                              '${account.institution} ••${account.accountMask}'
-                              ' · ${account.accountType}',
-                              style: RiveroTypography.bodySmall.copyWith(
-                                fontSize: 12,
-                              ),
-                            ),
-                            trailing: isPrivacy
-                                ? Text(
-                                    '••••••••',
-                                    style: RiveroTypography.monoMedium,
-                                  )
-                                : Text(
-                                    CurrencyFormatter.format(
+                            const SizedBox(width: RiveroSpacing.sm),
+                            Text(
+                              isPrivacy
+                                  ? '••••'
+                                  : CurrencyFormatter.format(
                                       account.balanceMinorUnits,
                                     ),
-                                    style: RiveroTypography.monoMedium.copyWith(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w700,
-                                      color: RiveroColors.textPrimary,
-                                    ),
-                                  ),
-                            onLongPress: () =>
-                                _confirmDeactivate(context, ref, account),
-                          ),
+                              style: RiveroTypography.titleMedium,
+                            ),
+                          ],
                         ),
                       ),
                     );
@@ -292,50 +285,6 @@ class AccountsScreen extends ConsumerWidget {
         },
       ),
     );
-  }
-
-  Future<void> _confirmDeactivate(
-    BuildContext context,
-    WidgetRef ref,
-    PhysicalAccount account,
-  ) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: RiveroColors.surfaceElevated,
-        title: Text('Deactivate Account?', style: RiveroTypography.titleMedium),
-        content: Text(
-          'Are you sure you want to archive "${account.name}"? Existing transactions will remain in ledger.',
-          style: RiveroTypography.bodyMedium,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: RiveroColors.danger,
-            ),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Deactivate'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm == true) {
-      final db = ref.read(databaseProvider);
-      await db.accountsDao.deactivatePhysicalAccount(account.id);
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Account "${account.name}" archived.'),
-            backgroundColor: RiveroColors.expenseAccent,
-          ),
-        );
-      }
-    }
   }
 }
 

@@ -4,19 +4,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/custom_account_types.dart';
 import 'package:rivero/core/providers/app_providers.dart';
+import 'package:rivero/core/utils/amount_parser.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
 
-/// Interactive modal sheet to create a new physical bank, cash, or credit account.
+/// Sheet to add, or edit when [existing] is given, a bank, cash or card account.
 class CreateAccountSheet extends ConsumerStatefulWidget {
-  const CreateAccountSheet({super.key});
+  const CreateAccountSheet({super.key, this.existing});
 
-  static Future<void> show(BuildContext context) {
+  final PhysicalAccount? existing;
+
+  static Future<void> show(BuildContext context, {PhysicalAccount? existing}) {
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => const CreateAccountSheet(),
+      builder: (context) => CreateAccountSheet(existing: existing),
     );
   }
 
@@ -35,6 +38,63 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
 
   String _selectedAccountType = StandardAccountTypes.savings;
   bool _isLiability = false;
+
+  static String _rupees(int minor) {
+    final v = minor.abs();
+    return v % 100 == 0
+        ? '${v ~/ 100}'
+        : '${v ~/ 100}.${(v % 100).toString().padLeft(2, '0')}';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final a = widget.existing;
+    if (a != null) {
+      _nameController.text = a.name;
+      _institutionController.text = a.institution;
+      _maskController.text = a.accountMask.replaceAll(RegExp(r'\D'), '');
+      _balanceController.text = _rupees(a.balanceMinorUnits);
+      _creditLimitController.text = _rupees(a.creditLimitMinorUnits);
+      _selectedAccountType = a.accountType;
+      _isLiability = a.isLiability;
+      final types = ref.read(customAccountTypesProvider);
+      if (!types.contains(a.accountType)) {
+        ref.read(customAccountTypesProvider.notifier).state = [
+          ...types,
+          a.accountType,
+        ];
+      }
+    }
+  }
+
+  Future<void> _remove() async {
+    final a = widget.existing;
+    if (a == null) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Remove ${a.name}?'),
+        content: const Text('It is hidden from lists; past transactions stay.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Keep'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await ref
+        .read(databaseProvider)
+        .accountsDao
+        .deactivatePhysicalAccount(a.id);
+    if (mounted) Navigator.pop(context);
+  }
 
   @override
   void dispose() {
@@ -117,9 +177,9 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
     final institution = _institutionController.text.trim();
     final mask = _maskController.text.trim().replaceAll(RegExp(r'\D'), '');
 
-    final balanceRupees =
-        double.tryParse(_balanceController.text.trim()) ?? 0.0;
-    var balanceMinorUnits = (balanceRupees * 100).round();
+    var balanceMinorUnits = parseAmountMinorUnits(
+      _balanceController.text.trim().replaceAll('-', ''),
+    );
 
     // If it's a liability/credit card with an initial balance entered as a positive spend,
     // in the ledger liabilities are stored as negative numbers (e.g. -₹14,250).
@@ -127,12 +187,13 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
       balanceMinorUnits = -balanceMinorUnits;
     }
 
-    final limitRupees =
-        double.tryParse(_creditLimitController.text.trim()) ?? 0.0;
-    final creditLimitMinorUnits = (limitRupees * 100).round();
+    final creditLimitMinorUnits = parseAmountMinorUnits(
+      _creditLimitController.text.trim(),
+    );
 
     final now = DateTime.now();
-    final accountId = 'acc-${now.millisecondsSinceEpoch}';
+    final accountId =
+        widget.existing?.id ?? 'acc-${now.millisecondsSinceEpoch}';
 
     final db = ref.read(databaseProvider);
     await db.accountsDao.upsertPhysicalAccount(
@@ -146,7 +207,7 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
         creditLimitMinorUnits: drift.Value(creditLimitMinorUnits),
         isActive: const drift.Value(true),
         isLiability: drift.Value(_isLiability),
-        createdAt: drift.Value(now),
+        createdAt: drift.Value(widget.existing?.createdAt ?? now),
         updatedAt: drift.Value(now),
       ),
     );
@@ -155,8 +216,9 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Account "$name" created successfully!'),
-          backgroundColor: RiveroColors.investmentAccent,
+          content: Text(
+            widget.existing == null ? '$name added' : '$name updated',
+          ),
         ),
       );
     }
@@ -206,7 +268,7 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Create New Account',
+                      widget.existing == null ? 'Add account' : 'Edit account',
                       style: RiveroTypography.titleLarge,
                     ),
                     IconButton(
@@ -398,8 +460,7 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
                           'Track 10% safe limit and 30% score impact threshold',
                     ),
                     validator: (v) {
-                      final parsed = double.tryParse(v ?? '');
-                      if (parsed == null || parsed <= 0) {
+                      if (parseAmountMinorUnits((v ?? '').trim()) <= 0) {
                         return 'Please enter a valid credit limit';
                       }
                       return null;
@@ -439,8 +500,9 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
                       hintText: '50000.00',
                     ),
                     validator: (v) {
-                      if (v == null || double.tryParse(v.trim()) == null) {
-                        return 'Please enter a valid balance';
+                      if (v == null ||
+                          !RegExp(r'^-?\d+(\.\d{0,2})?$').hasMatch(v.trim())) {
+                        return 'Enter an amount like 2500 or 2500.50';
                       }
                       return null;
                     },
@@ -462,7 +524,7 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
                     ),
                     onPressed: _saveAccount,
                     child: Text(
-                      'Save Account',
+                      widget.existing == null ? 'Add account' : 'Save changes',
                       style: RiveroTypography.titleMedium.copyWith(
                         color: RiveroColors.background,
                         fontWeight: FontWeight.w700,
@@ -470,6 +532,16 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
                     ),
                   ),
                 ),
+                if (widget.existing != null)
+                  Center(
+                    child: TextButton(
+                      onPressed: _remove,
+                      child: const Text(
+                        'Remove account',
+                        style: TextStyle(color: RiveroColors.danger),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),

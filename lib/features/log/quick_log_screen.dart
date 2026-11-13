@@ -356,6 +356,8 @@ class _Keypad extends StatelessWidget {
                 Expanded(
                   child: InkResponse(
                     key: ValueKey('key-$k'),
+                    // Round highlight the size of the digit, not the cell.
+                    radius: 30,
                     onTap: () => onKey(k),
                     onLongPress: k == '<' ? () => onKey('clear') : null,
                     child: SizedBox(
