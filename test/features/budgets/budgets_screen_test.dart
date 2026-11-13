@@ -44,7 +44,7 @@ void main() {
       expect(find.text('Plan'), findsOneWidget);
       expect(find.text('MONTHLY SALARY'), findsOneWidget);
       expect(find.text('AUTOPAY'), findsOneWidget);
-      expect(find.text('PAY CYCLE'), findsOneWidget);
+      expect(find.text('OWED TO YOU'), findsOneWidget);
 
       // Full category names, no truncation, no account plumbing text
       expect(find.text('Monthly Expenses'), findsOneWidget);

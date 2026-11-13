@@ -11,6 +11,7 @@ import 'package:rivero/core/database/encrypted_connection.dart';
 import 'package:rivero/core/database/tables/allocation_buckets_table.dart';
 import 'package:rivero/core/database/tables/app_settings_table.dart';
 import 'package:rivero/core/database/tables/associated_titles_table.dart';
+import 'package:rivero/core/database/tables/dues_table.dart';
 import 'package:rivero/core/database/tables/mandates_table.dart';
 import 'package:rivero/core/database/tables/physical_accounts_table.dart';
 import 'package:rivero/core/database/tables/raw_ingestion_logs_table.dart';
@@ -30,6 +31,7 @@ part 'database.g.dart';
     Mandates,
     AssociatedTitles,
     AppSettings,
+    Dues,
   ],
   daos: [
     AccountsDao,
@@ -56,7 +58,7 @@ class RiveroDatabase extends _$RiveroDatabase {
   }
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration {
@@ -80,6 +82,9 @@ class RiveroDatabase extends _$RiveroDatabase {
             allocationBuckets,
             allocationBuckets.carryOverMinorUnits,
           );
+        }
+        if (from < 5) {
+          await m.createTable(dues);
         }
       },
       beforeOpen: (details) async {

@@ -14,6 +14,7 @@ abstract final class SettingKeys {
   static const lastPlannedCycleStart = 'last_planned_cycle_start';
   static const openOnLog = 'open_on_log';
   static const accountTypes = 'account_types_json';
+  static const countOwed = 'count_owed_in_sts';
 }
 
 @DriftAccessor(tables: [AppSettings])

@@ -77,6 +77,19 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           _Row(
+            icon: Icons.handshake_outlined,
+            title: 'Count money owed to me',
+            subtitle: 'Adds what friends owe you to Safe to spend',
+            trailing: Switch(
+              value: ref.watch(includePendingReimbursementsProvider),
+              onChanged: (v) =>
+                  ref
+                          .read(includePendingReimbursementsProvider.notifier)
+                          .state =
+                      v,
+            ),
+          ),
+          _Row(
             icon: Icons.category_outlined,
             title: 'Account types',
             subtitle: '${types.length}',

@@ -15,6 +15,9 @@ enum TransactionType {
   cashExpenditure,
   walletTopup,
   balanceAdjustment,
+
+  /// Money lent to someone: leaves the account, is not spending.
+  lending,
 }
 
 /// Explicit lifecycle states for transactions in the ledger.
@@ -53,3 +56,15 @@ enum IngestionChannel {
 
 /// Parse and classification status for raw message logs.
 enum ParseStatus { parsed, quarantined, failed, ignored }
+
+/// Why someone owes the user money.
+enum DueKind {
+  /// Their share of a bill the user paid.
+  split,
+
+  /// Cash or a transfer the user lent them.
+  lent,
+}
+
+/// Lifecycle of money owed to the user.
+enum DueStatus { open, settled, writtenOff }

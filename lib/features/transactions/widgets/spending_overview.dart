@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:rivero/core/dues/dues_service.dart';
 import 'package:rivero/core/engine/spending_summary.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
@@ -20,7 +21,14 @@ class SpendingOverview extends ConsumerWidget {
     final cycle = ref.watch(currentPaycycleProvider);
     final privacy = ref.watch(privacyModeProvider);
     final now = DateTime.now();
-    final s = SpendingSummary.of(txns, start: cycle.cycleStartDate, end: now);
+    final s = SpendingSummary.of(
+      txns,
+      start: cycle.cycleStartDate,
+      end: now,
+      othersShare: DuesService.othersShareByTransaction(
+        ref.watch(duesProvider).value ?? const [],
+      ),
+    );
     String money(int v) => privacy ? '••••' : CurrencyFormatter.format(v);
     final daysSoFar = s.byDay.length;
 

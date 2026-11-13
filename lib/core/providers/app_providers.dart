@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:drift/drift.dart' show OrderingTerm;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivero/core/database/daos/mandates_dao.dart';
 import 'package:rivero/core/database/daos/settings_dao.dart';
@@ -7,6 +8,7 @@ import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/database/database_seeder.dart';
 import 'package:rivero/core/domain/account_role.dart';
 import 'package:rivero/core/domain/custom_account_types.dart';
+import 'package:rivero/core/dues/dues_service.dart';
 import 'package:rivero/core/engine/paycycle.dart';
 import 'package:rivero/core/engine/safe_to_spend_calculator.dart';
 import 'package:rivero/core/engine/waterfall_allocator.dart';
@@ -78,6 +80,8 @@ class SettingsSync {
       ref.read(customAccountTypesProvider.notifier).state =
           (jsonDecode(typesJson) as List).cast<String>();
     }
+    ref.read(includePendingReimbursementsProvider.notifier).state =
+        (await dao.get(SettingKeys.countOwed)) == '1';
     ref.read(openOnLogProvider.notifier).state =
         (await dao.get(SettingKeys.openOnLog)) == '1';
     var onboarded = (await dao.get(SettingKeys.onboarded)) == '1';
@@ -114,6 +118,10 @@ class SettingsSync {
       ..listen(
         customAccountTypesProvider,
         (_, v) => save(SettingKeys.accountTypes, jsonEncode(v)),
+      )
+      ..listen(
+        includePendingReimbursementsProvider,
+        (_, v) => save(SettingKeys.countOwed, v ? '1' : '0'),
       )
       ..listen(
         openOnLogProvider,
@@ -198,6 +206,18 @@ final awaitingSalaryProvider = FutureProvider<bool>((ref) {
   return ref
       .read(salaryPlanServiceProvider)
       .awaitingSalary(cycle.cycleStartDate);
+});
+
+final duesServiceProvider = Provider<DuesService>((ref) {
+  return DuesService(ref.watch(databaseProvider));
+});
+
+/// Everything owed to the user (split bills, money lent), newest first.
+final duesProvider = StreamProvider<List<Due>>((ref) {
+  final db = ref.watch(databaseProvider);
+  return (db.select(
+    db.dues,
+  )..orderBy([(d) => OrderingTerm.desc(d.createdAt)])).watch();
 });
 
 /// Applies balance and budget effects for confirmed transactions.
@@ -331,7 +351,9 @@ final liveSafeToSpendResultProvider = Provider<AsyncValue<SafeToSpendResult>>((
     expenseBalance: expenseBalance,
     upcomingMandates: upcomingMandates,
     unsettledCreditCardLiability: ccLiability,
-    pendingReimbursements: 0,
+    pendingReimbursements: DuesService.totalOutstanding(
+      ref.watch(duesProvider).value ?? const [],
+    ),
     daysRemainingInCycle: paycycle.daysRemaining,
     lastSyncedAt: DateTime.now(),
     includePendingReimbursements: includeReimbursements,

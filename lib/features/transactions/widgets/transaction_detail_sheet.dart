@@ -6,6 +6,7 @@ import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
+import 'package:rivero/features/transactions/widgets/split_sheet.dart';
 
 /// One transaction: what it was, a note, its category, and fixes
 /// (confirm / ignore / delete). Opened by tapping a row in Activity.
@@ -224,6 +225,29 @@ class _TransactionDetailSheetState
                   onPressed: _saveAndClose,
                   style: FilledButton.styleFrom(shape: const StadiumBorder()),
                   child: const Text('Done'),
+                ),
+              ),
+            if (!pending &&
+                !credit &&
+                (t.transactionType == TransactionType.expense ||
+                    t.transactionType == TransactionType.creditCardPurchase))
+              Padding(
+                padding: const EdgeInsets.only(top: RiveroSpacing.sm),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: OutlinedButton.icon(
+                    key: const ValueKey('split-bill'),
+                    onPressed: () async {
+                      Navigator.pop(context);
+                      await SplitSheet.show(context, t);
+                    },
+                    style: OutlinedButton.styleFrom(
+                      shape: const StadiumBorder(),
+                    ),
+                    icon: const Icon(Icons.call_split_rounded),
+                    label: const Text('Split this bill'),
+                  ),
                 ),
               ),
             Center(

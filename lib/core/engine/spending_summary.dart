@@ -15,6 +15,7 @@ class SpendingSummary {
     Iterable<LedgerTransaction> txns, {
     required DateTime start,
     required DateTime end,
+    Map<String, int> othersShare = const {},
   }) {
     final from = DateTime(start.year, start.month, start.day);
     final days =
@@ -32,7 +33,9 @@ class SpendingSummary {
 
       int delta;
       if (t.amountMinorUnits < 0 && _spendTypes.contains(t.transactionType)) {
-        delta = -t.amountMinorUnits;
+        // Shares others owe you on a split bill are not your spending.
+        delta = -t.amountMinorUnits - (othersShare[t.id] ?? 0);
+        if (delta <= 0) continue;
       } else if (t.amountMinorUnits > 0 &&
           t.transactionType == TransactionType.refund) {
         delta = -t.amountMinorUnits;

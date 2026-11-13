@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/account_role.dart';
+import 'package:rivero/core/dues/dues_service.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
@@ -10,6 +11,7 @@ import 'package:rivero/design_system/widgets/bento_tile.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
 import 'package:rivero/features/mandates/mandates_screen.dart';
+import 'package:rivero/features/owed/owed_screen.dart';
 import 'package:rivero/features/plan/salary_plan_screen.dart';
 
 /// Plan: where this month's salary goes. One card for the salary, one short
@@ -23,7 +25,6 @@ class BudgetsScreen extends ConsumerWidget {
     final salary = ref.watch(monthlySalaryProvider);
     final privacy = ref.watch(privacyModeProvider);
     final mandates = ref.watch(activeMandatesProvider).value?.length ?? 0;
-    final paycycle = ref.watch(currentPaycycleProvider);
 
     String money(int v) => privacy ? '••••' : CurrencyFormatter.format(v);
 
@@ -62,8 +63,14 @@ class BudgetsScreen extends ConsumerWidget {
               const SizedBox(width: RiveroSpacing.md),
               Expanded(
                 child: BentoTile(
-                  label: 'PAY CYCLE',
-                  value: '${paycycle.daysRemaining} days left',
+                  key: const ValueKey('owed-tile'),
+                  label: 'OWED TO YOU',
+                  value: money(
+                    DuesService.totalOutstanding(
+                      ref.watch(duesProvider).value ?? const [],
+                    ),
+                  ),
+                  onTap: () => OwedScreen.open(context),
                 ),
               ),
             ],

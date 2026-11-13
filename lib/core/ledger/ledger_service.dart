@@ -26,8 +26,8 @@ class LedgerService {
   };
 
   /// Records a user-entered transaction as confirmed and applies its effects.
-  /// [amountMinorUnits] is signed (negative = money out).
-  Future<void> recordManual({
+  /// [amountMinorUnits] is signed (negative = money out). Returns its id.
+  Future<String> recordManual({
     required String accountId,
     required int amountMinorUnits,
     required TransactionType type,
@@ -57,6 +57,7 @@ class LedgerService {
     );
     final saved = await db.transactionsDao.getTransactionById(id);
     if (saved != null) await applyEffects(saved);
+    return id;
   }
 
   /// Deletes a transaction, first undoing its balance and budget effects if
