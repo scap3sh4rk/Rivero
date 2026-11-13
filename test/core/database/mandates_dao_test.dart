@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rivero/core/database/daos/mandates_dao.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
 
@@ -103,5 +104,39 @@ void main() {
           );
       expect(commitmentAfterPause, equals(500000)); // Only SIP
     });
+  });
+
+  test('sumUpcomingCommitments counts only active mandates due this cycle', () {
+    final now = DateTime(2026, 11, 14);
+    Mandate m(
+      int amt,
+      DateTime due, {
+      MandateStatus st = MandateStatus.active,
+      int? cap,
+    }) => Mandate(
+      id: '$amt',
+      payee: 'p',
+      amountMinorUnits: amt,
+      isVariableAmount: cap != null,
+      maxCapMinorUnits: cap,
+      frequency: MandateFrequency.monthly,
+      physicalAccountId: 'a',
+      startDate: now,
+      nextExecutionDate: due,
+      status: st,
+      createdAt: now,
+      updatedAt: now,
+    );
+    final total = sumUpcomingCommitments(
+      [
+        m(100, DateTime(2026, 11, 20)),
+        m(200, DateTime(2026, 11, 30, 18), cap: 500), // last day, variable
+        m(400, DateTime(2026, 12, 2)), // next cycle
+        m(800, DateTime(2026, 11, 18), st: MandateStatus.paused),
+      ],
+      now,
+      DateTime(2026, 11, 30),
+    );
+    expect(total, 600);
   });
 }

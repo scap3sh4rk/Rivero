@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rivero/core/database/daos/mandates_dao.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/database/database_seeder.dart';
 import 'package:rivero/core/domain/account_role.dart';
@@ -147,6 +148,11 @@ final pendingReviewTransactionsProvider =
       return db.transactionsDao.watchPendingReviewTransactions();
     });
 
+/// Stream of active recurring mandates (UPI Autopay / e-NACH).
+final activeMandatesProvider = StreamProvider<List<Mandate>>((ref) {
+  return ref.watch(databaseProvider).mandatesDao.watchActiveMandates();
+});
+
 /// Live calculated Safe-to-Spend result dynamically computed from database streams and paycycle.
 final liveSafeToSpendResultProvider = Provider<AsyncValue<SafeToSpendResult>>((
   ref,
@@ -187,8 +193,12 @@ final liveSafeToSpendResultProvider = Provider<AsyncValue<SafeToSpendResult>>((
     }
   }
 
-  // 3. Mandates due before end of cycle (default seed mandates sum: ₹1,198)
-  const upcomingMandates = 119800;
+  // 3. Active mandates due before the cycle ends
+  final upcomingMandates = sumUpcomingCommitments(
+    ref.watch(activeMandatesProvider).value ?? const [],
+    DateTime.now(),
+    paycycle.cycleEndDate,
+  );
 
   final result = calculator.calculate(
     expenseBalance: expenseBalance,

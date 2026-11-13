@@ -75,3 +75,28 @@ class MandatesDao extends DatabaseAccessor<RiveroDatabase>
     return updatedRows > 0;
   }
 }
+
+/// Sum of active mandates executing between [now] and [cycleEnd] (inclusive of
+/// the whole end day). Variable mandates reserve their cap.
+// ponytail: weekly mandates counted once per cycle; count each occurrence if needed.
+int sumUpcomingCommitments(
+  Iterable<Mandate> mandates,
+  DateTime now,
+  DateTime cycleEnd,
+) {
+  final end = DateTime(cycleEnd.year, cycleEnd.month, cycleEnd.day + 1);
+  return mandates
+      .where((m) => m.status == MandateStatus.active)
+      .where((m) {
+        final d = m.nextExecutionDate;
+        return d != null && !d.isBefore(now) && d.isBefore(end);
+      })
+      .fold(
+        0,
+        (sum, m) =>
+            sum +
+            (m.isVariableAmount
+                ? (m.maxCapMinorUnits ?? m.amountMinorUnits)
+                : m.amountMinorUnits),
+      );
+}
