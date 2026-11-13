@@ -7,7 +7,7 @@ import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/account_role.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/providers/app_providers.dart';
-import 'package:rivero/core/utils/amount_parser.dart';
+import 'package:rivero/core/utils/calc.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
@@ -31,7 +31,6 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
     'Fun',
     'Other',
   ];
-  static const _maxLength = 9;
 
   String _text = '';
   bool _income = false;
@@ -92,19 +91,57 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
     return all.take(10).toList();
   }
 
+  static const _ops = '+-×÷';
+  static const _maxExpression = 24;
+  bool _calcOpen = false;
+
+  /// Amount to save: the evaluated expression (a trailing operator ignored).
+  int get _amount {
+    var e = _text;
+    while (e.isNotEmpty && _ops.contains(e[e.length - 1])) {
+      e = e.substring(0, e.length - 1);
+    }
+    return e.isEmpty ? 0 : (evaluateExpression(e) ?? 0);
+  }
+
   void _key(String k) {
     HapticFeedback.selectionClick();
     _noteFocus.unfocus(); // keypad, not the system keyboard, for amounts
+    // The number being typed is whatever follows the last operator.
+    final lastOp = _text.lastIndexOf(RegExp('[+×÷-]'));
+    final current = _text.substring(lastOp + 1);
+    final endsWithOp =
+        _text.isNotEmpty && _ops.contains(_text[_text.length - 1]);
     setState(() {
       if (k == 'clear') {
         _text = '';
       } else if (k == '<') {
         if (_text.isNotEmpty) _text = _text.substring(0, _text.length - 1);
+      } else if (k == '=') {
+        final v = _amount;
+        _text = v <= 0
+            ? ''
+            : v % 100 == 0
+            ? '${v ~/ 100}'
+            : '${v ~/ 100}.${(v % 100).toString().padLeft(2, '0')}';
+      } else if (_ops.contains(k)) {
+        if (_text.isEmpty) return;
+        _text = endsWithOp
+            ? '${_text.substring(0, _text.length - 1)}$k'
+            : '$_text$k';
+      } else if (k == '%') {
+        if (current.isNotEmpty && !current.contains('%') && !endsWithOp) {
+          _text = '$_text%';
+        }
+      } else if (_text.length >= _maxExpression || current.contains('%')) {
+        return;
       } else if (k == '.') {
-        if (!_text.contains('.')) _text = _text.isEmpty ? '0.' : '$_text.';
-      } else if (_text.length < _maxLength) {
-        final dot = _text.indexOf('.');
-        if (dot != -1 && _text.length - dot > 2) return; // max 2 decimals
+        if (!current.contains('.')) {
+          _text = current.isEmpty ? '${_text}0.' : '$_text.';
+        }
+      } else {
+        final dot = current.indexOf('.');
+        if (dot != -1 && current.length - dot > 2) return; // 2 decimals
         _text = _text == '0' ? k : '$_text$k';
       }
     });
@@ -129,7 +166,7 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
   }
 
   /// Last distinct (category, amount) expenses: one tap to log them again.
-  static List<LedgerTransaction> _recents(List<LedgerTransaction> txns) {
+  List<LedgerTransaction> _recents(List<LedgerTransaction> txns) {
     final seen = <String>{};
     final out = <LedgerTransaction>[];
     for (final t in txns) {
@@ -150,6 +187,7 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
       _income = false;
       _category = t.category;
       _note.text = t.merchant == t.category ? '' : t.merchant;
+      _calcOpen = false;
       _text = minor % 100 == 0
           ? '${minor ~/ 100}'
           : '${minor ~/ 100}.${(minor % 100).toString().padLeft(2, '0')}';
@@ -157,7 +195,7 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
   }
 
   Future<void> _save(PhysicalAccount account) async {
-    final minor = parseAmountMinorUnits(_text);
+    final minor = _amount;
     if (minor == 0) return;
     final onCard = account.isLiability;
     await ref
@@ -304,17 +342,33 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
                             ),
                           ],
                         )
-                      : Text(
-                          privacy && _text.isNotEmpty
-                              ? '₹••••'
-                              : '${_income ? '+' : ''}₹${_text.isEmpty ? '0' : _text}',
-                          key: const ValueKey('amount'),
-                          style: RiveroTypography.financialHero.copyWith(
-                            fontSize: 64,
-                            color: _income
-                                ? RiveroColors.success
-                                : RiveroColors.textPrimary,
-                          ),
+                      : Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (isCalculation(_text))
+                              Text(
+                                _text.replaceAll('-', '−'),
+                                key: const ValueKey('expression'),
+                                style: RiveroTypography.titleLarge.copyWith(
+                                  color: RiveroColors.textSecondary,
+                                ),
+                              ),
+                            FittedBox(
+                              child: Text(
+                                privacy && _text.isNotEmpty
+                                    ? '₹••••'
+                                    : '${_income ? '+' : ''}₹'
+                                          '${isCalculation(_text) ? _formatPaise(_amount) : (_text.isEmpty ? '0' : _text)}',
+                                key: const ValueKey('amount'),
+                                style: RiveroTypography.financialHero.copyWith(
+                                  fontSize: 64,
+                                  color: _income
+                                      ? RiveroColors.success
+                                      : RiveroColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                 ),
               ),
@@ -349,6 +403,13 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
                         shape: const StadiumBorder(),
                       ),
                     ),
+                    IconButton.outlined(
+                      key: const ValueKey('calc-toggle'),
+                      tooltip: 'Calculator',
+                      isSelected: _calcOpen,
+                      onPressed: () => setState(() => _calcOpen = !_calcOpen),
+                      icon: const Icon(Icons.calculate_outlined, size: 20),
+                    ),
                     if (payFrom.isNotEmpty && !_income)
                       PopupMenuButton<String>(
                         key: const ValueKey('pay-from'),
@@ -374,7 +435,50 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
                   ],
                 ),
               ),
-            _Keypad(onKey: _key),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: _Keypad(onKey: _key)),
+                // Operator pane slides in from the right edge; the keypad
+                // narrows instead of being covered.
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 260),
+                  curve: Curves.easeOutCubic,
+                  width: _calcOpen ? 72 : 0,
+                  height: 256,
+                  clipBehavior: Clip.hardEdge,
+                  decoration: BoxDecoration(
+                    color: RiveroColors.surfaceElevated,
+                    borderRadius: const BorderRadius.horizontal(
+                      left: Radius.circular(20),
+                    ),
+                  ),
+                  child: OverflowBox(
+                    alignment: Alignment.centerLeft,
+                    minWidth: 72,
+                    maxWidth: 72,
+                    child: Column(
+                      children: [
+                        for (final op in ['÷', '×', '-', '+', '%', '='])
+                          Expanded(
+                            child: InkResponse(
+                              key: ValueKey('op-$op'),
+                              radius: 22,
+                              onTap: () => _key(op),
+                              child: Center(
+                                child: Text(
+                                  op == '-' ? '−' : op,
+                                  style: RiveroTypography.displayMedium,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
             Padding(
               padding: const EdgeInsets.all(RiveroSpacing.lg),
               child: SizedBox(
@@ -386,8 +490,7 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
                     backgroundColor: RiveroColors.textPrimary,
                     foregroundColor: RiveroColors.background,
                   ),
-                  onPressed:
-                      account == null || parseAmountMinorUnits(_text) == 0
+                  onPressed: account == null || _amount <= 0
                       ? null
                       : () => _save(account),
                   child: const Text('Save'),
@@ -447,4 +550,12 @@ class _Keypad extends StatelessWidget {
       ],
     );
   }
+}
+
+String _formatPaise(int v) {
+  final sign = v < 0 ? '-' : '';
+  final a = v.abs();
+  return a % 100 == 0
+      ? '$sign${a ~/ 100}'
+      : '$sign${a ~/ 100}.${(a % 100).toString().padLeft(2, '0')}';
 }

@@ -210,4 +210,62 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 100));
   });
+
+  testWidgets('calculator pane: 120 + 80 × 2 logs ₹280', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final db = RiveroDatabase.memory();
+    addTearDown(db.close);
+    await DatabaseSeeder(db).seedIfEmpty();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [databaseProvider.overrideWithValue(db)],
+        child: const MaterialApp(home: QuickLogScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    Future<void> press(String key) async {
+      await tester.tap(find.byKey(ValueKey(key)));
+      await tester.pump();
+    }
+
+    await press('calc-toggle');
+    await tester.pump(const Duration(milliseconds: 400));
+    for (final k in [
+      'key-1',
+      'key-2',
+      'key-0',
+      'op-+',
+      'key-8',
+      'key-0',
+      'op-×',
+      'key-2',
+    ]) {
+      await press(k);
+    }
+    expect(find.text('120+80×2'), findsOneWidget);
+    expect(find.text('₹280'), findsOneWidget);
+
+    await press('op-=');
+    expect(find.text('120+80×2'), findsNothing);
+    expect(find.text('₹280'), findsOneWidget);
+
+    await tester.tap(find.text('Save'));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 300)),
+    );
+    await tester.pump(const Duration(milliseconds: 1600));
+    final txns = (await tester.runAsync(
+      () => db.select(db.transactions).get(),
+    ))!;
+    expect(txns.any((t) => t.amountMinorUnits == -28000), isTrue);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 100));
+  });
 }
