@@ -6,6 +6,7 @@ import 'package:rivero/core/ingestion/models/ingestion_result.dart';
 import 'package:rivero/core/ingestion/models/parsed_transaction.dart';
 import 'package:rivero/core/ingestion/models/raw_notification.dart';
 import 'package:rivero/core/ingestion/parser/financial_parser.dart';
+import 'package:rivero/core/ledger/ledger_service.dart';
 import 'package:uuid/uuid.dart';
 
 /// Central ingestion orchestrator coordinating the audit trail,
@@ -148,9 +149,11 @@ class IngestionService {
       ),
     );
 
-    // If transaction is auto-confirmed, update physical account balance
+    // Auto-confirmed transactions take effect immediately; others wait for
+    // the user's swipe, which goes through LedgerService.confirm.
     if (state == TransactionState.confirmed) {
-      await database.accountsDao.adjustAccountBalance(accountId, signedAmount);
+      final saved = await database.transactionsDao.getTransactionById(txnId);
+      if (saved != null) await LedgerService(database).applyEffects(saved);
     }
 
     return IngestionResult(

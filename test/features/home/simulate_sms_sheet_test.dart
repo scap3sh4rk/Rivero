@@ -48,11 +48,17 @@ void main() {
 
     await tester.tap(ingestButton);
     await tester.pump();
+    // Real DB work runs outside the fake clock; give it time to finish.
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 300)),
+    );
     // Pump past the 1.2s delayed dismiss timer
     await tester.pump(const Duration(seconds: 2));
 
     // Verify notification was ingested into database
-    final transactions = await db.select(db.transactions).get();
+    final transactions = (await tester.runAsync(
+      () => db.select(db.transactions).get(),
+    ))!;
     expect(transactions.any((t) => t.merchant.contains('STARBUCKS')), isTrue);
 
     await tester.pumpWidget(const SizedBox());

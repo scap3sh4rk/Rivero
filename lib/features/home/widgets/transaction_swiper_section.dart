@@ -136,10 +136,7 @@ class _TransactionSwiperSectionState
                     final db = ref.read(databaseProvider);
 
                     if (direction == CardSwiperDirection.right) {
-                      await db.transactionsDao.updateTransactionState(
-                        txn.id,
-                        TransactionState.confirmed,
-                      );
+                      await ref.read(ledgerServiceProvider).confirm(txn.id);
                     } else if (direction == CardSwiperDirection.left) {
                       await db.transactionsDao.updateTransactionState(
                         txn.id,

@@ -109,12 +109,10 @@ class _CreateTransactionSheetState
       ),
     );
 
-    // 2. Adjust physical account balance
-    await db.accountsDao.adjustAccountBalance(accountId, minorUnits);
-
-    // 3. If linked to an allocation bucket, record bucket spend
-    if (bucketId != null && _type == TransactionType.expense) {
-      await db.accountsDao.recordBucketSpend(bucketId, minorUnits.abs());
+    // 2. Apply balance + budget effects (default expense bucket if none chosen)
+    final saved = await db.transactionsDao.getTransactionById(txnId);
+    if (saved != null) {
+      await ref.read(ledgerServiceProvider).applyEffects(saved);
     }
 
     if (mounted) {

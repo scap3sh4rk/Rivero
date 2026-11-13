@@ -11,6 +11,7 @@ import 'package:rivero/core/engine/waterfall_allocator.dart';
 import 'package:rivero/core/ingestion/deduplication_engine.dart';
 import 'package:rivero/core/ingestion/ingestion_service.dart';
 import 'package:rivero/core/ingestion/parser/financial_parser.dart';
+import 'package:rivero/core/ledger/ledger_service.dart';
 import 'package:rivero/core/reconciliation/balance_reconciler.dart';
 import 'package:rivero/core/reconciliation/internal_transfer_matcher.dart';
 import 'package:rivero/core/reconciliation/reconciliation_service.dart';
@@ -144,6 +145,11 @@ final ingestionServiceProvider = Provider<IngestionService>((ref) {
   );
 });
 
+/// Applies balance and budget effects for confirmed transactions.
+final ledgerServiceProvider = Provider<LedgerService>((ref) {
+  return LedgerService(ref.watch(databaseProvider));
+});
+
 /// Internal transfer matcher provider.
 final internalTransferMatcherProvider = Provider<InternalTransferMatcher>((
   ref,
@@ -240,6 +246,7 @@ final liveSafeToSpendResultProvider = Provider<AsyncValue<SafeToSpendResult>>((
 
   final buckets = bucketsAsync.value ?? [];
   final accounts = accountsAsync.value ?? [];
+  final reserveCards = ref.watch(reserveCreditCardsProvider);
 
   // 1. Expense bucket balance
   var expenseBalance = 0;
@@ -252,7 +259,7 @@ final liveSafeToSpendResultProvider = Provider<AsyncValue<SafeToSpendResult>>((
   // 2. CC liabilities (negative balances on liability accounts)
   var ccLiability = 0;
   for (final acc in accounts) {
-    if (acc.isLiability && acc.balanceMinorUnits < 0) {
+    if (reserveCards && acc.isLiability && acc.balanceMinorUnits < 0) {
       ccLiability += acc.balanceMinorUnits.abs();
     }
   }

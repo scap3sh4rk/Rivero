@@ -125,6 +125,14 @@ class AccountsDao extends DatabaseAccessor<RiveroDatabase>
         .watch();
   }
 
+  /// One-shot read of buckets for [role], highest priority first.
+  Future<List<AllocationBucket>> getBucketsByRole(AccountRole role) {
+    return (select(allocationBuckets)
+          ..where((tbl) => tbl.role.equals(role.name))
+          ..orderBy([(t) => OrderingTerm(expression: t.priorityOrder)]))
+        .get();
+  }
+
   /// Get allocation bucket by its exact ID.
   Future<AllocationBucket?> getBucketById(String id) {
     return (select(
