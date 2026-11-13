@@ -343,6 +343,10 @@ final liveSafeToSpendResultProvider = Provider<AsyncValue<SafeToSpendResult>>((
 /// Active tab: 0 Accounts, 1 Plan, 2 Home (centre, default), 3 Log, 4 Activity.
 final selectedNavIndexProvider = StateProvider<int>((ref) => 2);
 
+/// Last category / account used on the quick-log keypad (kept for the session).
+final lastLogCategoryProvider = StateProvider<String>((ref) => 'Food');
+final lastLogAccountProvider = StateProvider<String?>((ref) => null);
+
 /// Open the app on the quick-log keypad instead of Home.
 final openOnLogProvider = StateProvider<bool>((ref) => false);
 

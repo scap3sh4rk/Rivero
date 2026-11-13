@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivero/core/database/database.dart';
+import 'package:rivero/core/domain/account_role.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/amount_parser.dart';
+import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 
@@ -33,8 +35,20 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
 
   String _text = '';
   bool _income = false;
-  String _category = 'Food';
-  String? _accountId;
+  late String _category = ref.read(lastLogCategoryProvider);
+  late String? _accountId = ref.read(lastLogAccountProvider);
+
+  /// null = the spending bucket; otherwise a set-aside category (e.g. Rent).
+  String? _bucketId;
+
+  String? _savedLabel;
+  Timer? _savedTimer;
+
+  @override
+  void dispose() {
+    _savedTimer?.cancel();
+    super.dispose();
+  }
 
   void _key(String k) {
     HapticFeedback.selectionClick();
@@ -53,11 +67,49 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
     });
   }
 
-  PhysicalAccount? _account(List<PhysicalAccount> accounts) {
-    final spendable = accounts.where((a) => !a.isLiability).toList();
-    final pool = accounts.where((a) => a.id == _accountId);
-    if (pool.isNotEmpty) return pool.first;
-    return spendable.firstOrNull ?? accounts.firstOrNull;
+  /// Chosen account, else the one the spending bucket draws from, else the
+  /// first non-card account.
+  PhysicalAccount? _account(
+    List<PhysicalAccount> accounts,
+    List<AllocationBucket> buckets,
+  ) {
+    PhysicalAccount? byId(String? id) =>
+        accounts.where((a) => a.id == id).firstOrNull;
+    final spendingAccount = buckets
+        .where((b) => b.role == AccountRole.expense)
+        .firstOrNull
+        ?.linkedPhysicalAccountId;
+    return byId(_accountId) ??
+        byId(spendingAccount) ??
+        accounts.where((a) => !a.isLiability).firstOrNull ??
+        accounts.firstOrNull;
+  }
+
+  /// Last distinct (category, amount) expenses: one tap to log them again.
+  static List<LedgerTransaction> _recents(List<LedgerTransaction> txns) {
+    final seen = <String>{};
+    final out = <LedgerTransaction>[];
+    for (final t in txns) {
+      if (t.amountMinorUnits >= 0 ||
+          t.transactionState != TransactionState.confirmed ||
+          t.isInternalTransfer) {
+        continue;
+      }
+      if (seen.add('${t.category}|${t.amountMinorUnits}')) out.add(t);
+      if (out.length == 6) break;
+    }
+    return out;
+  }
+
+  void _fillFrom(LedgerTransaction t) {
+    final minor = t.amountMinorUnits.abs();
+    setState(() {
+      _income = false;
+      _category = t.category;
+      _text = minor % 100 == 0
+          ? '${minor ~/ 100}'
+          : '${minor ~/ 100}.${(minor % 100).toString().padLeft(2, '0')}';
+    });
   }
 
   Future<void> _save(PhysicalAccount account) async {
@@ -76,25 +128,38 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
               : TransactionType.expense,
           merchant: _category,
           category: _category,
+          bucketId: _income ? null : _bucketId,
         );
+    ref.read(lastLogCategoryProvider.notifier).state = _category;
+    ref.read(lastLogAccountProvider.notifier).state = account.id;
     unawaited(HapticFeedback.lightImpact());
     if (!mounted) return;
-    setState(() => _text = '');
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          content: Text('${_income ? 'Income' : 'Expense'} saved'),
-        ),
-      );
+    // Inline confirmation: a snackbar would sit on top of the Save button.
+    setState(() {
+      _text = '';
+      _savedLabel = _income ? 'Income saved' : 'Saved to $_category';
+    });
+    _savedTimer?.cancel();
+    _savedTimer = Timer(const Duration(milliseconds: 1400), () {
+      if (mounted) setState(() => _savedLabel = null);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final accounts = ref.watch(activePhysicalAccountsProvider).value ?? [];
-    final account = _account(accounts);
+    final buckets = ref.watch(allAllocationBucketsProvider).value ?? const [];
+    final account = _account(accounts, buckets);
     final privacy = ref.watch(privacyModeProvider);
+    final recents = _recents(
+      ref.watch(allTransactionsStreamProvider).value ?? const [],
+    );
+    // Categories you can pay from directly (Rent, Family...), besides spending.
+    final payFrom = buckets.where((b) => b.role == AccountRole.custom).toList();
+    final payFromName = buckets
+        .where((b) => b.id == _bucketId)
+        .firstOrNull
+        ?.name;
 
     return Scaffold(
       backgroundColor: RiveroColors.background,
@@ -102,6 +167,34 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            if (recents.isNotEmpty)
+              SizedBox(
+                height: 44,
+                child: ListView(
+                  key: const ValueKey('recents'),
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: RiveroSpacing.lg,
+                  ),
+                  children: [
+                    for (final t in recents)
+                      Padding(
+                        padding: const EdgeInsets.only(right: RiveroSpacing.sm),
+                        child: ActionChip(
+                          avatar: const Icon(Icons.history_rounded, size: 16),
+                          label: Text(
+                            privacy
+                                ? t.category
+                                : '${t.category} '
+                                      '${CurrencyFormatter.format(t.amountMinorUnits.abs())}',
+                          ),
+                          shape: const StadiumBorder(),
+                          onPressed: () => _fillFrom(t),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             SizedBox(
               height: 44,
               child: ListView(
@@ -110,7 +203,7 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
                   horizontal: RiveroSpacing.lg,
                 ),
                 children: [
-                  for (final c in _categories)
+                  for (final c in {..._categories, _category})
                     Padding(
                       padding: const EdgeInsets.only(right: RiveroSpacing.sm),
                       child: ChoiceChip(
@@ -126,25 +219,46 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
             ),
             Expanded(
               child: Center(
-                child: Text(
-                  privacy && _text.isNotEmpty
-                      ? '₹••••'
-                      : '${_income ? '+' : ''}₹${_text.isEmpty ? '0' : _text}',
-                  key: const ValueKey('amount'),
-                  style: RiveroTypography.financialHero.copyWith(
-                    fontSize: 64,
-                    color: _income
-                        ? RiveroColors.success
-                        : RiveroColors.textPrimary,
-                  ),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 220),
+                  child: _savedLabel != null && _text.isEmpty
+                      ? Row(
+                          key: const ValueKey('saved'),
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.check_circle_rounded,
+                              color: RiveroColors.success,
+                            ),
+                            const SizedBox(width: RiveroSpacing.sm),
+                            Text(
+                              _savedLabel!,
+                              style: RiveroTypography.titleLarge,
+                            ),
+                          ],
+                        )
+                      : Text(
+                          privacy && _text.isNotEmpty
+                              ? '₹••••'
+                              : '${_income ? '+' : ''}₹${_text.isEmpty ? '0' : _text}',
+                          key: const ValueKey('amount'),
+                          style: RiveroTypography.financialHero.copyWith(
+                            fontSize: 64,
+                            color: _income
+                                ? RiveroColors.success
+                                : RiveroColors.textPrimary,
+                          ),
+                        ),
                 ),
               ),
             ),
             if (accounts.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(bottom: RiveroSpacing.md),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                child: Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: RiveroSpacing.sm,
+                  runSpacing: RiveroSpacing.xs,
                   children: [
                     FilterChip(
                       label: const Text('Income'),
@@ -153,7 +267,6 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
                       shape: const StadiumBorder(),
                       onSelected: (v) => setState(() => _income = v),
                     ),
-                    const SizedBox(width: RiveroSpacing.sm),
                     PopupMenuButton<String>(
                       onSelected: (id) => setState(() => _accountId = id),
                       itemBuilder: (_) => [
@@ -169,6 +282,28 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
                         shape: const StadiumBorder(),
                       ),
                     ),
+                    if (payFrom.isNotEmpty && !_income)
+                      PopupMenuButton<String>(
+                        key: const ValueKey('pay-from'),
+                        onSelected: (id) =>
+                            setState(() => _bucketId = id.isEmpty ? null : id),
+                        itemBuilder: (_) => [
+                          const PopupMenuItem(
+                            value: '',
+                            child: Text('Spending'),
+                          ),
+                          for (final b in payFrom)
+                            PopupMenuItem(value: b.id, child: Text(b.name)),
+                        ],
+                        child: Chip(
+                          avatar: const Icon(
+                            Icons.call_split_rounded,
+                            size: 16,
+                          ),
+                          label: Text(payFromName ?? 'Spending'),
+                          shape: const StadiumBorder(),
+                        ),
+                      ),
                   ],
                 ),
               ),
