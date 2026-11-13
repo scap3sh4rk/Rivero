@@ -5,17 +5,17 @@ import 'package:rivero/design_system/rivero_tokens.dart';
 void main() {
   group('RiveroTokens tests', () {
     test('core surface colors match approved design specifications', () {
-      expect(RiveroColors.background, equals(const Color(0xFF08080C)));
-      expect(RiveroColors.surface, equals(const Color(0xFF12121A)));
-      expect(RiveroColors.surfaceElevated, equals(const Color(0xFF1A1A26)));
+      expect(RiveroColors.background, equals(const Color(0xFF09090B)));
+      expect(RiveroColors.surface, equals(const Color(0xFF131316)));
+      expect(RiveroColors.surfaceElevated, equals(const Color(0xFF1B1B1F)));
     });
 
     test('financial hierarchy accents match approved hex values', () {
-      expect(RiveroColors.salaryAccent, equals(const Color(0xFFF59E0B)));
-      expect(RiveroColors.expenseAccent, equals(const Color(0xFF8B5CF6)));
-      expect(RiveroColors.investmentAccent, equals(const Color(0xFF10B981)));
-      expect(RiveroColors.savingsAccent, equals(const Color(0xFF06B6D4)));
-      expect(RiveroColors.mandateWarning, equals(const Color(0xFFF43F5E)));
+      expect(RiveroColors.salaryAccent, equals(const Color(0xFFD4A85A)));
+      expect(RiveroColors.expenseAccent, equals(const Color(0xFF9A93D9)));
+      expect(RiveroColors.investmentAccent, equals(const Color(0xFF6FBF9F)));
+      expect(RiveroColors.savingsAccent, equals(const Color(0xFF6BAFC4)));
+      expect(RiveroColors.mandateWarning, equals(const Color(0xFFD9695F)));
     });
 
     test('RiveroTheme produces a dark ThemeData with correct backgrounds', () {

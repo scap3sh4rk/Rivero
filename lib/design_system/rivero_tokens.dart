@@ -6,54 +6,54 @@ import 'package:google_fonts/google_fonts.dart';
 abstract final class RiveroColors {
   // --- Core Surfaces ---
   /// Deep pitch dark background: `#08080C`
-  static const Color background = Color(0xFF08080C);
+  static const Color background = Color(0xFF09090B);
 
   /// Primary card and container surface: `#12121A`
-  static const Color surface = Color(0xFF12121A);
+  static const Color surface = Color(0xFF131316);
 
   /// Elevated card, modal, or floating surface: `#1A1A26`
-  static const Color surfaceElevated = Color(0xFF1A1A26);
+  static const Color surfaceElevated = Color(0xFF1B1B1F);
 
   /// Higher level interactive surface (hover/active state): `#222233`
-  static const Color surfaceInteractive = Color(0xFF222233);
+  static const Color surfaceInteractive = Color(0xFF25252B);
 
   // --- Financial Hierarchy Accents ---
   /// Salary root accent (Warm Amber): `#F59E0B`
-  static const Color salaryAccent = Color(0xFFF59E0B);
+  static const Color salaryAccent = Color(0xFFD4A85A);
 
   /// Expense bucket accent (Vibrant Violet): `#8B5CF6`
-  static const Color expenseAccent = Color(0xFF8B5CF6);
+  static const Color expenseAccent = Color(0xFF9A93D9);
 
   /// Investment bucket accent (Emerald Green): `#10B981`
-  static const Color investmentAccent = Color(0xFF10B981);
+  static const Color investmentAccent = Color(0xFF6FBF9F);
 
   /// Savings bucket accent (Cyan): `#06B6D4`
-  static const Color savingsAccent = Color(0xFF06B6D4);
+  static const Color savingsAccent = Color(0xFF6BAFC4);
 
   /// Recurring mandate and liquidity deficit warning (Rose Red): `#F43F5E`
-  static const Color mandateWarning = Color(0xFFF43F5E);
+  static const Color mandateWarning = Color(0xFFD9695F);
 
   /// Custom bucket accent (Fuchsia): `#EC4899`
-  static const Color customAccent = Color(0xFFEC4899);
+  static const Color customAccent = Color(0xFFC27BA0);
 
   /// Credit card liability accent (Tangerine): `#FB923C`
-  static const Color liabilityAccent = Color(0xFFFB923C);
+  static const Color liabilityAccent = Color(0xFFD89868);
 
   /// Virtual wallet accent (Sky): `#38BDF8`
-  static const Color walletAccent = Color(0xFF38BDF8);
+  static const Color walletAccent = Color(0xFF7FAAD6);
 
   // --- Semantic State Colors ---
   /// Success green: `#10B981`
-  static const Color success = Color(0xFF10B981);
+  static const Color success = Color(0xFF6FBF9F);
 
   /// Danger/Alert red: `#F43F5E`
-  static const Color danger = Color(0xFFF43F5E);
+  static const Color danger = Color(0xFFD9695F);
 
   /// Info blue: `#3B82F6`
-  static const Color info = Color(0xFF3B82F6);
+  static const Color info = Color(0xFF7C9ED9);
 
   /// Warning amber: `#F59E0B`
-  static const Color warning = Color(0xFFF59E0B);
+  static const Color warning = Color(0xFFD4A85A);
 
   // --- Text & Foreground ---
   /// Primary high-contrast text: `#F8FAFC`
@@ -70,13 +70,13 @@ abstract final class RiveroColors {
 
   // --- Borders & Dividers ---
   /// Subtle surface outline: `#1E1E2E`
-  static const Color borderSubtle = Color(0xFF1E1E2E);
+  static const Color borderSubtle = Color(0xFF1F1F25);
 
   /// Distinct component border: `#2E2E42`
-  static const Color borderMedium = Color(0xFF2E2E42);
+  static const Color borderMedium = Color(0xFF2D2D35);
 
   /// Highlight/focused border: `#3E3E58`
-  static const Color borderHighlight = Color(0xFF3E3E58);
+  static const Color borderHighlight = Color(0xFF3D3D48);
 }
 
 /// Spacing scale based on an 8-point / 4-point harmonic grid.
@@ -118,7 +118,7 @@ abstract final class RiveroRadii {
 abstract final class RiveroTypography {
   // --- Plus Jakarta Sans: Financial Counters & Display ---
   static TextStyle get financialHero => GoogleFonts.plusJakartaSans(
-    fontSize: 36,
+    fontSize: 52,
     fontWeight: FontWeight.w700,
     letterSpacing: -0.8,
     color: RiveroColors.textPrimary,

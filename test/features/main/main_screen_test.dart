@@ -8,6 +8,8 @@ import 'package:rivero/features/main/main_screen.dart';
 
 import '../../test_helper.dart';
 
+Finder nav(String label) => find.byKey(ValueKey('nav-$label'));
+
 void main() {
   setUpAll(setupTestDatabase);
 
@@ -41,41 +43,45 @@ void main() {
       await tester.pump(const Duration(milliseconds: 150));
 
       // 1. Initial Overview Tab
-      expect(find.text('Overview'), findsOneWidget);
-      expect(find.text('Accounts'), findsOneWidget);
-      expect(find.text('Budgets'), findsOneWidget);
-      expect(find.text('Transactions'), findsOneWidget);
-      expect(find.text('Settings'), findsOneWidget);
+      for (final label in [
+        'Overview',
+        'Accounts',
+        'Budgets',
+        'Transactions',
+        'Settings',
+      ]) {
+        expect(nav(label), findsOneWidget);
+      }
 
       expect(find.text('SAFE TO SPEND'), findsOneWidget);
 
       // 2. Switch to Accounts Tab
-      await tester.tap(find.text('Accounts'));
+      await tester.tap(nav('Accounts'));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pump(const Duration(milliseconds: 600));
 
       expect(find.text('CUSTODIAL ACCOUNTS'), findsOneWidget);
       expect(find.text('CREDIT LINE USAGE'), findsOneWidget);
 
       // 3. Switch to Budgets Tab
-      await tester.tap(find.text('Budgets'));
+      await tester.tap(nav('Budgets'));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pump(const Duration(milliseconds: 600));
 
       expect(find.text('MONTHLY SALARY POOL'), findsOneWidget);
       expect(find.text('MONTHLY ALLOCATION PURPOSES'), findsOneWidget);
 
       // 4. Switch to Transactions Tab
-      await tester.tap(find.text('Transactions'));
+      await tester.tap(nav('Transactions'));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pump(const Duration(milliseconds: 600));
 
       expect(find.text('Encrypted Expense Ledger'), findsOneWidget);
 
       // 5. Switch to Settings Tab
-      await tester.tap(find.text('Settings'));
+      await tester.tap(nav('Settings'));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pump(const Duration(milliseconds: 600));
 
       expect(find.text('PAYCYCLE CONFIGURATION'), findsOneWidget);
 

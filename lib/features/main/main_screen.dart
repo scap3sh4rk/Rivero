@@ -188,80 +188,157 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     );
   }
 
+  late final PageController _pager = PageController();
+
+  static const _tabs = <(IconData, IconData, String)>[
+    (Icons.home_outlined, Icons.home_rounded, 'Overview'),
+    (
+      Icons.account_balance_wallet_outlined,
+      Icons.account_balance_wallet,
+      'Accounts',
+    ),
+    (Icons.donut_small_outlined, Icons.donut_small_rounded, 'Budgets'),
+    (Icons.receipt_long_outlined, Icons.receipt_long_rounded, 'Transactions'),
+    (Icons.tune_rounded, Icons.tune_rounded, 'Settings'),
+  ];
+
+  @override
+  void dispose() {
+    _pager.dispose();
+    super.dispose();
+  }
+
+  void _goTo(int i) {
+    ref.read(selectedNavIndexProvider.notifier).state = i;
+    _pager.animateToPage(
+      i,
+      duration: const Duration(milliseconds: 420),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentIndex = ref.watch(selectedNavIndexProvider);
 
     return Scaffold(
       backgroundColor: RiveroColors.background,
-      body: IndexedStack(index: currentIndex, children: _screens),
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: RiveroColors.borderSubtle)),
-        ),
-        child: NavigationBar(
-          selectedIndex: currentIndex,
-          backgroundColor: RiveroColors.surface,
-          indicatorColor: RiveroColors.surfaceInteractive,
-          elevation: 0,
-          onDestinationSelected: (idx) {
-            ref.read(selectedNavIndexProvider.notifier).state = idx;
-          },
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.dashboard_outlined),
-              selectedIcon: Icon(
-                Icons.dashboard_rounded,
-                color: RiveroColors.salaryAccent,
-              ),
-              label: 'Overview',
+      extendBody: true,
+      body: PageView(
+        controller: _pager,
+        physics: const BouncingScrollPhysics(),
+        onPageChanged: (i) =>
+            ref.read(selectedNavIndexProvider.notifier).state = i,
+        children: _screens,
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            RiveroSpacing.lg,
+            0,
+            RiveroSpacing.lg,
+            RiveroSpacing.md,
+          ),
+          child: Container(
+            height: 64,
+            decoration: BoxDecoration(
+              color: RiveroColors.surfaceElevated,
+              borderRadius: RiveroRadii.borderFull,
+              border: Border.all(color: RiveroColors.borderSubtle),
             ),
-            NavigationDestination(
-              icon: Icon(Icons.account_balance_outlined),
-              selectedIcon: Icon(
-                Icons.account_balance_rounded,
-                color: RiveroColors.investmentAccent,
-              ),
-              label: 'Accounts',
+            child: Row(
+              children: [
+                for (var i = 0; i < _tabs.length; i++)
+                  Expanded(
+                    child: _NavItem(
+                      key: ValueKey('nav-${_tabs[i].$3}'),
+                      icon: _tabs[i].$1,
+                      selectedIcon: _tabs[i].$2,
+                      label: _tabs[i].$3,
+                      selected: i == currentIndex,
+                      onTap: () => _goTo(i),
+                    ),
+                  ),
+              ],
             ),
-            NavigationDestination(
-              icon: Icon(Icons.pie_chart_outline_rounded),
-              selectedIcon: Icon(
-                Icons.pie_chart_rounded,
-                color: RiveroColors.salaryAccent,
-              ),
-              label: 'Budgets',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.receipt_long_outlined),
-              selectedIcon: Icon(
-                Icons.receipt_long_rounded,
-                color: RiveroColors.expenseAccent,
-              ),
-              label: 'Transactions',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.settings_outlined),
-              selectedIcon: Icon(
-                Icons.settings_rounded,
-                color: RiveroColors.textPrimary,
-              ),
-              label: 'Settings',
-            ),
-          ],
+          ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        mini: true,
-        backgroundColor: RiveroColors.surfaceElevated,
-        foregroundColor: RiveroColors.salaryAccent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(RiveroRadii.md),
-          side: const BorderSide(color: RiveroColors.borderHighlight),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 72),
+        child: FloatingActionButton(
+          mini: true,
+          elevation: 0,
+          backgroundColor: RiveroColors.textPrimary,
+          foregroundColor: RiveroColors.background,
+          shape: const CircleBorder(),
+          tooltip: 'Quick Actions',
+          onPressed: () => _showQuickActions(context),
+          child: const Icon(Icons.add_rounded, size: 24),
         ),
-        tooltip: 'Quick Actions',
-        onPressed: () => _showQuickActions(context),
-        child: const Icon(Icons.flash_on_rounded, size: 20),
+      ),
+    );
+  }
+}
+
+/// Nav item: icon with a label that springs in only for the active tab.
+class _NavItem extends StatelessWidget {
+  const _NavItem({
+    super.key,
+    required this.icon,
+    required this.selectedIcon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final IconData selectedIcon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      child: InkResponse(
+        onTap: onTap,
+        child: AnimatedScale(
+          scale: selected ? 1.0 : 0.88,
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.elasticOut,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                selected ? selectedIcon : icon,
+                size: 22,
+                color: selected
+                    ? RiveroColors.textPrimary
+                    : RiveroColors.textMuted,
+              ),
+              AnimatedSize(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeOutCubic,
+                child: selected
+                    ? Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          label,
+                          style: RiveroTypography.labelSmall.copyWith(
+                            fontSize: 9,
+                            color: RiveroColors.textPrimary,
+                          ),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

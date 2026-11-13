@@ -6,144 +6,139 @@ import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/financial_amount_text.dart';
-import 'package:rivero/design_system/widgets/rivero_card.dart';
-import 'package:rivero/design_system/widgets/role_badge.dart';
 
-/// The central Safe-to-Spend Hero Card displaying real-time liquidity,
-/// daily spending pace, paycycle progress, and data reliability badges.
+/// The single hero of the app: one large Safe-to-Spend number with a pill
+/// showing how much of the expense budget is left. The pill shifts from
+/// green to amber to red as funds run down.
 class SafeToSpendHeroCard extends ConsumerWidget {
   const SafeToSpendHeroCard({super.key});
+
+  /// Colour for the fraction of budget remaining (1 = full, 0 = empty).
+  static Color toneFor(double remaining, {bool deficit = false}) {
+    if (deficit) return RiveroColors.danger;
+    final r = remaining.clamp(0.0, 1.0);
+    return r >= 0.5
+        ? Color.lerp(RiveroColors.warning, RiveroColors.success, (r - 0.5) * 2)!
+        : Color.lerp(RiveroColors.danger, RiveroColors.warning, r * 2)!;
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final stsAsync = ref.watch(liveSafeToSpendResultProvider);
+    final buckets = ref.watch(allAllocationBucketsProvider).value ?? const [];
     final isPrivacy = ref.watch(privacyModeProvider);
     final paycycle = ref.watch(currentPaycycleProvider);
 
-    final stsResult =
-        stsAsync.value ??
-        const SafeToSpendResult(
-          expenseBalance: 4825000,
-          upcomingMandates: 119800,
-          unsettledCreditCardLiability: 1425000,
-          pendingReimbursements: 0,
-          effectiveSafeToSpend: 3280200,
-          nominalSafeToSpend: 3280200,
-          conservativeSafeToSpend: 3280200,
-          dailySpendingPace: 182233,
-          isDeficit: false,
-          deficitAmount: 0,
-          reliability: BalanceReliability.verified,
-          daysRemainingInCycle: 18,
-        );
+    final sts = stsAsync.value;
+    if (sts == null) return const SizedBox(height: 220);
 
-    final isDeficit = stsResult.isDeficit;
-    final cardBorder = isDeficit
-        ? RiveroColors.expenseAccent.withValues(alpha: 0.5)
-        : RiveroColors.borderHighlight;
+    var limit = 0;
+    var spent = 0;
+    for (final b in buckets.where((b) => b.role == AccountRole.expense)) {
+      limit += b.allocatedMinorUnits;
+      spent += b.spentMinorUnits;
+    }
+    final remaining = limit > 0
+        ? (limit - spent) / limit
+        : (sts.isDeficit ? 0.0 : 1.0);
+    final tone = toneFor(remaining, deficit: sts.isDeficit);
 
-    return RiveroCard(
-      isElevated: true,
-      borderColor: cardBorder,
-      padding: const EdgeInsets.all(RiveroSpacing.xl),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header row: label, reliability badge, role
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    'SAFE TO SPEND',
-                    style: RiveroTypography.labelSmall.copyWith(
-                      letterSpacing: 1.5,
-                      color: RiveroColors.textMuted,
-                    ),
-                  ),
-                  const SizedBox(width: RiveroSpacing.sm),
-                  _ReliabilityBadge(reliability: stsResult.reliability),
-                ],
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'SAFE TO SPEND',
+              style: RiveroTypography.labelSmall.copyWith(
+                letterSpacing: 2,
+                color: RiveroColors.textMuted,
               ),
-              const RoleBadge(role: AccountRole.expense, isCompact: true),
-            ],
+            ),
+            const SizedBox(width: RiveroSpacing.sm),
+            _ReliabilityDot(reliability: sts.reliability),
+          ],
+        ),
+        const SizedBox(height: RiveroSpacing.md),
+        if (isPrivacy)
+          Text('••••••••', style: RiveroTypography.financialHero)
+        else
+          FinancialAmountText(
+            minorUnits: sts.effectiveSafeToSpend,
+            size: FinancialAmountSize.hero,
+            isAnimated: true,
+            includeDecimals: false,
+            customColor: sts.isDeficit ? RiveroColors.danger : null,
+          ),
+        const SizedBox(height: RiveroSpacing.xs),
+        Text(
+          sts.isDeficit
+              ? 'Commitments exceed balance by '
+                    '${CurrencyFormatter.format(sts.deficitAmount)}'
+              : '${CurrencyFormatter.format(sts.dailySpendingPace)} a day · '
+                    '${paycycle.daysRemaining} days left',
+          style: RiveroTypography.bodyMedium,
+        ),
+        const SizedBox(height: RiveroSpacing.xl),
+        TweenAnimationBuilder<Color?>(
+          tween: ColorTween(end: tone),
+          duration: const Duration(milliseconds: 600),
+          builder: (context, color, _) => _BudgetPill(
+            color: color ?? tone,
+            remaining: remaining.clamp(0.0, 1.0),
+            label: isPrivacy
+                ? '•••• of ••••'
+                : limit > 0
+                ? '${CurrencyFormatter.format(spent)} spent of '
+                      '${CurrencyFormatter.format(limit)}'
+                : 'No expense budget set',
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BudgetPill extends StatelessWidget {
+  const _BudgetPill({
+    required this.color,
+    required this.remaining,
+    required this.label,
+  });
+
+  final Color color;
+  final double remaining;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: RiveroSpacing.lg,
+        vertical: RiveroSpacing.md,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: RiveroRadii.borderFull,
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: RiveroTypography.labelSmall.copyWith(color: color),
           ),
           const SizedBox(height: RiveroSpacing.sm),
-
-          // Primary amount hero display
-          if (isPrivacy)
-            Text(
-              '••••••••',
-              style: RiveroTypography.financialHero.copyWith(
-                color: RiveroColors.textPrimary,
-              ),
-            )
-          else
-            FinancialAmountText(
-              minorUnits: stsResult.effectiveSafeToSpend,
-              size: FinancialAmountSize.hero,
-              isAnimated: true,
-              customColor: isDeficit ? RiveroColors.expenseAccent : null,
-            ),
-
-          const SizedBox(height: RiveroSpacing.xs),
-
-          // Daily Pace subtitle
-          if (isDeficit)
-            Row(
-              children: [
-                const Icon(
-                  Icons.warning_amber_rounded,
-                  size: 16,
-                  color: RiveroColors.expenseAccent,
-                ),
-                const SizedBox(width: RiveroSpacing.xs),
-                Expanded(
-                  child: Text(
-                    'Deficit: Commitments exceed balance by '
-                    '${CurrencyFormatter.format(stsResult.deficitAmount)}',
-                    style: RiveroTypography.bodySmall.copyWith(
-                      color: RiveroColors.expenseAccent,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            )
-          else
-            Row(
-              children: [
-                const Icon(
-                  Icons.speed,
-                  size: 14,
-                  color: RiveroColors.savingsAccent,
-                ),
-                const SizedBox(width: RiveroSpacing.xs),
-                Expanded(
-                  child: Text(
-                    'Pace: ${CurrencyFormatter.format(stsResult.dailySpendingPace)} / day · '
-                    '${paycycle.daysRemaining} days left in cycle',
-                    style: RiveroTypography.bodySmall,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-
-          const SizedBox(height: RiveroSpacing.md),
-
-          // Paycycle linear progress bar
-          ClipRRect(
-            borderRadius: BorderRadius.circular(RiveroRadii.full),
-            child: LinearProgressIndicator(
-              value: paycycle.progress,
-              minHeight: 4,
-              backgroundColor: RiveroColors.surfaceInteractive,
-              valueColor: const AlwaysStoppedAnimation<Color>(
-                RiveroColors.salaryAccent,
+          SizedBox(
+            width: 200,
+            child: ClipRRect(
+              borderRadius: RiveroRadii.borderFull,
+              child: LinearProgressIndicator(
+                value: remaining,
+                minHeight: 4,
+                backgroundColor: color.withValues(alpha: 0.15),
+                valueColor: AlwaysStoppedAnimation<Color>(color),
               ),
             ),
           ),
@@ -153,54 +148,29 @@ class SafeToSpendHeroCard extends ConsumerWidget {
   }
 }
 
-class _ReliabilityBadge extends StatelessWidget {
-  const _ReliabilityBadge({required this.reliability});
+class _ReliabilityDot extends StatelessWidget {
+  const _ReliabilityDot({required this.reliability});
 
   final BalanceReliability reliability;
 
   @override
   Widget build(BuildContext context) {
-    final Color color;
-    final String label;
-
-    switch (reliability) {
-      case BalanceReliability.verified:
-        color = RiveroColors.savingsAccent;
-        label = 'Verified';
-      case BalanceReliability.estimated:
-        color = RiveroColors.salaryAccent;
-        label = 'Estimated';
-      case BalanceReliability.stale:
-        color = RiveroColors.expenseAccent;
-        label = 'Stale';
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(RiveroRadii.full),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 5,
-            height: 5,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: RiveroTypography.labelSmall.copyWith(
-              fontSize: 9,
-              color: color,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
+    final (color, label) = switch (reliability) {
+      BalanceReliability.verified => (RiveroColors.success, 'Verified'),
+      BalanceReliability.estimated => (RiveroColors.warning, 'Estimated'),
+      BalanceReliability.stale => (RiveroColors.danger, 'Stale'),
+    };
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 5,
+          height: 5,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 4),
+        Text(label, style: RiveroTypography.labelSmall.copyWith(color: color)),
+      ],
     );
   }
 }

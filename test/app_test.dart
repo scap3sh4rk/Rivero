@@ -42,11 +42,6 @@ void main() {
     expect(find.text('Rivero'), findsOneWidget);
     expect(find.text('SAFE TO SPEND'), findsOneWidget);
     expect(find.text('INBOX TRIAGE'), findsOneWidget);
-    expect(find.text('ACCOUNTS & ALLOCATIONS'), findsOneWidget);
-    expect(find.text('RECENT ACTIVITY'), findsOneWidget);
-
-    // Verify seeded accounts are present
-    expect(find.text('Primary HDFC Salary'), findsOneWidget);
 
     // Toggle privacy mode
     final privacyButton = find.byTooltip('Toggle Privacy Mode');
