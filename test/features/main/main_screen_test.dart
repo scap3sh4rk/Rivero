@@ -41,7 +41,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 150));
 
-    expect(find.text('SAFE TO SPEND'), findsOneWidget);
+    expect(find.text('SAFE TO SPEND PER DAY'), findsOneWidget);
 
     Future<void> open(String tab) async {
       await tester.tap(nav(tab));
@@ -59,13 +59,13 @@ void main() {
     expect(find.text('Activity'), findsWidgets);
 
     await open('Plan');
-    expect(find.text('MONTHLY SALARY POOL'), findsOneWidget);
+    expect(find.text('MONTHLY SALARY'), findsOneWidget);
 
     // Settings is reached from the profile button
     await tester.tap(find.byTooltip('Profile & Settings').first);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 600));
-    expect(find.text('PAYCYCLE CONFIGURATION'), findsOneWidget);
+    expect(find.text('Pay day'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 50));

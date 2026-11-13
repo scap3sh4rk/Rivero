@@ -28,6 +28,7 @@ class SafeToSpendHeroCard extends ConsumerWidget {
     final buckets = ref.watch(allAllocationBucketsProvider).value ?? const [];
     final isPrivacy = ref.watch(privacyModeProvider);
     final paycycle = ref.watch(currentPaycycleProvider);
+    final awaiting = ref.watch(awaitingSalaryProvider).value ?? false;
 
     final sts = stsAsync.value;
     if (sts == null) return const SizedBox(height: 220);
@@ -49,7 +50,7 @@ class SafeToSpendHeroCard extends ConsumerWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              'SAFE TO SPEND',
+              'SAFE TO SPEND PER DAY',
               style: RiveroTypography.labelSmall.copyWith(
                 letterSpacing: 2,
                 color: RiveroColors.textMuted,
@@ -64,7 +65,7 @@ class SafeToSpendHeroCard extends ConsumerWidget {
           Text('••••••••', style: RiveroTypography.financialHero)
         else
           FinancialAmountText(
-            minorUnits: sts.effectiveSafeToSpend,
+            minorUnits: sts.isDeficit ? 0 : sts.dailySpendingPace,
             size: FinancialAmountSize.hero,
             isAnimated: true,
             includeDecimals: false,
@@ -73,10 +74,11 @@ class SafeToSpendHeroCard extends ConsumerWidget {
         const SizedBox(height: RiveroSpacing.xs),
         Text(
           sts.isDeficit
-              ? 'Commitments exceed balance by '
+              ? 'Bills due exceed what is left by '
                     '${CurrencyFormatter.format(sts.deficitAmount)}'
-              : '${CurrencyFormatter.format(sts.dailySpendingPace)} a day · '
-                    '${paycycle.daysRemaining} days left',
+              : '${isPrivacy ? '••••' : CurrencyFormatter.format(sts.effectiveSafeToSpend)}'
+                    ' left · '
+                    '${awaiting ? 'waiting for salary' : '${paycycle.daysRemaining} days to payday'}',
           style: RiveroTypography.bodyMedium,
         ),
         const SizedBox(height: RiveroSpacing.xl),

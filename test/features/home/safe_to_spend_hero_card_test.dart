@@ -35,7 +35,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('SAFE TO SPEND'), findsOneWidget);
+    expect(find.text('SAFE TO SPEND PER DAY'), findsOneWidget);
     expect(find.text('Verified'), findsOneWidget);
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
 

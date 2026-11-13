@@ -279,6 +279,32 @@ abstract final class RiveroTheme {
         centerTitle: false,
         iconTheme: IconThemeData(color: RiveroColors.textPrimary),
       ),
+      // Hints/helpers are clearly secondary: muted grey, never body-text bright.
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: RiveroColors.surfaceElevated,
+        hintStyle: TextStyle(color: RiveroColors.textMuted),
+        helperStyle: TextStyle(color: RiveroColors.textMuted, fontSize: 12),
+        labelStyle: TextStyle(color: RiveroColors.textSecondary),
+        floatingLabelStyle: TextStyle(color: RiveroColors.textPrimary),
+        prefixStyle: TextStyle(color: RiveroColors.textSecondary),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: RiveroSpacing.lg,
+          vertical: RiveroSpacing.md,
+        ),
+        border: const OutlineInputBorder(
+          borderRadius: RiveroRadii.borderMd,
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: const OutlineInputBorder(
+          borderRadius: RiveroRadii.borderMd,
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: RiveroRadii.borderMd,
+          borderSide: BorderSide(color: RiveroColors.borderHighlight),
+        ),
+      ),
       dividerTheme: DividerThemeData(
         color: RiveroColors.borderSubtle,
         thickness: 1,

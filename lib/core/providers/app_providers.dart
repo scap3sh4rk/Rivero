@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivero/core/database/daos/mandates_dao.dart';
 import 'package:rivero/core/database/daos/settings_dao.dart';
@@ -71,6 +73,11 @@ class SettingsSync {
         await dao.getInt(SettingKeys.monthlySalary) ?? 0;
     ref.read(reserveCreditCardsProvider.notifier).state =
         (await dao.get(SettingKeys.reserveCreditCards)) != '0';
+    final typesJson = await dao.get(SettingKeys.accountTypes);
+    if (typesJson != null) {
+      ref.read(customAccountTypesProvider.notifier).state =
+          (jsonDecode(typesJson) as List).cast<String>();
+    }
     ref.read(openOnLogProvider.notifier).state =
         (await dao.get(SettingKeys.openOnLog)) == '1';
     var onboarded = (await dao.get(SettingKeys.onboarded)) == '1';
@@ -103,6 +110,10 @@ class SettingsSync {
       ..listen(
         reserveCreditCardsProvider,
         (_, v) => save(SettingKeys.reserveCreditCards, v ? '1' : '0'),
+      )
+      ..listen(
+        customAccountTypesProvider,
+        (_, v) => save(SettingKeys.accountTypes, jsonEncode(v)),
       )
       ..listen(
         openOnLogProvider,

@@ -41,7 +41,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
 
     expect(find.text('Rivero'), findsOneWidget);
-    expect(find.text('SAFE TO SPEND'), findsOneWidget);
+    expect(find.text('SAFE TO SPEND PER DAY'), findsOneWidget);
     expect(find.text('To review · 3'), findsOneWidget);
 
     // Toggle privacy mode

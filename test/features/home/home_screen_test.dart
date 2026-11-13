@@ -37,7 +37,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 150));
 
       expect(find.text('Rivero'), findsOneWidget);
-      expect(find.text('SAFE TO SPEND'), findsOneWidget);
+      expect(find.text('SAFE TO SPEND PER DAY'), findsOneWidget);
       expect(find.text('To review · 3'), findsOneWidget);
 
       // Tap simulate notification button in AppBar

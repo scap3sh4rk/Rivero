@@ -5,7 +5,7 @@ import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/database/database_seeder.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/features/budgets/screens/budgets_screen.dart';
-import 'package:rivero/features/budgets/widgets/create_budget_sheet.dart';
+import 'package:rivero/features/plan/salary_plan_screen.dart';
 
 import '../../test_helper.dart';
 
@@ -41,27 +41,21 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 150));
 
-      expect(find.text('Budgets & Allocations'), findsOneWidget);
-      expect(find.text('MONTHLY SALARY POOL'), findsOneWidget);
+      expect(find.text('Plan'), findsOneWidget);
+      expect(find.text('MONTHLY SALARY'), findsOneWidget);
       expect(find.text('AUTOPAY'), findsOneWidget);
       expect(find.text('PAY CYCLE'), findsOneWidget);
-      expect(find.text('Allocated to Purposes'), findsOneWidget);
-      expect(find.text('Unallocated Remaining'), findsOneWidget);
 
-      // Verify default purpose buckets
+      // Full category names, no truncation, no account plumbing text
       expect(find.text('Monthly Expenses'), findsOneWidget);
       expect(find.text('Mutual Funds & Equity SIP'), findsOneWidget);
       expect(find.text('Emergency Fund'), findsOneWidget);
+      expect(find.textContaining('Deducts'), findsNothing);
 
-      // Tap New Purpose FAB
-      final newPurposeFab = find.byTooltip('Add Purpose Bucket');
-      expect(newPurposeFab, findsOneWidget);
-      await tester.tap(newPurposeFab);
+      await tester.tap(find.text('MONTHLY SALARY'));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-
-      expect(find.byType(CreateBudgetSheet), findsOneWidget);
-      expect(find.text('New Budget Purpose'), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(find.byType(SalaryPlanScreen), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(milliseconds: 50));

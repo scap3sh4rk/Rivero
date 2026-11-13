@@ -236,40 +236,15 @@ class AccountsScreen extends ConsumerWidget {
                           child: ListTile(
                             contentPadding: EdgeInsets.zero,
                             leading: BankBadge(name: account.institution),
-                            title: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    account.name,
-                                    style: RiveroTypography.titleMedium
-                                        .copyWith(fontSize: 15),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: RiveroColors.surfaceElevated,
-                                    borderRadius: BorderRadius.circular(
-                                      RiveroRadii.xs,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    account.accountType,
-                                    style: RiveroTypography.labelSmall.copyWith(
-                                      fontSize: 10,
-                                      color: RiveroColors.textSecondary,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                            title: Text(
+                              account.name,
+                              style: RiveroTypography.titleMedium.copyWith(
+                                fontSize: 15,
+                              ),
                             ),
                             subtitle: Text(
-                              '${account.institution} · ••${account.accountMask}',
+                              '${account.institution} ••${account.accountMask}'
+                              ' · ${account.accountType}',
                               style: RiveroTypography.bodySmall.copyWith(
                                 fontSize: 12,
                               ),
@@ -297,7 +272,20 @@ class AccountsScreen extends ConsumerWidget {
                     );
                   }),
 
-                const SizedBox(height: 80), // bottom padding for FAB
+                const SizedBox(height: RiveroSpacing.md),
+                SizedBox(
+                  height: 52,
+                  child: OutlinedButton.icon(
+                    key: const ValueKey('add-account'),
+                    onPressed: () => CreateAccountSheet.show(context),
+                    style: OutlinedButton.styleFrom(
+                      shape: const StadiumBorder(),
+                    ),
+                    icon: const Icon(Icons.add_rounded),
+                    label: const Text('Add account or card'),
+                  ),
+                ),
+                const SizedBox(height: RiveroSpacing.huge),
               ],
             ),
           );

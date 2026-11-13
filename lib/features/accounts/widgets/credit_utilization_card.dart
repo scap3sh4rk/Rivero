@@ -57,8 +57,6 @@ class CreditUtilizationCard extends ConsumerWidget {
                             style: RiveroTypography.titleMedium.copyWith(
                               fontSize: 14,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
                           Text(
                             '${account.institution} · ••${account.accountMask}',

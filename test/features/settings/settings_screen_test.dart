@@ -22,47 +22,55 @@ void main() {
     await db.close();
   });
 
-  testWidgets(
-    'SettingsScreen displays paycycle, account types, credit score rules, and privacy mode',
-    (tester) async {
-      tester.view.physicalSize = const Size(1080, 2400);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
+  testWidgets('Settings rows open pickers and sub-pages without crowding', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [databaseProvider.overrideWithValue(db)],
-          child: const MaterialApp(home: SettingsScreen()),
-        ),
-      );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [databaseProvider.overrideWithValue(db)],
+        child: const MaterialApp(home: SettingsScreen()),
+      ),
+    );
 
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 150));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
 
-      expect(find.text('Settings'), findsOneWidget);
-      expect(find.text('PAYCYCLE CONFIGURATION'), findsOneWidget);
-      expect(find.text('Salary Credit Day'), findsOneWidget);
-      expect(find.textContaining('CUSTOM ACCOUNT TYPES'), findsOneWidget);
-      expect(find.text('CREDIT SCORE MONITORING'), findsOneWidget);
-      expect(find.text('PRIVACY & SECURITY'), findsOneWidget);
-      expect(find.text('DEBUG'), findsOneWidget);
+    expect(find.text('Settings'), findsOneWidget);
+    expect(find.text('Pay day'), findsOneWidget);
+    expect(find.text('Account types'), findsOneWidget);
+    expect(find.text('Autopay'), findsOneWidget);
+    expect(find.text('Load demo data'), findsOneWidget);
+    // The account types list no longer crowds this page.
+    expect(find.text('Fixed Deposit'), findsNothing);
 
-      // Verify credit rules text
-      expect(find.textContaining('<= 10% Utilization'), findsOneWidget);
-      expect(find.textContaining('> 30% Utilization'), findsOneWidget);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(SettingsScreen)),
+    );
+    await tester.tap(find.byKey(const ValueKey('privacy-switch')));
+    await tester.pump();
+    expect(container.read(privacyModeProvider), isTrue);
 
-      // Verify privacy mode toggle switch
-      final privacySwitch = find.descendant(
-        of: find.widgetWithText(SwitchListTile, 'Privacy Mode (Mask Balances)'),
-        matching: find.byType(Switch),
-      );
-      expect(privacySwitch, findsOneWidget);
-      await tester.tap(privacySwitch);
-      await tester.pump();
+    // Pay day picker
+    await tester.tap(find.text('Pay day'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.text('25'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(container.read(userSalaryDayProvider), 25);
 
-      await tester.pumpWidget(const SizedBox());
-      await tester.pump(const Duration(milliseconds: 50));
-    },
-  );
+    // Account types open on their own page
+    await tester.tap(find.text('Account types'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(find.text('Fixed Deposit'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 50));
+  });
 }

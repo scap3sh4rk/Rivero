@@ -58,7 +58,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 600));
 
       await tester.pump(const Duration(milliseconds: 500));
-      expect(find.text('SAFE TO SPEND'), findsOneWidget);
+      expect(find.text('SAFE TO SPEND PER DAY'), findsOneWidget);
       final accounts = (await tester.runAsync(
         () => db.accountsDao.getAllActivePhysicalAccounts(),
       ))!;

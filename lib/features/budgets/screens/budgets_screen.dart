@@ -1,436 +1,183 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/account_role.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/bento_tile.dart';
-import 'package:rivero/design_system/widgets/financial_amount_text.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
-import 'package:rivero/design_system/widgets/role_badge.dart';
-import 'package:rivero/features/budgets/widgets/create_budget_sheet.dart';
 import 'package:rivero/features/mandates/mandates_screen.dart';
 import 'package:rivero/features/plan/salary_plan_screen.dart';
 
-/// Screen managing monthly salary waterfall allocations and purpose-driven spending budgets.
+/// Plan: where this month's salary goes. One card for the salary, one short
+/// row per category. Editing happens on the Salary plan page.
 class BudgetsScreen extends ConsumerWidget {
   const BudgetsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final bucketsAsync = ref.watch(allAllocationBucketsProvider);
-    final accountsAsync = ref.watch(activePhysicalAccountsProvider);
-    final isPrivacy = ref.watch(privacyModeProvider);
+    final buckets = ref.watch(allAllocationBucketsProvider).value ?? const [];
+    final salary = ref.watch(monthlySalaryProvider);
+    final privacy = ref.watch(privacyModeProvider);
+    final mandates = ref.watch(activeMandatesProvider).value?.length ?? 0;
+    final paycycle = ref.watch(currentPaycycleProvider);
+
+    String money(int v) => privacy ? '••••' : CurrencyFormatter.format(v);
+
+    final ordered = [...buckets]
+      ..sort((a, b) {
+        // Spending first, then the set-aside categories in plan order.
+        int rank(AllocationBucket x) => x.role == AccountRole.expense ? 0 : 1;
+        final r = rank(a).compareTo(rank(b));
+        return r != 0 ? r : a.priorityOrder.compareTo(b.priorityOrder);
+      });
+    final setAside = buckets
+        .where((b) => b.role != AccountRole.expense)
+        .fold<int>(0, (s, b) => s + b.allocatedMinorUnits);
 
     return Scaffold(
       backgroundColor: RiveroColors.background,
-      appBar: RiveroAppBar(
-        title: 'Budgets & Allocations',
-        actions: [
-          IconButton(
-            tooltip: 'Salary Plan',
-            icon: const Icon(Icons.call_split_rounded),
-            onPressed: () => SalaryPlanScreen.open(context),
-          ),
-          IconButton(
-            tooltip: 'Add Purpose Bucket',
-            icon: const Icon(
-              Icons.add_chart_rounded,
-              color: RiveroColors.salaryAccent,
-            ),
-            onPressed: () => CreateBudgetSheet.show(context),
-          ),
-        ],
-      ),
-      body: bucketsAsync.when(
-        loading: () => const Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(
-              RiveroColors.salaryAccent,
-            ),
-          ),
+      appBar: const RiveroAppBar(title: 'Plan'),
+      body: ListView(
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(
+          RiveroSpacing.xl,
+          0,
+          RiveroSpacing.xl,
+          RiveroSpacing.huge,
         ),
-        error: (err, _) => Center(
-          child: Text(
-            'Failed to load budget allocations: $err',
-            style: RiveroTypography.bodyMedium.copyWith(
-              color: RiveroColors.danger,
-            ),
-          ),
-        ),
-        data: (buckets) {
-          final accounts = accountsAsync.value ?? [];
-
-          // Compute total salary received from salary accounts
-          final salaryMinorUnits = ref.watch(monthlySalaryProvider);
-
-          var totalAllocatedMinorUnits = 0;
-          var totalSpentMinorUnits = 0;
-          for (final b in buckets) {
-            totalAllocatedMinorUnits += b.allocatedMinorUnits;
-            totalSpentMinorUnits += b.spentMinorUnits;
-          }
-
-          final unallocatedRemainingMinorUnits =
-              salaryMinorUnits - totalAllocatedMinorUnits;
-
-          return RefreshIndicator(
-            color: RiveroColors.salaryAccent,
-            backgroundColor: RiveroColors.surfaceElevated,
-            onRefresh: () async {
-              ref.invalidate(allAllocationBucketsProvider);
-            },
-            child: ListView(
-              padding: const EdgeInsets.symmetric(
-                horizontal: RiveroSpacing.lg,
-                vertical: RiveroSpacing.md,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: BentoTile(
+                  label: 'AUTOPAY',
+                  value: '$mandates Active',
+                  onTap: () => MandatesScreen.open(context),
+                ),
               ),
+              const SizedBox(width: RiveroSpacing.md),
+              Expanded(
+                child: BentoTile(
+                  label: 'PAY CYCLE',
+                  value: '${paycycle.daysRemaining} days left',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: RiveroSpacing.md),
+          RiveroCard(
+            isElevated: true,
+            onTap: () => SalaryPlanScreen.open(context),
+            padding: const EdgeInsets.all(RiveroSpacing.xl),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
                     Expanded(
-                      child: BentoTile(
-                        label: 'AUTOPAY',
-                        value:
-                            '${ref.watch(activeMandatesProvider).value?.length ?? 0} Active',
-                        onTap: () => MandatesScreen.open(context),
-                      ),
-                    ),
-                    const SizedBox(width: RiveroSpacing.md),
-                    Expanded(
-                      child: BentoTile(
-                        label: 'PAY CYCLE',
-                        value:
-                            '${ref.watch(currentPaycycleProvider).daysRemaining} days left',
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: RiveroSpacing.md),
-
-                // 1. Salary pool and how much of it is planned
-                RiveroCard(
-                  isElevated: true,
-                  borderColor: RiveroColors.salaryAccent.withValues(alpha: 0.3),
-                  padding: const EdgeInsets.all(RiveroSpacing.xl),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'MONTHLY SALARY POOL',
-                              style: RiveroTypography.labelSmall.copyWith(
-                                letterSpacing: 1.2,
-                                color: RiveroColors.textMuted,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: RiveroSpacing.xs),
-                      if (isPrivacy)
-                        Text('••••••••', style: RiveroTypography.financialHero)
-                      else
-                        FinancialAmountText(
-                          minorUnits: salaryMinorUnits,
-                          size: FinancialAmountSize.hero,
-                        ),
-                      const SizedBox(height: RiveroSpacing.md),
-
-                      // Breakdown row
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: _MetricColumn(
-                              label: 'Allocated to Purposes',
-                              amountMinorUnits: totalAllocatedMinorUnits,
-                              color: RiveroColors.salaryAccent,
-                              isPrivacy: isPrivacy,
-                            ),
-                          ),
-                          const SizedBox(width: RiveroSpacing.sm),
-                          Expanded(
-                            child: _MetricColumn(
-                              label: 'Unallocated Remaining',
-                              amountMinorUnits: unallocatedRemainingMinorUnits,
-                              color: unallocatedRemainingMinorUnits >= 0
-                                  ? RiveroColors.savingsAccent
-                                  : RiveroColors.danger,
-                              isPrivacy: isPrivacy,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: RiveroSpacing.md),
-
-                      // Waterfall progress bar
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(RiveroRadii.full),
-                        child: LinearProgressIndicator(
-                          value: salaryMinorUnits > 0
-                              ? (totalAllocatedMinorUnits / salaryMinorUnits)
-                                    .clamp(0.0, 1.0)
-                              : 0.0,
-                          minHeight: 6,
-                          backgroundColor: RiveroColors.surfaceInteractive,
-                          valueColor: const AlwaysStoppedAnimation<Color>(
-                            RiveroColors.salaryAccent,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: RiveroSpacing.xs),
-                      Text(
-                        'Total Spent so far: ${CurrencyFormatter.format(totalSpentMinorUnits)}',
-                        style: RiveroTypography.bodySmall.copyWith(
-                          fontSize: 11,
-                          color: RiveroColors.textMuted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: RiveroSpacing.xl),
-
-                // 2. Purpose Buckets List
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
                       child: Text(
-                        'MONTHLY ALLOCATION PURPOSES',
+                        'MONTHLY SALARY',
                         style: RiveroTypography.labelSmall.copyWith(
-                          letterSpacing: 1.2,
-                          color: RiveroColors.textMuted,
+                          letterSpacing: 1.5,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const SizedBox(width: RiveroSpacing.sm),
                     Text(
-                      '${buckets.length} Active',
-                      style: RiveroTypography.labelSmall.copyWith(
-                        color: RiveroColors.textMuted,
-                        fontSize: 11,
-                      ),
+                      salary == 0 ? 'Set up' : 'Edit plan',
+                      style: RiveroTypography.labelLarge,
+                    ),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      size: 18,
+                      color: RiveroColors.textSecondary,
                     ),
                   ],
                 ),
                 const SizedBox(height: RiveroSpacing.sm),
-
-                if (buckets.isEmpty)
-                  RiveroCard(
-                    padding: const EdgeInsets.all(RiveroSpacing.xl),
-                    child: Center(
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.pie_chart_outline_rounded,
-                            color: RiveroColors.textMuted,
-                            size: 32,
-                          ),
-                          const SizedBox(height: RiveroSpacing.xs),
-                          Text(
-                            'No Budget Purposes Defined',
-                            style: RiveroTypography.titleMedium,
-                          ),
-                          const SizedBox(height: RiveroSpacing.xs),
-                          Text(
-                            'Create your monthly purpose buckets to allocate salary automatically.',
-                            style: RiveroTypography.bodySmall,
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                else
-                  ...buckets.map((bucket) {
-                    final remaining =
-                        bucket.allocatedMinorUnits - bucket.spentMinorUnits;
-                    final progress = bucket.allocatedMinorUnits > 0
-                        ? (bucket.spentMinorUnits / bucket.allocatedMinorUnits)
-                              .clamp(0.0, 1.0)
-                        : 0.0;
-
-                    final linkedAccount = accounts
-                        .where((a) => a.id == bucket.linkedPhysicalAccountId)
-                        .firstOrNull;
-
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: RiveroSpacing.md),
-                      child: RiveroCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Header Row
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Row(
-                                    children: [
-                                      RoleBadge(
-                                        role: bucket.role,
-                                        isCompact: true,
-                                      ),
-                                      const SizedBox(width: RiveroSpacing.sm),
-                                      Expanded(
-                                        child: Text(
-                                          bucket.name,
-                                          style: RiveroTypography.titleMedium
-                                              .copyWith(fontSize: 15),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: RiveroSpacing.sm),
-                                if (isPrivacy)
-                                  Text(
-                                    '••••••••',
-                                    style: RiveroTypography.monoMedium,
-                                  )
-                                else
-                                  Text(
-                                    '${CurrencyFormatter.format(remaining)} left',
-                                    style: RiveroTypography.monoMedium.copyWith(
-                                      color: remaining < 0
-                                          ? RiveroColors.danger
-                                          : RiveroColors.investmentAccent,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                              ],
-                            ),
-
-                            if (linkedAccount != null) ...[
-                              const SizedBox(height: RiveroSpacing.xs),
-                              Text(
-                                'Deducts from: ${linkedAccount.name} (${linkedAccount.institution} ••${linkedAccount.accountMask})',
-                                style: RiveroTypography.bodySmall.copyWith(
-                                  fontSize: 11,
-                                  color: RiveroColors.textMuted,
-                                ),
-                              ),
-                            ],
-
-                            const SizedBox(height: RiveroSpacing.md),
-
-                            // Spent vs Allocated numbers
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'Spent: ${CurrencyFormatter.format(bucket.spentMinorUnits)}',
-                                  style: RiveroTypography.bodySmall.copyWith(
-                                    fontSize: 12,
-                                  ),
-                                ),
-                                Text(
-                                  'Monthly Budget: ${CurrencyFormatter.format(bucket.allocatedMinorUnits)}',
-                                  style: RiveroTypography.bodySmall.copyWith(
-                                    fontSize: 12,
-                                    color: RiveroColors.textSecondary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: RiveroSpacing.xs),
-
-                            // Progress bar
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(
-                                RiveroRadii.full,
-                              ),
-                              child: LinearProgressIndicator(
-                                value: progress,
-                                minHeight: 6,
-                                backgroundColor:
-                                    RiveroColors.surfaceInteractive,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  _roleColor(bucket.role),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }),
-
-                const SizedBox(height: 80),
+                Text(
+                  salary == 0 ? 'Not set' : money(salary),
+                  style: RiveroTypography.financialLarge,
+                ),
+                if (salary > 0) ...[
+                  const SizedBox(height: RiveroSpacing.xs),
+                  Text(
+                    '${money(setAside)} set aside · '
+                    '${money((salary - setAside).clamp(0, salary))} for spending',
+                    style: RiveroTypography.bodySmall,
+                  ),
+                ],
               ],
             ),
-          );
-        },
+          ),
+          const SizedBox(height: RiveroSpacing.xl),
+          Text('Categories', style: RiveroTypography.titleMedium),
+          const SizedBox(height: RiveroSpacing.sm),
+          if (ordered.isEmpty)
+            Text(
+              'Set up your salary plan to create categories.',
+              style: RiveroTypography.bodySmall,
+            ),
+          for (final b in ordered) _CategoryTile(b, money: money),
+        ],
       ),
     );
   }
-
-  Color _roleColor(AccountRole role) {
-    switch (role) {
-      case AccountRole.salaryRoot:
-        return RiveroColors.salaryAccent;
-      case AccountRole.expense:
-        return RiveroColors.expenseAccent;
-      case AccountRole.investment:
-        return RiveroColors.investmentAccent;
-      case AccountRole.savings:
-        return RiveroColors.savingsAccent;
-      case AccountRole.custom:
-        return RiveroColors.customAccent;
-      case AccountRole.liabilityCc:
-        return RiveroColors.liabilityAccent;
-      case AccountRole.virtualWallet:
-        return RiveroColors.walletAccent;
-    }
-  }
 }
 
-class _MetricColumn extends StatelessWidget {
-  const _MetricColumn({
-    required this.label,
-    required this.amountMinorUnits,
-    required this.color,
-    required this.isPrivacy,
-  });
+class _CategoryTile extends StatelessWidget {
+  const _CategoryTile(this.b, {required this.money});
 
-  final String label;
-  final int amountMinorUnits;
-  final Color color;
-  final bool isPrivacy;
+  final AllocationBucket b;
+  final String Function(int) money;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: RiveroTypography.bodySmall.copyWith(fontSize: 11)),
-        const SizedBox(height: 2),
-        if (isPrivacy)
-          Text('••••••••', style: RiveroTypography.titleMedium)
-        else
-          Text(
-            CurrencyFormatter.format(amountMinorUnits),
-            style: RiveroTypography.titleMedium.copyWith(
-              color: color,
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
+    final spending = b.role == AccountRole.expense;
+    final total = b.allocatedMinorUnits + b.carryOverMinorUnits;
+    final left = total - b.spentMinorUnits;
+    // Spending shows what is left; set-aside categories show what is reserved
+    // (and how much of it has been paid, for things like rent).
+    final detail = spending
+        ? '${money(left)} left of ${money(total)}'
+        : b.spentMinorUnits > 0
+        ? '${money(b.spentMinorUnits)} paid of ${money(total)}'
+        : '${money(total)} set aside';
+    final used = total > 0 ? (b.spentMinorUnits / total).clamp(0.0, 1.0) : 0.0;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: RiveroSpacing.sm),
+      child: RiveroCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(b.name, style: RiveroTypography.bodyLarge),
+            const SizedBox(height: RiveroSpacing.xs),
+            Text(
+              detail,
+              style: RiveroTypography.bodySmall.copyWith(
+                color: spending && left < 0 ? RiveroColors.danger : null,
+              ),
             ),
-          ),
-      ],
+            if (spending || b.spentMinorUnits > 0) ...[
+              const SizedBox(height: RiveroSpacing.sm),
+              ClipRRect(
+                borderRadius: RiveroRadii.borderFull,
+                child: LinearProgressIndicator(
+                  value: used,
+                  minHeight: 4,
+                  backgroundColor: RiveroColors.surfaceInteractive,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    RiveroColors.textSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

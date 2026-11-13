@@ -186,8 +186,7 @@ class _ActivityRow extends StatelessWidget {
               children: [
                 Text(
                   t.merchant,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
                   style: RiveroTypography.titleMedium.copyWith(fontSize: 15),
                 ),
                 Text(
