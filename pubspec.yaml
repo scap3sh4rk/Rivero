@@ -1,0 +1,34 @@
+name: rivero
+description: "Rivero — Local-first, privacy-focused personal financial management application."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.14.0
+  flutter: ">=3.50.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.6.1
+  flutter_animate: ^4.5.2
+  sprung: ^3.0.1
+  animated_flip_counter: ^0.3.4
+  flutter_card_swiper: ^7.2.0
+  flutter_secure_storage: ^11.2.0
+  app_links: ^7.2.2
+  google_fonts: ^9.0.0
+  intl: ^0.20.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  very_good_analysis: ^11.0.0
+  build_runner: ^2.5.4
+  riverpod_generator: ^2.6.5
+  custom_lint: ^0.7.6
+  riverpod_lint: ^2.6.5
+
+flutter:
+  uses-material-design: true

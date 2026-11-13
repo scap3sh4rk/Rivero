@@ -1,0 +1,172 @@
+# =============================================================================
+# Rivero — Comprehensive .gitignore
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Dart / Flutter
+# -----------------------------------------------------------------------------
+*.dart.js
+*.js_
+*.js.deps
+*.js.map
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+pubspec.lock
+
+# Generated files
+*.g.dart
+*.freezed.dart
+*.mocks.dart
+*.config.dart
+lib/generated/
+*.gen.dart
+
+# -----------------------------------------------------------------------------
+# IDE
+# -----------------------------------------------------------------------------
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.settings/
+.classpath
+
+# -----------------------------------------------------------------------------
+# Android
+# -----------------------------------------------------------------------------
+**/android/**/gradle-wrapper.jar
+**/android/.gradle
+**/android/captures/
+**/android/gradlew
+**/android/gradlew.bat
+**/android/local.properties
+**/android/**/GeneratedPluginRegistrant.java
+**/android/key.properties
+**/android/**/*.keystore
+**/android/**/*.jks
+**/android/app/debug/
+**/android/app/profile/
+**/android/app/release/
+
+# -----------------------------------------------------------------------------
+# iOS
+# -----------------------------------------------------------------------------
+**/ios/**/*.mode1v3
+**/ios/**/*.mode2v3
+**/ios/**/*.moved-aside
+**/ios/**/*.pbxuser
+**/ios/**/*.perspectivev3
+**/ios/**/project.xcworkspace/
+**/ios/**/.symlinks/
+**/ios/**/Flutter/App.framework
+**/ios/**/Flutter/Flutter.framework
+**/ios/**/Flutter/Flutter.podspec
+**/ios/**/Flutter/Generated.xcconfig
+**/ios/**/Flutter/app.flx
+**/ios/**/Flutter/app.zip
+**/ios/**/Flutter/flutter_assets/
+**/ios/**/Flutter/flutter_export_environment.sh
+**/ios/**/ServiceDefinitions.json
+**/ios/**/Pods/
+**/ios/Runner/GeneratedPluginRegistrant.*
+
+# -----------------------------------------------------------------------------
+# macOS
+# -----------------------------------------------------------------------------
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# -----------------------------------------------------------------------------
+# Environment & Secrets
+# -----------------------------------------------------------------------------
+.env
+.env.*
+*.env
+.secret
+*.secret
+*.pem
+*.p12
+*.key
+*.keystore
+*.jks
+*.cer
+*.crt
+*.der
+*.pfx
+
+# API keys and credentials
+credentials.json
+service-account.json
+google-services.json
+GoogleService-Info.plist
+
+# -----------------------------------------------------------------------------
+# Database
+# -----------------------------------------------------------------------------
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+
+# -----------------------------------------------------------------------------
+# AI / Agent Configuration — NEVER COMMIT
+# -----------------------------------------------------------------------------
+AGENTS.md
+GEMINI.md
+CLAUDE.md
+.gemini/
+.claude/
+.antigravity/
+.copilot/
+.cursor/
+.aider*
+.agent/
+.ai/
+ai_workspace/
+agent_logs/
+agent_memories/
+.prompt
+.prompts/
+*.prompt
+*.prompt.md
+
+# -----------------------------------------------------------------------------
+# Build & Cache
+# -----------------------------------------------------------------------------
+build/
+.build/
+*.log
+*.tmp
+*.temp
+.cache/
+.gradle/
+coverage/
+.coverage/
+
+# -----------------------------------------------------------------------------
+# OS
+# -----------------------------------------------------------------------------
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# -----------------------------------------------------------------------------
+# Metadata
+# -----------------------------------------------------------------------------
+.metadata
+doc/api/
