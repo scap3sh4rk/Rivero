@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivero/core/database/daos/mandates_dao.dart';
+import 'package:rivero/core/database/daos/settings_dao.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/database/database_seeder.dart';
 import 'package:rivero/core/domain/account_role.dart';
@@ -45,6 +46,57 @@ final safeToSpendCalculatorProvider = Provider<SafeToSpendCalculator>((ref) {
 
 /// User's configured salary credit day of the month (1..31). Defaults to 1st.
 final userSalaryDayProvider = StateProvider<int>((ref) => 1);
+
+/// Expected monthly salary in minor units (0 = not configured yet).
+final monthlySalaryProvider = StateProvider<int>((ref) => 0);
+
+/// Whether unsettled credit-card spend is reserved out of Safe-to-Spend.
+final reserveCreditCardsProvider = StateProvider<bool>((ref) => true);
+
+/// null = still loading, false = needs onboarding, true = ready.
+final onboardedProvider = StateProvider<bool?>((ref) => null);
+
+/// Loads persisted settings into providers and saves later changes back.
+class SettingsSync {
+  SettingsSync(this.ref);
+  final Ref ref;
+
+  Future<void> load() async {
+    final dao = ref.read(databaseProvider).settingsDao;
+    ref.read(userSalaryDayProvider.notifier).state =
+        await dao.getInt(SettingKeys.salaryDay) ?? 1;
+    ref.read(monthlySalaryProvider.notifier).state =
+        await dao.getInt(SettingKeys.monthlySalary) ?? 0;
+    ref.read(reserveCreditCardsProvider.notifier).state =
+        (await dao.get(SettingKeys.reserveCreditCards)) != '0';
+    ref.read(onboardedProvider.notifier).state =
+        (await dao.get(SettingKeys.onboarded)) == '1';
+  }
+
+  /// Persist every change to the three user-editable settings.
+  void listen() {
+    Future<void> save(String k, String v) =>
+        ref.read(databaseProvider).settingsDao.set(k, v);
+    ref
+      ..listen(
+        userSalaryDayProvider,
+        (_, v) => save(SettingKeys.salaryDay, '$v'),
+      )
+      ..listen(
+        monthlySalaryProvider,
+        (_, v) => save(SettingKeys.monthlySalary, '$v'),
+      )
+      ..listen(
+        reserveCreditCardsProvider,
+        (_, v) => save(SettingKeys.reserveCreditCards, v ? '1' : '0'),
+      )
+      ..listen(onboardedProvider, (_, v) {
+        if (v ?? false) save(SettingKeys.onboarded, '1');
+      });
+  }
+}
+
+final settingsSyncProvider = Provider<SettingsSync>(SettingsSync.new);
 
 /// Current active monthly paycycle based on configured salary credit day.
 final currentPaycycleProvider = Provider<Paycycle>((ref) {

@@ -47,7 +47,11 @@ class _RiveroAppState extends ConsumerState<RiveroApp>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     Future.microtask(() {
-      ref.read(databaseSeederProvider).seedIfEmpty();
+      ref.read(databaseSeederProvider).seedIfEmpty().then((_) async {
+        final sync = ref.read(settingsSyncProvider);
+        await sync.load();
+        sync.listen();
+      });
       _drain();
       _loadTheme();
     });

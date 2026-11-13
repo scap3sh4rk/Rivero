@@ -7,8 +7,10 @@ import 'package:path_provider/path_provider.dart';
 import 'package:rivero/core/database/daos/accounts_dao.dart';
 import 'package:rivero/core/database/daos/ingestion_logs_dao.dart';
 import 'package:rivero/core/database/daos/mandates_dao.dart';
+import 'package:rivero/core/database/daos/settings_dao.dart';
 import 'package:rivero/core/database/daos/transactions_dao.dart';
 import 'package:rivero/core/database/tables/allocation_buckets_table.dart';
+import 'package:rivero/core/database/tables/app_settings_table.dart';
 import 'package:rivero/core/database/tables/associated_titles_table.dart';
 import 'package:rivero/core/database/tables/mandates_table.dart';
 import 'package:rivero/core/database/tables/physical_accounts_table.dart';
@@ -28,8 +30,15 @@ part 'database.g.dart';
     Transactions,
     Mandates,
     AssociatedTitles,
+    AppSettings,
   ],
-  daos: [AccountsDao, TransactionsDao, MandatesDao, IngestionLogsDao],
+  daos: [
+    AccountsDao,
+    TransactionsDao,
+    MandatesDao,
+    IngestionLogsDao,
+    SettingsDao,
+  ],
 )
 class RiveroDatabase extends _$RiveroDatabase {
   RiveroDatabase([QueryExecutor? e]) : super(e ?? _openDefaultConnection());
@@ -43,7 +52,7 @@ class RiveroDatabase extends _$RiveroDatabase {
   }
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration {
@@ -58,6 +67,9 @@ class RiveroDatabase extends _$RiveroDatabase {
             physicalAccounts.creditLimitMinorUnits,
           );
           await m.addColumn(physicalAccounts, physicalAccounts.accountType);
+        }
+        if (from < 3) {
+          await m.createTable(appSettings);
         }
       },
       beforeOpen: (details) async {
