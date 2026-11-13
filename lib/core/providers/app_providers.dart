@@ -6,6 +6,10 @@ import 'package:rivero/core/engine/waterfall_allocator.dart';
 import 'package:rivero/core/ingestion/deduplication_engine.dart';
 import 'package:rivero/core/ingestion/ingestion_service.dart';
 import 'package:rivero/core/ingestion/parser/financial_parser.dart';
+import 'package:rivero/core/reconciliation/balance_reconciler.dart';
+import 'package:rivero/core/reconciliation/internal_transfer_matcher.dart';
+import 'package:rivero/core/reconciliation/reconciliation_service.dart';
+import 'package:rivero/core/reconciliation/refund_matcher.dart';
 
 /// Provider holding the current Safe-to-Spend amount in minor units (paise).
 /// Initial baseline provider for Phase 1.
@@ -69,5 +73,37 @@ final ingestionServiceProvider = Provider<IngestionService>((ref) {
     database: db,
     parser: parser,
     deduplicator: deduplicator,
+  );
+});
+
+/// Internal transfer matcher provider.
+final internalTransferMatcherProvider = Provider<InternalTransferMatcher>((
+  ref,
+) {
+  return const InternalTransferMatcher();
+});
+
+/// Refund matcher provider.
+final refundMatcherProvider = Provider<RefundMatcher>((ref) {
+  return const RefundMatcher();
+});
+
+/// Balance reconciler provider.
+final balanceReconcilerProvider = Provider<BalanceReconciler>((ref) {
+  final db = ref.watch(databaseProvider);
+  return BalanceReconciler(database: db);
+});
+
+/// Reconciliation service provider.
+final reconciliationServiceProvider = Provider<ReconciliationService>((ref) {
+  final db = ref.watch(databaseProvider);
+  final transferMatcher = ref.watch(internalTransferMatcherProvider);
+  final refundMatcher = ref.watch(refundMatcherProvider);
+  final reconciler = ref.watch(balanceReconcilerProvider);
+  return ReconciliationService(
+    database: db,
+    transferMatcher: transferMatcher,
+    refundMatcher: refundMatcher,
+    balanceReconciler: reconciler,
   );
 });
