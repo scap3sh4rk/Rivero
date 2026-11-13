@@ -44,14 +44,57 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
   String? _savedLabel;
   Timer? _savedTimer;
 
+  final _note = TextEditingController();
+  final _noteFocus = FocusNode();
+
   @override
   void dispose() {
     _savedTimer?.cancel();
+    _note.dispose();
+    _noteFocus.dispose();
     super.dispose();
+  }
+
+  /// Typing a note you have used before brings back its category.
+  void _learnCategory(String note, List<LedgerTransaction> txns) {
+    final key = note.trim().toLowerCase();
+    if (key.length < 2) return;
+    final match = txns
+        .where((t) => t.amountMinorUnits < 0 && t.merchant.toLowerCase() == key)
+        .firstOrNull;
+    if (match != null && match.category != _category) {
+      setState(() => _category = match.category);
+    }
+  }
+
+  /// Default categories first-used-first: the ones you log most come first.
+  static List<String> _orderedCategories(
+    List<LedgerTransaction> txns,
+    String current,
+  ) {
+    final since = DateTime.now().subtract(const Duration(days: 90));
+    final counts = <String, int>{};
+    for (final t in txns) {
+      if (t.amountMinorUnits < 0 &&
+          !t.isInternalTransfer &&
+          t.transactionTimestamp.isAfter(since)) {
+        counts[t.category] = (counts[t.category] ?? 0) + 1;
+      }
+    }
+    final all = {..._categories, ...counts.keys, current}.toList();
+    final base = {
+      for (var i = 0; i < _categories.length; i++) _categories[i]: i,
+    };
+    all.sort((a, b) {
+      final c = (counts[b] ?? 0).compareTo(counts[a] ?? 0);
+      return c != 0 ? c : (base[a] ?? 99).compareTo(base[b] ?? 99);
+    });
+    return all.take(10).toList();
   }
 
   void _key(String k) {
     HapticFeedback.selectionClick();
+    _noteFocus.unfocus(); // keypad, not the system keyboard, for amounts
     setState(() {
       if (k == 'clear') {
         _text = '';
@@ -95,7 +138,7 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
           t.isInternalTransfer) {
         continue;
       }
-      if (seen.add('${t.category}|${t.amountMinorUnits}')) out.add(t);
+      if (seen.add('${t.merchant}|${t.amountMinorUnits}')) out.add(t);
       if (out.length == 6) break;
     }
     return out;
@@ -106,6 +149,7 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
     setState(() {
       _income = false;
       _category = t.category;
+      _note.text = t.merchant == t.category ? '' : t.merchant;
       _text = minor % 100 == 0
           ? '${minor ~/ 100}'
           : '${minor ~/ 100}.${(minor % 100).toString().padLeft(2, '0')}';
@@ -126,7 +170,7 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
               : onCard
               ? TransactionType.creditCardPurchase
               : TransactionType.expense,
-          merchant: _category,
+          merchant: _note.text.trim().isEmpty ? _category : _note.text.trim(),
           category: _category,
           bucketId: _income ? null : _bucketId,
         );
@@ -137,6 +181,7 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
     // Inline confirmation: a snackbar would sit on top of the Save button.
     setState(() {
       _text = '';
+      _note.clear();
       _savedLabel = _income ? 'Income saved' : 'Saved to $_category';
     });
     _savedTimer?.cancel();
@@ -151,9 +196,9 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
     final buckets = ref.watch(allAllocationBucketsProvider).value ?? const [];
     final account = _account(accounts, buckets);
     final privacy = ref.watch(privacyModeProvider);
-    final recents = _recents(
-      ref.watch(allTransactionsStreamProvider).value ?? const [],
-    );
+    final txns = ref.watch(allTransactionsStreamProvider).value ?? const [];
+    final recents = _recents(txns);
+    final categories = _orderedCategories(txns, _category);
     // Categories you can pay from directly (Rent, Family...), besides spending.
     final payFrom = buckets.where((b) => b.role == AccountRole.custom).toList();
     final payFromName = buckets
@@ -167,6 +212,28 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                RiveroSpacing.lg,
+                0,
+                RiveroSpacing.lg,
+                RiveroSpacing.sm,
+              ),
+              child: TextField(
+                key: const ValueKey('log-note'),
+                controller: _note,
+                focusNode: _noteFocus,
+                textCapitalization: TextCapitalization.sentences,
+                textInputAction: TextInputAction.done,
+                maxLength: 80,
+                onChanged: (v) => _learnCategory(v, txns),
+                decoration: const InputDecoration(
+                  hintText: 'What was it for? (optional)',
+                  prefixIcon: Icon(Icons.edit_note_rounded),
+                  counterText: '',
+                ),
+              ),
+            ),
             if (recents.isNotEmpty)
               SizedBox(
                 height: 44,
@@ -184,8 +251,8 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
                           avatar: const Icon(Icons.history_rounded, size: 16),
                           label: Text(
                             privacy
-                                ? t.category
-                                : '${t.category} '
+                                ? t.merchant
+                                : '${t.merchant} '
                                       '${CurrencyFormatter.format(t.amountMinorUnits.abs())}',
                           ),
                           shape: const StadiumBorder(),
@@ -203,7 +270,7 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
                   horizontal: RiveroSpacing.lg,
                 ),
                 children: [
-                  for (final c in {..._categories, _category})
+                  for (final c in categories)
                     Padding(
                       padding: const EdgeInsets.only(right: RiveroSpacing.sm),
                       child: ChoiceChip(

@@ -9,6 +9,7 @@ import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/bank_badge.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
+import 'package:rivero/features/transactions/widgets/transaction_detail_sheet.dart';
 
 /// Activity: every transaction, newest first, with search and a type filter.
 class TransactionsScreen extends ConsumerStatefulWidget {
@@ -177,44 +178,60 @@ class _ActivityRow extends StatelessWidget {
     final pending = t.transactionState == TransactionState.needsReview;
     final ignored = t.transactionState == TransactionState.ignored;
     final amount = CurrencyFormatter.format(t.amountMinorUnits.abs());
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: RiveroSpacing.md),
-      child: Row(
-        children: [
-          BankBadge(name: t.merchant, size: 48, circle: true),
-          const SizedBox(width: RiveroSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  t.merchant,
-                  maxLines: 2,
-                  style: RiveroTypography.titleMedium.copyWith(fontSize: 15),
-                ),
-                Text(
-                  '${DateFormat("d MMM ''yy").format(t.transactionTimestamp)}'
-                  ' · ${pending ? 'Needs review' : t.category}',
-                  style: RiveroTypography.bodySmall.copyWith(
-                    color: pending ? RiveroColors.warning : null,
+    final note = t.userNotes;
+    return InkWell(
+      borderRadius: RiveroRadii.borderLg,
+      onTap: () => TransactionDetailSheet.show(context, t),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          vertical: RiveroSpacing.md,
+          horizontal: RiveroSpacing.xs,
+        ),
+        child: Row(
+          children: [
+            BankBadge(name: t.merchant, size: 48, circle: true),
+            const SizedBox(width: RiveroSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    t.merchant,
+                    maxLines: 2,
+                    style: RiveroTypography.titleMedium.copyWith(fontSize: 15),
                   ),
-                ),
-              ],
+                  Text(
+                    '${DateFormat("d MMM ''yy").format(t.transactionTimestamp)}'
+                    ' · ${pending ? 'Needs review' : t.category}',
+                    style: RiveroTypography.bodySmall.copyWith(
+                      color: pending ? RiveroColors.warning : null,
+                    ),
+                  ),
+                  if (note != null)
+                    Text(
+                      note,
+                      maxLines: 2,
+                      style: RiveroTypography.bodySmall.copyWith(
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                ],
+              ),
             ),
-          ),
-          Text(
-            privacy ? '••••' : '${credit ? '+' : ''}$amount',
-            style: RiveroTypography.titleMedium.copyWith(
-              fontSize: 15,
-              color: ignored
-                  ? RiveroColors.textMuted
-                  : credit
-                  ? RiveroColors.success
-                  : RiveroColors.textPrimary,
-              decoration: ignored ? TextDecoration.lineThrough : null,
+            Text(
+              privacy ? '••••' : '${credit ? '+' : ''}$amount',
+              style: RiveroTypography.titleMedium.copyWith(
+                fontSize: 15,
+                color: ignored
+                    ? RiveroColors.textMuted
+                    : credit
+                    ? RiveroColors.success
+                    : RiveroColors.textPrimary,
+                decoration: ignored ? TextDecoration.lineThrough : null,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

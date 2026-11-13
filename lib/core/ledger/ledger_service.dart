@@ -34,6 +34,7 @@ class LedgerService {
     required String merchant,
     required String category,
     String? bucketId,
+    String? note,
   }) async {
     final now = DateTime.now();
     final id = 'txn-manual-${now.microsecondsSinceEpoch}';
@@ -47,12 +48,51 @@ class LedgerService {
         transactionState: const Value(TransactionState.confirmed),
         merchant: Value(merchant),
         category: Value(category),
+        userNotes: Value(
+          note == null || note.trim().isEmpty ? null : note.trim(),
+        ),
         transactionTimestamp: Value(now),
         createdAt: Value(now),
       ),
     );
     final saved = await db.transactionsDao.getTransactionById(id);
     if (saved != null) await applyEffects(saved);
+  }
+
+  /// Deletes a transaction, first undoing its balance and budget effects if
+  /// they were applied. A linked transfer/refund partner is unlinked.
+  Future<void> remove(String transactionId) async {
+    final t = await db.transactionsDao.getTransactionById(transactionId);
+    if (t == null) return;
+    final applied =
+        t.transactionState == TransactionState.confirmed ||
+        t.transactionState == TransactionState.reconciled;
+    if (applied) {
+      await db.accountsDao.adjustAccountBalance(
+        t.physicalAccountId,
+        -t.amountMinorUnits,
+      );
+      final spend = await _budgetSpend(t);
+      if (spend != 0) {
+        final bucketId =
+            t.allocationBucketId ?? await _defaultExpenseBucketId();
+        if (bucketId != null) {
+          await db.accountsDao.recordBucketSpend(bucketId, -spend);
+        }
+      }
+    }
+    final partner = t.linkedTransactionId;
+    if (partner != null) {
+      await (db.update(
+        db.transactions,
+      )..where((x) => x.id.equals(partner))).write(
+        const TransactionsCompanion(
+          linkedTransactionId: Value(null),
+          isInternalTransfer: Value(false),
+        ),
+      );
+    }
+    await db.transactionsDao.deleteTransaction(transactionId);
   }
 
   /// Moves a pending transaction to confirmed and applies its effects once.

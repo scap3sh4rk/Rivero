@@ -56,4 +56,68 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 50));
   });
+
+  testWidgets('tap a transaction to add a note, then delete it', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final db = RiveroDatabase.memory();
+    addTearDown(db.close);
+    await DatabaseSeeder(db).seedIfEmpty();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [databaseProvider.overrideWithValue(db)],
+        child: const MaterialApp(home: TransactionsScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    Future<void> settle() async {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 250)),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+    }
+
+    await tester.tap(find.text('Zomato'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.enterText(
+      find.byKey(const ValueKey('detail-note')),
+      'Team lunch, Ravi owes half',
+    );
+    await tester.tap(find.text('Food'));
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Ignore'));
+    await settle();
+
+    final row = (await tester.runAsync(
+      () => db.transactionsDao.getTransactionById('txn-review-1'),
+    ))!;
+    expect(row.userNotes, 'Team lunch, Ravi owes half');
+    expect(find.text('Team lunch, Ravi owes half'), findsOneWidget);
+
+    await tester.tap(find.text('Zomato'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.text('Delete entry'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+    await settle();
+    expect(
+      await tester.runAsync(
+        () => db.transactionsDao.getTransactionById('txn-review-1'),
+      ),
+      isNull,
+    );
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 100));
+  });
 }

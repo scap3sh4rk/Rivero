@@ -1,4 +1,4 @@
-import 'package:drift/drift.dart';
+import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rivero/core/database/daos/settings_dao.dart';
 import 'package:rivero/core/database/database.dart';
@@ -119,5 +119,35 @@ void main() {
     await ledger.confirm('i');
     expect(await spent(), 50000);
     expect(await balance('bank'), 9000000 - 80000 + 30000);
+  });
+
+  test('deleting a confirmed expense gives back balance and budget', () async {
+    await txn('e', 'bank', -50000, TransactionType.expense);
+    await ledger.confirm('e');
+    await ledger.remove('e');
+    expect(await balance('bank'), 0);
+    expect(await spent(), 0);
+    expect(await db.transactionsDao.getTransactionById('e'), isNull);
+  });
+
+  test('deleting an unconfirmed capture changes nothing else', () async {
+    await txn('p', 'bank', -50000, TransactionType.expense);
+    await ledger.remove('p');
+    expect(await balance('bank'), 0);
+    expect(await spent(), 0);
+  });
+
+  test('manual entries keep the note', () async {
+    await ledger.recordManual(
+      accountId: 'bank',
+      amountMinorUnits: -12000,
+      type: TransactionType.expense,
+      merchant: 'Chai with Ravi',
+      category: 'Food',
+      note: '  split later  ',
+    );
+    final t = (await db.select(db.transactions).get()).single;
+    expect(t.userNotes, 'split later');
+    expect(await spent(), 12000);
   });
 }

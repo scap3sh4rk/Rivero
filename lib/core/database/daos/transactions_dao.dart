@@ -112,6 +112,18 @@ class TransactionsDao extends DatabaseAccessor<RiveroDatabase>
     return updatedRows > 0;
   }
 
+  /// Set or clear the user's note on a transaction.
+  Future<bool> updateTransactionNote(String id, String? note) async {
+    final clean = note?.trim();
+    final rows = await (update(transactions)..where((t) => t.id.equals(id)))
+        .write(
+          TransactionsCompanion(
+            userNotes: Value(clean == null || clean.isEmpty ? null : clean),
+          ),
+        );
+    return rows > 0;
+  }
+
   /// Change a transaction's type (e.g. expense -> internalTransfer).
   Future<bool> updateTransactionType(String id, TransactionType type) async {
     final rows = await (update(transactions)..where((t) => t.id.equals(id)))
