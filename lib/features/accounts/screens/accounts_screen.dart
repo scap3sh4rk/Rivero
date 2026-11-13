@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivero/core/database/database.dart';
-import 'package:rivero/core/domain/custom_account_types.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
+import 'package:rivero/design_system/widgets/bank_badge.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
 import 'package:rivero/features/accounts/widgets/create_account_sheet.dart';
@@ -35,20 +35,6 @@ class AccountsScreen extends ConsumerWidget {
             onPressed: () => CreateAccountSheet.show(context),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: RiveroColors.investmentAccent,
-        foregroundColor: RiveroColors.background,
-        icon: const Icon(Icons.add_rounded),
-        label: Text(
-          'New Account',
-          style: RiveroTypography.titleMedium.copyWith(
-            color: RiveroColors.background,
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        onPressed: () => CreateAccountSheet.show(context),
       ),
       body: accountsAsync.when(
         loading: () => const Center(
@@ -249,23 +235,7 @@ class AccountsScreen extends ConsumerWidget {
                           color: Colors.transparent,
                           child: ListTile(
                             contentPadding: EdgeInsets.zero,
-                            leading: Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: RiveroColors.surfaceInteractive,
-                                borderRadius: BorderRadius.circular(
-                                  RiveroRadii.md,
-                                ),
-                              ),
-                              child: Icon(
-                                StandardAccountTypes.getIcon(
-                                  account.accountType,
-                                ),
-                                color: RiveroColors.salaryAccent,
-                                size: 22,
-                              ),
-                            ),
+                            leading: BankBadge(name: account.institution),
                             title: Row(
                               children: [
                                 Expanded(

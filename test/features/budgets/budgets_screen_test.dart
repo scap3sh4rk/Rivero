@@ -53,7 +53,7 @@ void main() {
       expect(find.text('Emergency Fund'), findsOneWidget);
 
       // Tap New Purpose FAB
-      final newPurposeFab = find.byType(FloatingActionButton);
+      final newPurposeFab = find.byTooltip('Add Purpose Bucket');
       expect(newPurposeFab, findsOneWidget);
       await tester.tap(newPurposeFab);
       await tester.pump();

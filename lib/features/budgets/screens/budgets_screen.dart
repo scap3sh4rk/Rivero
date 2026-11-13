@@ -36,20 +36,6 @@ class BudgetsScreen extends ConsumerWidget {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: RiveroColors.salaryAccent,
-        foregroundColor: RiveroColors.background,
-        icon: const Icon(Icons.add_rounded),
-        label: Text(
-          'New Purpose',
-          style: RiveroTypography.titleMedium.copyWith(
-            color: RiveroColors.background,
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        onPressed: () => CreateBudgetSheet.show(context),
-      ),
       body: bucketsAsync.when(
         loading: () => const Center(
           child: CircularProgressIndicator(

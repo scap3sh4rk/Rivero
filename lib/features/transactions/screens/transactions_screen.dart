@@ -42,20 +42,6 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: RiveroColors.expenseAccent,
-        foregroundColor: RiveroColors.background,
-        icon: const Icon(Icons.add_rounded),
-        label: Text(
-          'Log Expense',
-          style: RiveroTypography.titleMedium.copyWith(
-            color: RiveroColors.background,
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        onPressed: () => CreateTransactionSheet.show(context),
-      ),
       body: Column(
         children: [
           // Filter Chips Horizontal Scroll

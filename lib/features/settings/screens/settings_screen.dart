@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivero/core/domain/custom_account_types.dart';
+import 'package:rivero/core/ingestion/platform/notification_bridge.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
+import 'package:rivero/features/mandates/mandates_screen.dart';
 
 /// Settings & Customization screen for paycycle configuration, custom account types,
 /// credit score alert thresholds, privacy toggles, and data controls.
@@ -30,6 +32,44 @@ class SettingsScreen extends ConsumerWidget {
           vertical: RiveroSpacing.md,
         ),
         children: [
+          _buildSectionHeader('AUTOMATION'),
+          RiveroCard(
+            padding: const EdgeInsets.all(RiveroSpacing.md),
+            child: Material(
+              color: Colors.transparent,
+              child: Column(
+                children: [
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.autorenew_rounded),
+                    title: const Text('Autopay & mandates'),
+                    subtitle: Text(
+                      'Track and cancel recurring debits',
+                      style: RiveroTypography.bodySmall,
+                    ),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => MandatesScreen.open(context),
+                  ),
+                  if (NotificationBridge.supported) ...[
+                    const Divider(color: RiveroColors.borderSubtle),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.notifications_active_outlined),
+                      title: const Text('Auto-capture from notifications'),
+                      subtitle: Text(
+                        'Grant notification access so spends log themselves',
+                        style: RiveroTypography.bodySmall,
+                      ),
+                      trailing: const Icon(Icons.open_in_new_rounded, size: 18),
+                      onTap: NotificationBridge.openSettings,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: RiveroSpacing.lg),
+
           // 1. Paycycle & Salary Configuration
           _buildSectionHeader('PAYCYCLE CONFIGURATION'),
           RiveroCard(
@@ -227,13 +267,13 @@ class SettingsScreen extends ConsumerWidget {
                       color: RiveroColors.investmentAccent,
                     ),
                     title: Text(
-                      'Local SQLCipher AES-256 Storage',
+                      'On-device storage only',
                       style: RiveroTypography.titleMedium.copyWith(
                         fontSize: 15,
                       ),
                     ),
                     subtitle: Text(
-                      'Encrypted local database on-device · Zero cloud storage · Zero READ_SMS permission',
+                      'No cloud sync · No SMS permission · Data never leaves this phone',
                       style: RiveroTypography.bodySmall,
                     ),
                   ),

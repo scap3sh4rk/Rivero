@@ -48,7 +48,7 @@ void main() {
       expect(find.text('Blinkit'), findsOneWidget);
 
       // Tap Log Expense FAB
-      final logFab = find.byType(FloatingActionButton);
+      final logFab = find.byTooltip('Log Transaction');
       expect(logFab, findsOneWidget);
       await tester.tap(logFab);
       await tester.pump();

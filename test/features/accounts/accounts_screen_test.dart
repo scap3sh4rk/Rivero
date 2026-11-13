@@ -57,7 +57,7 @@ void main() {
       expect(find.text('ICICI Daily Expenses'), findsOneWidget);
 
       // Tap New Account FAB
-      final newAccountFab = find.byType(FloatingActionButton);
+      final newAccountFab = find.byTooltip('Add Account');
       expect(newAccountFab, findsOneWidget);
       await tester.tap(newAccountFab);
       await tester.pump();

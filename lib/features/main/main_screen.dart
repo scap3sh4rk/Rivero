@@ -223,7 +223,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
     return Scaffold(
       backgroundColor: RiveroColors.background,
-      extendBody: true,
       body: PageView(
         controller: _pager,
         physics: const BouncingScrollPhysics(),
@@ -264,18 +263,15 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           ),
         ),
       ),
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 72),
-        child: FloatingActionButton(
-          mini: true,
-          elevation: 0,
-          backgroundColor: RiveroColors.textPrimary,
-          foregroundColor: RiveroColors.background,
-          shape: const CircleBorder(),
-          tooltip: 'Quick Actions',
-          onPressed: () => _showQuickActions(context),
-          child: const Icon(Icons.add_rounded, size: 24),
-        ),
+      floatingActionButton: FloatingActionButton(
+        mini: true,
+        elevation: 0,
+        backgroundColor: RiveroColors.textPrimary,
+        foregroundColor: RiveroColors.background,
+        shape: const CircleBorder(),
+        tooltip: 'Quick Actions',
+        onPressed: () => _showQuickActions(context),
+        child: const Icon(Icons.add_rounded, size: 24),
       ),
     );
   }

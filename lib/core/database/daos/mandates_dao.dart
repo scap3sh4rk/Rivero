@@ -11,6 +11,13 @@ class MandatesDao extends DatabaseAccessor<RiveroDatabase>
     with _$MandatesDaoMixin {
   MandatesDao(super.attachedDatabase);
 
+  /// Watch every mandate regardless of status (for the Autopay screen).
+  Stream<List<Mandate>> watchAllMandates() {
+    return (select(
+      mandates,
+    )..orderBy([(t) => OrderingTerm(expression: t.nextExecutionDate)])).watch();
+  }
+
   /// Watch all currently active mandates.
   Stream<List<Mandate>> watchActiveMandates() {
     return (select(mandates)

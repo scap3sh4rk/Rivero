@@ -153,6 +153,11 @@ final activeMandatesProvider = StreamProvider<List<Mandate>>((ref) {
   return ref.watch(databaseProvider).mandatesDao.watchActiveMandates();
 });
 
+/// Stream of all mandates, any status.
+final allMandatesProvider = StreamProvider<List<Mandate>>((ref) {
+  return ref.watch(databaseProvider).mandatesDao.watchAllMandates();
+});
+
 /// Live calculated Safe-to-Spend result dynamically computed from database streams and paycycle.
 final liveSafeToSpendResultProvider = Provider<AsyncValue<SafeToSpendResult>>((
   ref,
