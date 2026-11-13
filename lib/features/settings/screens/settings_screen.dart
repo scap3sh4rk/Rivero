@@ -313,13 +313,13 @@ class SettingsScreen extends ConsumerWidget {
                       color: RiveroColors.investmentAccent,
                     ),
                     title: Text(
-                      'On-device storage only',
+                      'Encrypted on-device storage',
                       style: RiveroTypography.titleMedium.copyWith(
                         fontSize: 15,
                       ),
                     ),
                     subtitle: Text(
-                      'No cloud sync · No SMS permission · Data never leaves this phone',
+                      'AES-256 database, key in the system keystore · No cloud sync · No SMS permission',
                       style: RiveroTypography.bodySmall,
                     ),
                   ),

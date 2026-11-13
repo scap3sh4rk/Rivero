@@ -122,10 +122,11 @@ final includePendingReimbursementsProvider = StateProvider<bool>(
 );
 
 /// Central database provider.
+///
+/// Must be overridden at startup with the encrypted database (see `main`);
+/// there is deliberately no plaintext fallback.
 final databaseProvider = Provider<RiveroDatabase>((ref) {
-  final db = RiveroDatabase();
-  ref.onDispose(db.close);
-  return db;
+  throw StateError('databaseProvider must be overridden with an open database');
 });
 
 /// Database seeder provider.

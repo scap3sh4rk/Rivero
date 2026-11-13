@@ -4,14 +4,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/ingestion/platform/notification_bridge.dart';
 import 'package:rivero/core/providers/app_providers.dart';
+import 'package:rivero/core/security/database_key_manager.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/features/main/main_screen.dart';
 import 'package:rivero/features/onboarding/onboarding_screen.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  final key = await DatabaseKeyManager().getOrCreateMasterKey();
+  final db = RiveroDatabase.encrypted(key);
 
   // Gracefully handle UI errors without displaying harsh full-screen red boxes
   ErrorWidget.builder = (details) {
@@ -30,7 +35,12 @@ void main() {
     );
   };
 
-  runApp(const ProviderScope(child: RiveroApp()));
+  runApp(
+    ProviderScope(
+      overrides: [databaseProvider.overrideWithValue(db)],
+      child: const RiveroApp(),
+    ),
+  );
 }
 
 /// Root widget of the Rivero application.
