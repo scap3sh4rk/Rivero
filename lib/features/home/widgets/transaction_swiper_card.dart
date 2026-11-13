@@ -50,7 +50,7 @@ class TransactionSwiperCard extends StatelessWidget {
                   horizontal: RiveroSpacing.sm,
                   vertical: RiveroSpacing.xs,
                 ),
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: RiveroColors.surfaceInteractive,
                   borderRadius: RiveroRadii.borderSm,
                 ),
@@ -123,11 +123,7 @@ class TransactionSwiperCard extends StatelessWidget {
               else
                 Row(
                   children: [
-                    const Icon(
-                      Icons.swipe,
-                      size: 14,
-                      color: RiveroColors.textMuted,
-                    ),
+                    Icon(Icons.swipe, size: 14, color: RiveroColors.textMuted),
                     const SizedBox(width: RiveroSpacing.xs),
                     Text('Swipe to triage', style: RiveroTypography.bodySmall),
                   ],
@@ -197,7 +193,7 @@ class TransactionSwiperCard extends StatelessWidget {
                   label: const Text('Ignore'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: RiveroColors.textSecondary,
-                    side: const BorderSide(color: RiveroColors.borderMedium),
+                    side: BorderSide(color: RiveroColors.borderMedium),
                     padding: const EdgeInsets.symmetric(
                       vertical: RiveroSpacing.md,
                     ),

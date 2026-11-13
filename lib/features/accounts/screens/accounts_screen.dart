@@ -160,7 +160,7 @@ class AccountsScreen extends ConsumerWidget {
                     child: Center(
                       child: Column(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.credit_card_off_rounded,
                             color: RiveroColors.textMuted,
                             size: 28,

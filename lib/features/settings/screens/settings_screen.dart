@@ -32,6 +32,38 @@ class SettingsScreen extends ConsumerWidget {
           vertical: RiveroSpacing.md,
         ),
         children: [
+          _buildSectionHeader('APPEARANCE'),
+          RiveroCard(
+            padding: const EdgeInsets.all(RiveroSpacing.md),
+            child: SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<AppThemeMode>(
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(
+                    value: AppThemeMode.dark,
+                    label: Text('Dark'),
+                    icon: Icon(Icons.dark_mode_outlined),
+                  ),
+                  ButtonSegment(
+                    value: AppThemeMode.light,
+                    label: Text('Light'),
+                    icon: Icon(Icons.light_mode_outlined),
+                  ),
+                  ButtonSegment(
+                    value: AppThemeMode.system,
+                    label: Text('Auto'),
+                    icon: Icon(Icons.brightness_auto_outlined),
+                  ),
+                ],
+                selected: {ref.watch(themeModeProvider)},
+                onSelectionChanged: (s) =>
+                    ref.read(themeModeProvider.notifier).state = s.first,
+              ),
+            ),
+          ),
+          const SizedBox(height: RiveroSpacing.lg),
+
           _buildSectionHeader('AUTOMATION'),
           RiveroCard(
             padding: const EdgeInsets.all(RiveroSpacing.md),
@@ -51,7 +83,7 @@ class SettingsScreen extends ConsumerWidget {
                     onTap: () => MandatesScreen.open(context),
                   ),
                   if (NotificationBridge.supported) ...[
-                    const Divider(color: RiveroColors.borderSubtle),
+                    Divider(color: RiveroColors.borderSubtle),
                     ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: const Icon(Icons.notifications_active_outlined),
@@ -239,7 +271,7 @@ class SettingsScreen extends ConsumerWidget {
                 children: [
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    secondary: const Icon(
+                    secondary: Icon(
                       Icons.visibility_off_outlined,
                       color: RiveroColors.textSecondary,
                     ),
@@ -259,7 +291,7 @@ class SettingsScreen extends ConsumerWidget {
                       ref.read(privacyModeProvider.notifier).state = val;
                     },
                   ),
-                  const Divider(color: RiveroColors.borderSubtle),
+                  Divider(color: RiveroColors.borderSubtle),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(

@@ -26,6 +26,13 @@ final salaryRootBalanceProvider = StateProvider<int>(
 /// Provider indicating whether the app is in privacy mode (hiding balances).
 final privacyModeProvider = StateProvider<bool>((ref) => false);
 
+/// User's appearance choice. Dark is the default.
+enum AppThemeMode { dark, light, system }
+
+final themeModeProvider = StateProvider<AppThemeMode>(
+  (ref) => AppThemeMode.dark,
+);
+
 /// Waterfall allocator engine instance.
 final waterfallAllocatorProvider = Provider<WaterfallAllocator>((ref) {
   return const WaterfallAllocator();

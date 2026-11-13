@@ -4,18 +4,25 @@ import 'package:google_fonts/google_fonts.dart';
 /// Semantic colors for Rivero's design system.
 /// All hex codes strictly adhere to the approved architecture specifications.
 abstract final class RiveroColors {
+  /// Set by the app root before building; neutrals below follow it.
+  static bool isLight = false;
+
   // --- Core Surfaces ---
   /// Deep pitch dark background: `#08080C`
-  static const Color background = Color(0xFF09090B);
+  static Color get background =>
+      isLight ? const Color(0xFFF6F5F2) : const Color(0xFF09090B);
 
   /// Primary card and container surface: `#12121A`
-  static const Color surface = Color(0xFF131316);
+  static Color get surface =>
+      isLight ? const Color(0xFFFFFFFF) : const Color(0xFF131316);
 
   /// Elevated card, modal, or floating surface: `#1A1A26`
-  static const Color surfaceElevated = Color(0xFF1B1B1F);
+  static Color get surfaceElevated =>
+      isLight ? const Color(0xFFF0EFEB) : const Color(0xFF1B1B1F);
 
   /// Higher level interactive surface (hover/active state): `#222233`
-  static const Color surfaceInteractive = Color(0xFF25252B);
+  static Color get surfaceInteractive =>
+      isLight ? const Color(0xFFE6E4DF) : const Color(0xFF25252B);
 
   // --- Financial Hierarchy Accents ---
   /// Salary root accent (Warm Amber): `#F59E0B`
@@ -57,26 +64,33 @@ abstract final class RiveroColors {
 
   // --- Text & Foreground ---
   /// Primary high-contrast text: `#F8FAFC`
-  static const Color textPrimary = Color(0xFFF8FAFC);
+  static Color get textPrimary =>
+      isLight ? const Color(0xFF16161A) : const Color(0xFFF8FAFC);
 
   /// Secondary subdued text: `#94A3B8`
-  static const Color textSecondary = Color(0xFF94A3B8);
+  static Color get textSecondary =>
+      isLight ? const Color(0xFF55596A) : const Color(0xFF94A3B8);
 
   /// Muted helper text: `#64748B`
-  static const Color textMuted = Color(0xFF64748B);
+  static Color get textMuted =>
+      isLight ? const Color(0xFF7C8091) : const Color(0xFF64748B);
 
   /// Disabled text/icon: `#475569`
-  static const Color textDisabled = Color(0xFF475569);
+  static Color get textDisabled =>
+      isLight ? const Color(0xFFA5A8B5) : const Color(0xFF475569);
 
   // --- Borders & Dividers ---
   /// Subtle surface outline: `#1E1E2E`
-  static const Color borderSubtle = Color(0xFF1F1F25);
+  static Color get borderSubtle =>
+      isLight ? const Color(0xFFE4E2DC) : const Color(0xFF1F1F25);
 
   /// Distinct component border: `#2E2E42`
-  static const Color borderMedium = Color(0xFF2D2D35);
+  static Color get borderMedium =>
+      isLight ? const Color(0xFFD3D0C8) : const Color(0xFF2D2D35);
 
   /// Highlight/focused border: `#3E3E58`
-  static const Color borderHighlight = Color(0xFF3D3D48);
+  static Color get borderHighlight =>
+      isLight ? const Color(0xFFBDB9AF) : const Color(0xFF3D3D48);
 }
 
 /// Spacing scale based on an 8-point / 4-point harmonic grid.
@@ -219,22 +233,38 @@ abstract final class RiveroTypography {
 
 /// Rivero Theme configuration for MaterialApp.
 abstract final class RiveroTheme {
-  static ThemeData get darkTheme {
+  static ThemeData get darkTheme => build(light: false);
+  static ThemeData get lightTheme => build(light: true);
+
+  /// Builds the theme and points [RiveroColors] neutrals at the same mode,
+  /// so widgets reading `RiveroColors.*` match the Material theme.
+  static ThemeData build({required bool light}) {
+    RiveroColors.isLight = light;
+    final scheme = light
+        ? ColorScheme.light(
+            surface: RiveroColors.surface,
+            onSurface: RiveroColors.textPrimary,
+            primary: RiveroColors.textPrimary,
+            onPrimary: RiveroColors.background,
+            secondary: RiveroColors.salaryAccent,
+            error: RiveroColors.danger,
+          )
+        : ColorScheme.dark(
+            surface: RiveroColors.surface,
+            onSurface: RiveroColors.textPrimary,
+            primary: RiveroColors.expenseAccent,
+            onPrimary: RiveroColors.textPrimary,
+            secondary: RiveroColors.salaryAccent,
+            onSecondary: RiveroColors.background,
+            error: RiveroColors.danger,
+            onError: RiveroColors.textPrimary,
+          );
     return ThemeData(
       useMaterial3: true,
-      brightness: Brightness.dark,
+      brightness: light ? Brightness.light : Brightness.dark,
       scaffoldBackgroundColor: RiveroColors.background,
-      colorScheme: const ColorScheme.dark(
-        surface: RiveroColors.surface,
-        onSurface: RiveroColors.textPrimary,
-        primary: RiveroColors.expenseAccent,
-        onPrimary: RiveroColors.textPrimary,
-        secondary: RiveroColors.salaryAccent,
-        onSecondary: RiveroColors.background,
-        error: RiveroColors.danger,
-        onError: RiveroColors.textPrimary,
-      ),
-      cardTheme: const CardThemeData(
+      colorScheme: scheme,
+      cardTheme: CardThemeData(
         color: RiveroColors.surface,
         elevation: 0,
         shape: RoundedRectangleBorder(
@@ -242,14 +272,14 @@ abstract final class RiveroTheme {
           side: BorderSide(color: RiveroColors.borderSubtle),
         ),
       ),
-      appBarTheme: const AppBarTheme(
+      appBarTheme: AppBarTheme(
         backgroundColor: RiveroColors.background,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
         iconTheme: IconThemeData(color: RiveroColors.textPrimary),
       ),
-      dividerTheme: const DividerThemeData(
+      dividerTheme: DividerThemeData(
         color: RiveroColors.borderSubtle,
         thickness: 1,
         space: 1,

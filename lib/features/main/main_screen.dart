@@ -35,9 +35,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: RiveroColors.surface,
-          borderRadius: BorderRadius.vertical(
+          borderRadius: const BorderRadius.vertical(
             top: Radius.circular(RiveroRadii.xl),
           ),
           border: Border(
@@ -177,7 +177,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                 ],
               ),
             ),
-            const Icon(
+            Icon(
               Icons.chevron_right_rounded,
               color: RiveroColors.textMuted,
               size: 20,
@@ -188,7 +188,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     );
   }
 
-  late final PageController _pager = PageController();
+  late final PageController _pager = PageController(
+    initialPage: ref.read(selectedNavIndexProvider),
+  );
 
   static const _tabs = <(IconData, IconData, String)>[
     (Icons.home_outlined, Icons.home_rounded, 'Overview'),

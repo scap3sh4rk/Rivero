@@ -25,10 +25,7 @@ class HomeScreen extends ConsumerWidget {
         actions: [
           IconButton(
             tooltip: 'Simulate Notification',
-            icon: const Icon(
-              Icons.bolt_rounded,
-              color: RiveroColors.textSecondary,
-            ),
+            icon: Icon(Icons.bolt_rounded, color: RiveroColors.textSecondary),
             onPressed: () => SimulateSmsSheet.show(context),
           ),
           IconButton(

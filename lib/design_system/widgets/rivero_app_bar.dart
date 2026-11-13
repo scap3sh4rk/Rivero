@@ -46,8 +46,8 @@ class RiveroAppBar extends StatelessWidget implements PreferredSizeWidget {
       actions: actions,
       bottom:
           bottom ??
-          const PreferredSize(
-            preferredSize: Size.fromHeight(1),
+          PreferredSize(
+            preferredSize: const Size.fromHeight(1),
             child: Divider(
               color: RiveroColors.borderSubtle,
               height: 1,

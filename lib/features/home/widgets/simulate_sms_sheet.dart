@@ -173,7 +173,7 @@ class _SimulateSmsSheetState extends ConsumerState<SimulateSmsSheet> {
               child: Container(
                 width: 40,
                 height: 4,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: RiveroColors.borderHighlight,
                   borderRadius: RiveroRadii.borderFull,
                 ),
@@ -243,15 +243,15 @@ class _SimulateSmsSheetState extends ConsumerState<SimulateSmsSheet> {
             TextField(
               controller: _senderController,
               style: RiveroTypography.monoMedium,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 filled: true,
                 fillColor: RiveroColors.surfaceInteractive,
                 hintText: 'e.g. VK-HDFCBK or AD-ICICIB',
-                border: OutlineInputBorder(
+                border: const OutlineInputBorder(
                   borderRadius: RiveroRadii.borderMd,
                   borderSide: BorderSide.none,
                 ),
-                contentPadding: EdgeInsets.symmetric(
+                contentPadding: const EdgeInsets.symmetric(
                   horizontal: RiveroSpacing.md,
                   vertical: RiveroSpacing.sm,
                 ),
@@ -274,15 +274,15 @@ class _SimulateSmsSheetState extends ConsumerState<SimulateSmsSheet> {
               style: RiveroTypography.bodyMedium.copyWith(
                 color: RiveroColors.textPrimary,
               ),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 filled: true,
                 fillColor: RiveroColors.surfaceInteractive,
                 hintText: 'Sent Rs.500 to Merchant on 13-Nov-26...',
-                border: OutlineInputBorder(
+                border: const OutlineInputBorder(
                   borderRadius: RiveroRadii.borderMd,
                   borderSide: BorderSide.none,
                 ),
-                contentPadding: EdgeInsets.all(RiveroSpacing.md),
+                contentPadding: const EdgeInsets.all(RiveroSpacing.md),
               ),
             ),
             const SizedBox(height: RiveroSpacing.lg),
@@ -318,7 +318,7 @@ class _SimulateSmsSheetState extends ConsumerState<SimulateSmsSheet> {
               child: ElevatedButton.icon(
                 onPressed: _isProcessing ? null : _ingestNotification,
                 icon: _isProcessing
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 18,
                         height: 18,
                         child: CircularProgressIndicator(

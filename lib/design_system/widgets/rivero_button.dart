@@ -66,7 +66,7 @@ class _RiveroButtonState extends State<RiveroButton> {
     if (!_isEnabled) return BorderSide.none;
     switch (widget.variant) {
       case RiveroButtonVariant.secondary:
-        return const BorderSide(color: RiveroColors.borderMedium);
+        return BorderSide(color: RiveroColors.borderMedium);
       case RiveroButtonVariant.ghost:
       case RiveroButtonVariant.primary:
       case RiveroButtonVariant.danger:

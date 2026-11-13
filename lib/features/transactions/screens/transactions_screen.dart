@@ -135,7 +135,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.receipt_long_outlined,
                           size: 48,
                           color: RiveroColors.textMuted,
@@ -268,7 +268,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                                               ),
                                         ),
                                         const SizedBox(width: 4),
-                                        const Text(
+                                        Text(
                                           '·',
                                           style: TextStyle(
                                             color: RiveroColors.textMuted,

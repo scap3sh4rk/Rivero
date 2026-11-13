@@ -235,7 +235,7 @@ class BudgetsScreen extends ConsumerWidget {
                     child: Center(
                       child: Column(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.pie_chart_outline_rounded,
                             color: RiveroColors.textMuted,
                             size: 32,

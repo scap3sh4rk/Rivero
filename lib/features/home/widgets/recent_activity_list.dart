@@ -83,7 +83,7 @@ class RecentActivityList extends ConsumerWidget {
                         Container(
                           width: 40,
                           height: 40,
-                          decoration: const BoxDecoration(
+                          decoration: BoxDecoration(
                             color: RiveroColors.surfaceInteractive,
                             borderRadius: RiveroRadii.borderMd,
                           ),

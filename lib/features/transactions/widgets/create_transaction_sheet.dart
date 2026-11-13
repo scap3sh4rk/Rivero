@@ -140,9 +140,9 @@ class _CreateTransactionSheetState
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
       child: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: RiveroColors.surface,
-          borderRadius: BorderRadius.vertical(
+          borderRadius: const BorderRadius.vertical(
             top: Radius.circular(RiveroRadii.xl),
           ),
           border: Border(
@@ -174,10 +174,7 @@ class _CreateTransactionSheetState
                   children: [
                     Text('Log Transaction', style: RiveroTypography.titleLarge),
                     IconButton(
-                      icon: const Icon(
-                        Icons.close,
-                        color: RiveroColors.textMuted,
-                      ),
+                      icon: Icon(Icons.close, color: RiveroColors.textMuted),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],

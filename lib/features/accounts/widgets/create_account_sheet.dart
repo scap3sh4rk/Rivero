@@ -73,7 +73,7 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
           controller: textController,
           autofocus: true,
           style: RiveroTypography.bodyLarge,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             hintText: 'e.g. Crypto Vault, Chit Fund, ESOP',
             hintStyle: TextStyle(color: RiveroColors.textMuted),
           ),
@@ -171,9 +171,9 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
       child: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: RiveroColors.surface,
-          borderRadius: BorderRadius.vertical(
+          borderRadius: const BorderRadius.vertical(
             top: Radius.circular(RiveroRadii.xl),
           ),
           border: Border(
@@ -210,10 +210,7 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
                       style: RiveroTypography.titleLarge,
                     ),
                     IconButton(
-                      icon: const Icon(
-                        Icons.close,
-                        color: RiveroColors.textMuted,
-                      ),
+                      icon: Icon(Icons.close, color: RiveroColors.textMuted),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],
