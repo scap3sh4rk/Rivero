@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:rivero/core/database/database.dart';
@@ -152,8 +153,10 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                       horizontal: RiveroSpacing.xl,
                     ),
                     itemCount: shown.length,
-                    itemBuilder: (_, i) =>
-                        _ActivityRow(shown[i], privacy: privacy),
+                    itemBuilder: (_, i) => _ActivityRow(
+                      shown[i],
+                      privacy: privacy,
+                    ).animate().fadeIn(duration: 220.ms),
                   ),
           ),
         ],

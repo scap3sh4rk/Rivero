@@ -13,13 +13,21 @@ import 'package:rivero/design_system/widgets/financial_amount_text.dart';
 class SafeToSpendHeroCard extends ConsumerWidget {
   const SafeToSpendHeroCard({super.key});
 
-  /// Colour for the fraction of budget remaining (1 = full, 0 = empty).
+  /// Pill colour for the fraction of the month's budget remaining. Calm and
+  /// neutral while things are fine; it only warms up when money is running
+  /// low, and turns red only for a real shortfall.
   static Color toneFor(double remaining, {bool deficit = false}) {
     if (deficit) return RiveroColors.danger;
     final r = remaining.clamp(0.0, 1.0);
-    return r >= 0.5
-        ? Color.lerp(RiveroColors.warning, RiveroColors.success, (r - 0.5) * 2)!
-        : Color.lerp(RiveroColors.danger, RiveroColors.warning, r * 2)!;
+    if (r >= 0.35) return RiveroColors.textSecondary;
+    if (r >= 0.15) {
+      return Color.lerp(
+        RiveroColors.warning,
+        RiveroColors.textSecondary,
+        (r - 0.15) / 0.2,
+      )!;
+    }
+    return Color.lerp(RiveroColors.danger, RiveroColors.warning, r / 0.15)!;
   }
 
   @override

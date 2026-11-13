@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
@@ -53,11 +54,14 @@ class HomeScreen extends ConsumerWidget {
             RiveroSpacing.lg,
             RiveroSpacing.huge * 2,
           ),
-          children: const [
-            SafeToSpendHeroCard(),
-            SizedBox(height: RiveroSpacing.huge),
-            SalaryPrompt(),
-            ReviewInbox(),
+          children: [
+            const SafeToSpendHeroCard()
+                .animate()
+                .fadeIn(duration: 350.ms)
+                .slideY(begin: 0.06, curve: Curves.easeOutCubic),
+            const SizedBox(height: RiveroSpacing.huge),
+            const SalaryPrompt(),
+            const ReviewInbox(),
           ],
         ),
       ),

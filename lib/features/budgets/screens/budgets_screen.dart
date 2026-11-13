@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/account_role.dart';
@@ -120,7 +121,11 @@ class BudgetsScreen extends ConsumerWidget {
               'Set up your salary plan to create categories.',
               style: RiveroTypography.bodySmall,
             ),
-          for (final b in ordered) _CategoryTile(b, money: money),
+          for (final b in ordered)
+            _CategoryTile(b, money: money)
+                .animate()
+                .fadeIn(duration: 260.ms)
+                .slideY(begin: 0.05, curve: Curves.easeOutCubic),
         ],
       ),
     );

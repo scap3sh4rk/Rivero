@@ -252,8 +252,10 @@ abstract final class RiveroTheme {
         : ColorScheme.dark(
             surface: RiveroColors.surface,
             onSurface: RiveroColors.textPrimary,
-            primary: RiveroColors.expenseAccent,
-            onPrimary: RiveroColors.textPrimary,
+            // Monochrome controls (switches, chips, buttons): calmer, less
+            // "themed" than a coloured primary.
+            primary: RiveroColors.textPrimary,
+            onPrimary: RiveroColors.background,
             secondary: RiveroColors.salaryAccent,
             onSecondary: RiveroColors.background,
             error: RiveroColors.danger,

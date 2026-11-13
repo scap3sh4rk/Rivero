@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/database/database_seeder.dart';
 import 'package:rivero/core/providers/app_providers.dart';
+import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/features/home/widgets/safe_to_spend_hero_card.dart';
 
 import '../../test_helper.dart';
@@ -69,4 +70,18 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 50));
   });
+
+  test(
+    'pill stays neutral while fine, warms when low, red only for deficit',
+    () {
+      expect(SafeToSpendHeroCard.toneFor(0.9), RiveroColors.textSecondary);
+      expect(SafeToSpendHeroCard.toneFor(0.4), RiveroColors.textSecondary);
+      expect(SafeToSpendHeroCard.toneFor(0.15), RiveroColors.warning);
+      expect(SafeToSpendHeroCard.toneFor(0), RiveroColors.danger);
+      expect(
+        SafeToSpendHeroCard.toneFor(0.9, deficit: true),
+        RiveroColors.danger,
+      );
+    },
+  );
 }
