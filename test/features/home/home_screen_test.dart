@@ -38,7 +38,7 @@ void main() {
 
       expect(find.text('Rivero'), findsOneWidget);
       expect(find.text('SAFE TO SPEND'), findsOneWidget);
-      expect(find.text('INBOX TRIAGE'), findsOneWidget);
+      expect(find.text('To review · 3'), findsOneWidget);
 
       // Tap simulate notification button in AppBar
       final simulateButton = find.byTooltip('Simulate Notification');

@@ -42,7 +42,7 @@ void main() {
 
     expect(find.text('Rivero'), findsOneWidget);
     expect(find.text('SAFE TO SPEND'), findsOneWidget);
-    expect(find.text('INBOX TRIAGE'), findsOneWidget);
+    expect(find.text('To review · 3'), findsOneWidget);
 
     // Toggle privacy mode
     final privacyButton = find.byTooltip('Toggle Privacy Mode');

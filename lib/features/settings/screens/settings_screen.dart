@@ -63,6 +63,15 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ),
           ),
+          SwitchListTile(
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: RiveroSpacing.xs,
+            ),
+            title: const Text('Open on quick log'),
+            subtitle: const Text('Start on the keypad instead of Home'),
+            value: ref.watch(openOnLogProvider),
+            onChanged: (v) => ref.read(openOnLogProvider.notifier).state = v,
+          ),
           const SizedBox(height: RiveroSpacing.lg),
 
           _buildSectionHeader('AUTOMATION'),

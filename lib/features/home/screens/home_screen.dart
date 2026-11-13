@@ -4,10 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
+import 'package:rivero/features/home/widgets/review_inbox.dart';
 import 'package:rivero/features/home/widgets/safe_to_spend_hero_card.dart';
 import 'package:rivero/features/home/widgets/salary_prompt.dart';
 import 'package:rivero/features/home/widgets/simulate_sms_sheet.dart';
-import 'package:rivero/features/home/widgets/transaction_swiper_section.dart';
 
 /// Home: one hero number and, only when needed, the triage inbox.
 /// Accounts, budgets and history live on their own pages (no repeated data).
@@ -57,7 +57,7 @@ class HomeScreen extends ConsumerWidget {
             SafeToSpendHeroCard(),
             SizedBox(height: RiveroSpacing.huge),
             SalaryPrompt(),
-            TransactionSwiperSection(),
+            ReviewInbox(),
           ],
         ),
       ),

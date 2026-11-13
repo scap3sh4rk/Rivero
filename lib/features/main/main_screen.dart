@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivero/core/providers/app_providers.dart';
+import 'package:rivero/design_system/eager_page_physics.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/features/accounts/screens/accounts_screen.dart';
 import 'package:rivero/features/budgets/screens/budgets_screen.dart';
@@ -19,25 +20,37 @@ class MainScreen extends ConsumerStatefulWidget {
 }
 
 class _MainScreenState extends ConsumerState<MainScreen> {
+  // Home sits in the middle so every other page is at most two swipes away.
+  static const homeIndex = 2;
+  static const logIndex = 3;
+
   static const _screens = <Widget>[
-    HomeScreen(),
     AccountsScreen(),
+    BudgetsScreen(),
+    HomeScreen(),
     QuickLogScreen(),
     TransactionsScreen(),
-    BudgetsScreen(),
   ];
 
   static const _tabs = <(IconData, IconData, String)>[
-    (Icons.home_outlined, Icons.home_rounded, 'Home'),
     (Icons.account_balance_outlined, Icons.account_balance_rounded, 'Accounts'),
+    (Icons.donut_small_outlined, Icons.donut_small_rounded, 'Plan'),
+    (Icons.home_outlined, Icons.home_rounded, 'Home'),
     (Icons.dialpad_rounded, Icons.dialpad_rounded, 'Log'),
     (Icons.receipt_long_outlined, Icons.receipt_long_rounded, 'Activity'),
-    (Icons.donut_small_outlined, Icons.donut_small_rounded, 'Plan'),
   ];
 
-  late final PageController _pager = PageController(
-    initialPage: ref.read(selectedNavIndexProvider),
-  );
+  late final int _initial = ref.read(openOnLogProvider) ? logIndex : homeIndex;
+  late int _settled = _initial;
+  late final PageController _pager = PageController(initialPage: _initial);
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(selectedNavIndexProvider.notifier).state = _initial;
+    });
+  }
 
   @override
   void dispose() {
@@ -48,6 +61,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   void _goTo(int i) {
     FocusManager.instance.primaryFocus?.unfocus();
     ref.read(selectedNavIndexProvider.notifier).state = i;
+    _settled = i;
     _pager.animateToPage(
       i,
       duration: const Duration(milliseconds: 420),
@@ -60,12 +74,20 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     final current = ref.watch(selectedNavIndexProvider);
     return Scaffold(
       backgroundColor: RiveroColors.background,
-      body: PageView(
-        controller: _pager,
-        physics: const BouncingScrollPhysics(),
-        onPageChanged: (i) =>
-            ref.read(selectedNavIndexProvider.notifier).state = i,
-        children: _screens,
+      body: NotificationListener<ScrollEndNotification>(
+        onNotification: (_) {
+          final page = _pager.page;
+          if (page != null) _settled = page.round();
+          return false;
+        },
+        child: PageView(
+          controller: _pager,
+          pageSnapping: false,
+          physics: EagerPagePhysics(settledPage: () => _settled),
+          onPageChanged: (i) =>
+              ref.read(selectedNavIndexProvider.notifier).state = i,
+          children: _screens,
+        ),
       ),
       bottomNavigationBar: SafeArea(
         child: SizedBox(

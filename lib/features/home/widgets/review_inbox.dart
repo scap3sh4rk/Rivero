@@ -1,0 +1,119 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+import 'package:rivero/core/database/database.dart';
+import 'package:rivero/core/domain/transaction_enums.dart';
+import 'package:rivero/core/providers/app_providers.dart';
+import 'package:rivero/core/utils/currency_formatter.dart';
+import 'package:rivero/design_system/rivero_tokens.dart';
+import 'package:rivero/design_system/widgets/bank_badge.dart';
+import 'package:rivero/design_system/widgets/rivero_card.dart';
+
+/// Captured transactions the app was not sure about. Buttons, not swipes, so
+/// it never fights the page swipe. Hidden entirely when there is nothing.
+class ReviewInbox extends ConsumerWidget {
+  const ReviewInbox({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pending =
+        ref.watch(pendingReviewTransactionsProvider).value ?? const [];
+    if (pending.isEmpty) return const SizedBox.shrink();
+    final privacy = ref.watch(privacyModeProvider);
+
+    Future<void> confirm(LedgerTransaction t) async {
+      await ref.read(ledgerServiceProvider).confirm(t.id);
+      await ref.read(reconciliationServiceProvider).reconcileAll();
+    }
+
+    Future<void> ignore(LedgerTransaction t) => ref
+        .read(databaseProvider)
+        .transactionsDao
+        .updateTransactionState(t.id, TransactionState.ignored);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'To review · ${pending.length}',
+          style: RiveroTypography.titleMedium,
+        ),
+        const SizedBox(height: RiveroSpacing.xs),
+        Text(
+          'Captured automatically. Keep what is right.',
+          style: RiveroTypography.bodySmall,
+        ),
+        const SizedBox(height: RiveroSpacing.md),
+        for (final t in pending.take(3))
+          Padding(
+            key: ValueKey(t.id),
+            padding: const EdgeInsets.only(bottom: RiveroSpacing.sm),
+            child: RiveroCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      BankBadge(name: t.merchant, size: 40, circle: true),
+                      const SizedBox(width: RiveroSpacing.md),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(t.merchant, style: RiveroTypography.bodyLarge),
+                            Text(
+                              DateFormat('d MMM, h:mm a')
+                                  .format(t.transactionTimestamp),
+                              style: RiveroTypography.bodySmall,
+                            ),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        privacy
+                            ? '••••'
+                            : '${t.amountMinorUnits > 0 ? '+' : ''}'
+                                  '${CurrencyFormatter.format(t.amountMinorUnits.abs())}',
+                        style: RiveroTypography.titleMedium,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: RiveroSpacing.md),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => ignore(t),
+                          style: OutlinedButton.styleFrom(
+                            shape: const StadiumBorder(),
+                          ),
+                          child: const Text('Ignore'),
+                        ),
+                      ),
+                      const SizedBox(width: RiveroSpacing.sm),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: () => confirm(t),
+                          style: FilledButton.styleFrom(
+                            shape: const StadiumBorder(),
+                            backgroundColor: RiveroColors.textPrimary,
+                            foregroundColor: RiveroColors.background,
+                          ),
+                          child: const Text('Confirm'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        if (pending.length > 3)
+          Text(
+            '${pending.length - 3} more after these',
+            style: RiveroTypography.bodySmall,
+          ),
+      ],
+    );
+  }
+}

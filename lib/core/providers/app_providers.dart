@@ -71,6 +71,8 @@ class SettingsSync {
         await dao.getInt(SettingKeys.monthlySalary) ?? 0;
     ref.read(reserveCreditCardsProvider.notifier).state =
         (await dao.get(SettingKeys.reserveCreditCards)) != '0';
+    ref.read(openOnLogProvider.notifier).state =
+        (await dao.get(SettingKeys.openOnLog)) == '1';
     var onboarded = (await dao.get(SettingKeys.onboarded)) == '1';
     if (!onboarded &&
         (await ref
@@ -101,6 +103,10 @@ class SettingsSync {
       ..listen(
         reserveCreditCardsProvider,
         (_, v) => save(SettingKeys.reserveCreditCards, v ? '1' : '0'),
+      )
+      ..listen(
+        openOnLogProvider,
+        (_, v) => save(SettingKeys.openOnLog, v ? '1' : '0'),
       )
       ..listen(onboardedProvider, (_, v) {
         if (v ?? false) save(SettingKeys.onboarded, '1');
@@ -323,8 +329,11 @@ final liveSafeToSpendResultProvider = Provider<AsyncValue<SafeToSpendResult>>((
   return AsyncValue.data(result);
 });
 
-/// Active bottom navigation tab index (0: Overview, 1: Accounts, 2: Budgets, 3: Transactions, 4: Settings).
-final selectedNavIndexProvider = StateProvider<int>((ref) => 0);
+/// Active tab: 0 Accounts, 1 Plan, 2 Home (centre, default), 3 Log, 4 Activity.
+final selectedNavIndexProvider = StateProvider<int>((ref) => 2);
+
+/// Open the app on the quick-log keypad instead of Home.
+final openOnLogProvider = StateProvider<bool>((ref) => false);
 
 /// Stream of all transactions across the ledger.
 final allTransactionsStreamProvider = StreamProvider<List<LedgerTransaction>>((
