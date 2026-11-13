@@ -84,12 +84,7 @@ class SettingsScreen extends ConsumerWidget {
           ),
           if (NotificationBridge.supported) ...[
             const _Header('Capture'),
-            const _Row(
-              icon: Icons.notifications_active_outlined,
-              title: 'Auto-capture from notifications',
-              subtitle: 'Spends log themselves',
-              onTap: NotificationBridge.openSettings,
-            ),
+            const _CaptureRows(),
           ],
           const _Header('Privacy'),
           _Row(
@@ -280,6 +275,91 @@ class _Row extends StatelessWidget {
                   Icons.chevron_right_rounded,
                   color: RiveroColors.textMuted,
                 )),
+    );
+  }
+}
+
+/// Notification access status + an end-to-end capture test.
+class _CaptureRows extends ConsumerStatefulWidget {
+  const _CaptureRows();
+
+  @override
+  ConsumerState<_CaptureRows> createState() => _CaptureRowsState();
+}
+
+class _CaptureRowsState extends ConsumerState<_CaptureRows>
+    with WidgetsBindingObserver {
+  bool? _enabled;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _refresh();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // Coming back from the system settings page: re-check access.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refresh();
+  }
+
+  Future<void> _refresh() async {
+    final on = await NotificationBridge.isEnabled();
+    if (mounted) setState(() => _enabled = on);
+  }
+
+  Future<void> _sendTest() async {
+    final accounts = ref.read(activePhysicalAccountsProvider).value ?? const [];
+    final mask = accounts.where((a) => !a.isLiability).firstOrNull?.accountMask;
+    final status = await NotificationBridge.postTest(
+      body: NotificationBridge.sampleMessage(
+        mask: mask == null || mask.contains('•') ? '0000' : mask,
+        now: DateTime.now(),
+      ),
+    );
+    if (!mounted) return;
+    final text = switch (status) {
+      'posted' =>
+        'Test sent. A ₹1 "rivero.test" entry should appear in Activity '
+            'within a few seconds. You can delete it there.',
+      'no_access' => 'Turn on notification access first.',
+      'no_permission' => 'Allow Rivero to show notifications, then try again.',
+      _ => 'Not available on this device.',
+    };
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(text)));
+    if (status == 'no_access') await NotificationBridge.openSettings();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _Row(
+          icon: Icons.notifications_active_outlined,
+          title: 'Notification access',
+          subtitle: switch (_enabled) {
+            null => 'Checking…',
+            true => 'On · spends log themselves',
+            false => 'Off · tap to turn on',
+          },
+          onTap: NotificationBridge.openSettings,
+        ),
+        _Row(
+          icon: Icons.send_outlined,
+          title: 'Send a test notification',
+          subtitle: 'Checks capture end to end with a ₹1 sample',
+          onTap: _sendTest,
+        ),
+      ],
     );
   }
 }

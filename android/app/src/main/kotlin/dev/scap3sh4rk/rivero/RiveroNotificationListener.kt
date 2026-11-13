@@ -1,6 +1,8 @@
 package dev.scap3sh4rk.rivero
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import org.json.JSONArray
@@ -13,8 +15,10 @@ import org.json.JSONObject
  */
 class RiveroNotificationListener : NotificationListenerService() {
     override fun onNotificationPosted(sbn: StatusBarNotification) {
-        if (!isFinancialSource(sbn.packageName)) return
         val extras = sbn.notification.extras
+        // Rivero's own "test capture" notification exercises this exact path.
+        val isTest = sbn.packageName == packageName && extras.getBoolean(EXTRA_TEST, false)
+        if (!isTest && !isFinancialSource(sbn.packageName)) return
         val title = extras.getCharSequence("android.title")?.toString()
         val body = (extras.getCharSequence("android.bigText")
             ?: extras.getCharSequence("android.text"))?.toString() ?: return
@@ -35,9 +39,17 @@ class RiveroNotificationListener : NotificationListenerService() {
             for (i in maxOf(0, queue.length() - 500) until queue.length()) trimmed.put(queue.get(i))
             prefs.edit().putString(KEY, trimmed.toString()).apply()
         }
+        // If the app is open, tell it to process the queue now.
+        Handler(Looper.getMainLooper()).post { onQueued?.invoke() }
     }
 
     companion object {
+        const val EXTRA_TEST = "rivero_test"
+
+        /** Set by MainActivity while the Flutter UI is alive. */
+        @Volatile
+        var onQueued: (() -> Unit)? = null
+
         const val PREFS = "rivero_ingest"
         const val KEY = "queue"
         val LOCK = Any()

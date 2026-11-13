@@ -61,6 +61,10 @@ class _RiveroAppState extends ConsumerState<RiveroApp>
       final sync = ref.read(settingsSyncProvider);
       sync.load().then((_) => sync.listen());
       _drain();
+      if (NotificationBridge.supported) {
+        NotificationBridge(ref.read(ingestionServiceProvider))
+            .listenForCaptures();
+      }
       _loadTheme();
     });
   }

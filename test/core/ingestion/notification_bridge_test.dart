@@ -30,4 +30,27 @@ void main() {
       expect(await db.select(db.rawIngestionLogs).get(), hasLength(1));
     },
   );
+
+  test('the in-app test notification is captured as a Rs 1 expense', () async {
+    final db = RiveroDatabase.memory();
+    addTearDown(db.close);
+    final bridge = NotificationBridge(IngestionService(database: db));
+    final now = DateTime(2026, 11, 14, 9, 30);
+    final body = NotificationBridge.sampleMessage(mask: '4012', now: now);
+    expect(body.toLowerCase(), isNot(contains('bal'))); // never touches balance
+    await bridge.ingestJson(
+      jsonEncode([
+        {
+          'id': 'dev.scap3sh4rk.rivero:test:1',
+          'package': 'dev.scap3sh4rk.rivero',
+          'title': 'Bank alert (test)',
+          'body': body,
+          'time': now.millisecondsSinceEpoch,
+        },
+      ]),
+    );
+    final txns = await db.select(db.transactions).get();
+    expect(txns, hasLength(1));
+    expect(txns.single.amountMinorUnits, -100);
+  });
 }
