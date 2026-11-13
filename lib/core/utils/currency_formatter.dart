@@ -21,6 +21,22 @@ abstract final class CurrencyFormatter {
   /// - `1234567` -> `"₹12,345.67"`
   /// - `-5000` -> `"-₹50.00"`
   /// - `0` -> `"₹0.00"`
+  static String format(
+    int minorUnits, {
+    bool includeDecimals = true,
+    bool showSign = false,
+  }) => formatMinorUnits(
+    minorUnits,
+    includeDecimals: includeDecimals,
+    showSign: showSign,
+  );
+
+  /// Format an integer minor unit (paise) to standard Indian Rupee notation.
+  /// Example:
+  /// - `100000` -> `"₹1,000.00"`
+  /// - `1234567` -> `"₹12,345.67"`
+  /// - `-5000` -> `"-₹50.00"`
+  /// - `0` -> `"₹0.00"`
   static String formatMinorUnits(
     int minorUnits, {
     bool includeDecimals = true,

@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivero/core/database/database.dart';
+import 'package:rivero/core/database/database_seeder.dart';
+import 'package:rivero/core/domain/account_role.dart';
 import 'package:rivero/core/engine/paycycle.dart';
 import 'package:rivero/core/engine/safe_to_spend_calculator.dart';
 import 'package:rivero/core/engine/waterfall_allocator.dart';
@@ -12,7 +14,6 @@ import 'package:rivero/core/reconciliation/reconciliation_service.dart';
 import 'package:rivero/core/reconciliation/refund_matcher.dart';
 
 /// Provider holding the current Safe-to-Spend amount in minor units (paise).
-/// Initial baseline provider for Phase 1.
 final safeToSpendProvider = StateProvider<int>((ref) => 4825000); // ₹48,250.00
 
 /// Provider holding total salary credit in minor units (paise).
@@ -52,6 +53,12 @@ final databaseProvider = Provider<RiveroDatabase>((ref) {
   final db = RiveroDatabase();
   ref.onDispose(db.close);
   return db;
+});
+
+/// Database seeder provider.
+final databaseSeederProvider = Provider<DatabaseSeeder>((ref) {
+  final db = ref.watch(databaseProvider);
+  return DatabaseSeeder(db);
 });
 
 /// Financial parser provider.
@@ -106,4 +113,91 @@ final reconciliationServiceProvider = Provider<ReconciliationService>((ref) {
     refundMatcher: refundMatcher,
     balanceReconciler: reconciler,
   );
+});
+
+/// Stream of all active physical accounts.
+final activePhysicalAccountsProvider = StreamProvider<List<PhysicalAccount>>((
+  ref,
+) {
+  final db = ref.watch(databaseProvider);
+  return db.accountsDao.watchActivePhysicalAccounts();
+});
+
+/// Stream of all virtual allocation buckets.
+final allAllocationBucketsProvider = StreamProvider<List<AllocationBucket>>((
+  ref,
+) {
+  final db = ref.watch(databaseProvider);
+  return db.accountsDao.watchAllBuckets();
+});
+
+/// Stream of recent transactions.
+final recentTransactionsProvider = StreamProvider<List<LedgerTransaction>>((
+  ref,
+) {
+  final db = ref.watch(databaseProvider);
+  return db.transactionsDao.watchRecentTransactions();
+});
+
+/// Stream of transactions needing user triage / review.
+final pendingReviewTransactionsProvider =
+    StreamProvider<List<LedgerTransaction>>((ref) {
+      final db = ref.watch(databaseProvider);
+      return db.transactionsDao.watchPendingReviewTransactions();
+    });
+
+/// Live calculated Safe-to-Spend result dynamically computed from database streams and paycycle.
+final liveSafeToSpendResultProvider = Provider<AsyncValue<SafeToSpendResult>>((
+  ref,
+) {
+  final bucketsAsync = ref.watch(allAllocationBucketsProvider);
+  final accountsAsync = ref.watch(activePhysicalAccountsProvider);
+  final paycycle = ref.watch(currentPaycycleProvider);
+  final calculator = ref.watch(safeToSpendCalculatorProvider);
+  final includeReimbursements = ref.watch(includePendingReimbursementsProvider);
+
+  if (bucketsAsync.isLoading || accountsAsync.isLoading) {
+    return const AsyncValue.loading();
+  }
+
+  if (bucketsAsync.hasError) {
+    return AsyncValue.error(bucketsAsync.error!, bucketsAsync.stackTrace!);
+  }
+  if (accountsAsync.hasError) {
+    return AsyncValue.error(accountsAsync.error!, accountsAsync.stackTrace!);
+  }
+
+  final buckets = bucketsAsync.value ?? [];
+  final accounts = accountsAsync.value ?? [];
+
+  // 1. Expense bucket balance
+  var expenseBalance = 0;
+  for (final b in buckets) {
+    if (b.role == AccountRole.expense) {
+      expenseBalance += b.allocatedMinorUnits - b.spentMinorUnits;
+    }
+  }
+
+  // 2. CC liabilities (negative balances on liability accounts)
+  var ccLiability = 0;
+  for (final acc in accounts) {
+    if (acc.isLiability && acc.balanceMinorUnits < 0) {
+      ccLiability += acc.balanceMinorUnits.abs();
+    }
+  }
+
+  // 3. Mandates due before end of cycle (default seed mandates sum: ₹1,198)
+  const upcomingMandates = 119800;
+
+  final result = calculator.calculate(
+    expenseBalance: expenseBalance,
+    upcomingMandates: upcomingMandates,
+    unsettledCreditCardLiability: ccLiability,
+    pendingReimbursements: 0,
+    daysRemainingInCycle: paycycle.daysRemaining,
+    lastSyncedAt: DateTime.now(),
+    includePendingReimbursements: includeReimbursements,
+  );
+
+  return AsyncValue.data(result);
 });
