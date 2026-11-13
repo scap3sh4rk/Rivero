@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/design_system/eager_page_physics.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/features/accounts/screens/accounts_screen.dart';
-import 'package:rivero/features/budgets/screens/budgets_screen.dart';
 import 'package:rivero/features/home/screens/home_screen.dart';
 import 'package:rivero/features/log/quick_log_screen.dart';
+import 'package:rivero/features/owed/owed_screen.dart';
 import 'package:rivero/features/transactions/screens/transactions_screen.dart';
 
 /// App shell: swipeable pages with a Slice-style row of round icon buttons.
@@ -25,16 +26,16 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   static const logIndex = 3;
 
   static const _screens = <Widget>[
+    OwedScreen(asTab: true),
     AccountsScreen(),
-    BudgetsScreen(),
     HomeScreen(),
     QuickLogScreen(),
     TransactionsScreen(),
   ];
 
   static const _tabs = <(IconData, IconData, String)>[
+    (Icons.handshake_outlined, Icons.handshake_rounded, 'Owed'),
     (Icons.account_balance_outlined, Icons.account_balance_rounded, 'Accounts'),
-    (Icons.donut_small_outlined, Icons.donut_small_rounded, 'Plan'),
     (Icons.home_outlined, Icons.home_rounded, 'Home'),
     (Icons.dialpad_rounded, Icons.dialpad_rounded, 'Log'),
     (Icons.receipt_long_outlined, Icons.receipt_long_rounded, 'Activity'),
@@ -72,6 +73,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   @override
   Widget build(BuildContext context) {
     final current = ref.watch(selectedNavIndexProvider);
+    ref.listen(selectedNavIndexProvider, (_, i) {
+      final page = _pager.hasClients ? _pager.page?.round() : null;
+      if (page != null && page != i) _goTo(i);
+    });
     return Scaffold(
       backgroundColor: RiveroColors.background,
       body: NotificationListener<ScrollEndNotification>(
@@ -84,8 +89,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           controller: _pager,
           pageSnapping: false,
           physics: EagerPagePhysics(settledPage: () => _settled),
-          onPageChanged: (i) =>
-              ref.read(selectedNavIndexProvider.notifier).state = i,
+          onPageChanged: (i) {
+            HapticFeedback.selectionClick();
+            ref.read(selectedNavIndexProvider.notifier).state = i;
+          },
           children: _screens,
         ),
       ),

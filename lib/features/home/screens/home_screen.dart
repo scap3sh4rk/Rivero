@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
+import 'package:rivero/features/home/widgets/home_shortcuts.dart';
 import 'package:rivero/features/home/widgets/review_inbox.dart';
 import 'package:rivero/features/home/widgets/safe_to_spend_hero_card.dart';
 import 'package:rivero/features/home/widgets/salary_prompt.dart';
@@ -62,6 +63,8 @@ class HomeScreen extends ConsumerWidget {
             const SizedBox(height: RiveroSpacing.huge),
             const SalaryPrompt(),
             const ReviewInbox(),
+            const SizedBox(height: RiveroSpacing.lg),
+            const HomeShortcuts(),
           ],
         ),
       ),

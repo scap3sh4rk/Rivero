@@ -58,8 +58,23 @@ void main() {
     await open('Activity');
     expect(find.text('Activity'), findsWidgets);
 
-    await open('Plan');
+    await open('Owed');
+    expect(find.text('Owed to you'), findsOneWidget);
+
+    // Home shortcut cards jump to their pages.
+    await open('Home');
+    await tester.tap(find.byKey(const ValueKey('home-owed')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(find.text('Owed to you'), findsOneWidget);
+    await open('Home');
+    await tester.tap(find.byKey(const ValueKey('home-plan')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
     expect(find.text('MONTHLY SALARY'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
 
     // Settings is reached from the profile button
     await tester.tap(find.byTooltip('Profile & Settings').first);

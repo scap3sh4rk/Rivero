@@ -19,6 +19,10 @@ import 'package:rivero/features/plan/salary_plan_screen.dart';
 class BudgetsScreen extends ConsumerWidget {
   const BudgetsScreen({super.key});
 
+  static Future<void> open(BuildContext context) =>
+      Navigator.of(context)
+          .push(MaterialPageRoute<void>(builder: (_) => const BudgetsScreen()));
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final buckets = ref.watch(allAllocationBucketsProvider).value ?? const [];
@@ -41,7 +45,11 @@ class BudgetsScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: RiveroColors.background,
-      appBar: const RiveroAppBar(title: 'Plan'),
+      appBar: RiveroAppBar(
+        title: 'Plan',
+        showProfile: false,
+        leading: BackButton(onPressed: () => Navigator.of(context).pop()),
+      ),
       body: ListView(
         physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(

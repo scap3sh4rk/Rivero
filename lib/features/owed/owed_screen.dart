@@ -14,7 +14,10 @@ import 'package:rivero/design_system/widgets/rivero_card.dart';
 
 /// Money that should come back to you: split bills and money lent.
 class OwedScreen extends ConsumerWidget {
-  const OwedScreen({super.key});
+  const OwedScreen({super.key, this.asTab = false});
+
+  /// Shown as a main tab (no back button, profile button visible).
+  final bool asTab;
 
   static Future<void> open(BuildContext context) =>
       Navigator.of(context)
@@ -32,8 +35,10 @@ class OwedScreen extends ConsumerWidget {
       backgroundColor: RiveroColors.background,
       appBar: RiveroAppBar(
         title: 'Owed to you',
-        showProfile: false,
-        leading: BackButton(onPressed: () => Navigator.of(context).pop()),
+        showProfile: asTab,
+        leading: asTab
+            ? null
+            : BackButton(onPressed: () => Navigator.of(context).pop()),
         actions: [
           IconButton(
             tooltip: 'Lent money',
@@ -59,7 +64,8 @@ class OwedScreen extends ConsumerWidget {
           const SizedBox(height: RiveroSpacing.xl),
           if (dues.isEmpty)
             Text(
-              'Split a bill from Activity, or tap + when you lend money.',
+              'Split a bill: open any payment in Activity and tap '
+              '"Split this bill". Lent money? Tap + above.',
               style: RiveroTypography.bodySmall,
             ),
           for (final d in open) _DueTile(d, money: money),
