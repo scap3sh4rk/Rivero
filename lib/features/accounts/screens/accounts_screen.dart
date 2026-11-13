@@ -24,7 +24,7 @@ class AccountsScreen extends ConsumerWidget {
       backgroundColor: RiveroColors.background,
       appBar: RiveroAppBar(
         title: 'Accounts',
-        subtitle: 'Custodial Balances & Credit Lines',
+        subtitle: 'Balances and credit lines',
         actions: [
           IconButton(
             tooltip: 'Add Account',
@@ -199,7 +199,7 @@ class AccountsScreen extends ConsumerWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'CUSTODIAL ACCOUNTS',
+                      'BANK & CASH',
                       style: RiveroTypography.labelSmall.copyWith(
                         letterSpacing: 1.5,
                         color: RiveroColors.textMuted,

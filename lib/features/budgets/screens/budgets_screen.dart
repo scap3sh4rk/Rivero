@@ -4,11 +4,13 @@ import 'package:rivero/core/domain/account_role.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
+import 'package:rivero/design_system/widgets/bento_tile.dart';
 import 'package:rivero/design_system/widgets/financial_amount_text.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
 import 'package:rivero/design_system/widgets/role_badge.dart';
 import 'package:rivero/features/budgets/widgets/create_budget_sheet.dart';
+import 'package:rivero/features/mandates/mandates_screen.dart';
 import 'package:rivero/features/plan/salary_plan_screen.dart';
 
 /// Screen managing monthly salary waterfall allocations and purpose-driven spending budgets.
@@ -25,7 +27,6 @@ class BudgetsScreen extends ConsumerWidget {
       backgroundColor: RiveroColors.background,
       appBar: RiveroAppBar(
         title: 'Budgets & Allocations',
-        subtitle: 'Purpose-Driven Monthly Waterfall',
         actions: [
           IconButton(
             tooltip: 'Salary Plan',
@@ -86,7 +87,29 @@ class BudgetsScreen extends ConsumerWidget {
                 vertical: RiveroSpacing.md,
               ),
               children: [
-                // 1. Waterfall Allocation Meter (Conservation of Value)
+                Row(
+                  children: [
+                    Expanded(
+                      child: BentoTile(
+                        label: 'AUTOPAY',
+                        value:
+                            '${ref.watch(activeMandatesProvider).value?.length ?? 0} Active',
+                        onTap: () => MandatesScreen.open(context),
+                      ),
+                    ),
+                    const SizedBox(width: RiveroSpacing.md),
+                    Expanded(
+                      child: BentoTile(
+                        label: 'PAY CYCLE',
+                        value:
+                            '${ref.watch(currentPaycycleProvider).daysRemaining} days left',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: RiveroSpacing.md),
+
+                // 1. Salary pool and how much of it is planned
                 RiveroCard(
                   isElevated: true,
                   borderColor: RiveroColors.salaryAccent.withValues(alpha: 0.3),
@@ -106,29 +129,6 @@ class BudgetsScreen extends ConsumerWidget {
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: RiveroSpacing.sm),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: RiveroColors.salaryAccent.withValues(
-                                alpha: 0.15,
-                              ),
-                              borderRadius: BorderRadius.circular(
-                                RiveroRadii.full,
-                              ),
-                            ),
-                            child: Text(
-                              'Waterfall Invariant',
-                              style: RiveroTypography.labelSmall.copyWith(
-                                color: RiveroColors.salaryAccent,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                              ),
                             ),
                           ),
                         ],

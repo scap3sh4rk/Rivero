@@ -45,7 +45,7 @@ void main() {
       expect(find.text('Accounts'), findsOneWidget);
       expect(find.text('TOTAL NET WORTH'), findsOneWidget);
       expect(find.text('CREDIT LINE USAGE'), findsOneWidget);
-      expect(find.text('CUSTODIAL ACCOUNTS'), findsOneWidget);
+      expect(find.text('BANK & CASH'), findsOneWidget);
 
       // Verify credit card utilization card
       expect(find.byType(CreditUtilizationCard), findsOneWidget);

@@ -50,7 +50,7 @@ void main() {
     }
 
     await open('Accounts');
-    expect(find.text('CUSTODIAL ACCOUNTS'), findsOneWidget);
+    expect(find.text('BANK & CASH'), findsOneWidget);
 
     await open('Log');
     expect(find.byKey(const ValueKey('key-5')), findsOneWidget);

@@ -24,7 +24,7 @@ void main() {
   });
 
   testWidgets(
-    'BudgetsScreen displays salary pool, waterfall conservation, and purpose buckets',
+    'BudgetsScreen displays salary pool, autopay and pay-cycle tiles, and buckets',
     (tester) async {
       tester.view.physicalSize = const Size(1080, 2400);
       tester.view.devicePixelRatio = 1.0;
@@ -43,7 +43,8 @@ void main() {
 
       expect(find.text('Budgets & Allocations'), findsOneWidget);
       expect(find.text('MONTHLY SALARY POOL'), findsOneWidget);
-      expect(find.text('Waterfall Invariant'), findsOneWidget);
+      expect(find.text('AUTOPAY'), findsOneWidget);
+      expect(find.text('PAY CYCLE'), findsOneWidget);
       expect(find.text('Allocated to Purposes'), findsOneWidget);
       expect(find.text('Unallocated Remaining'), findsOneWidget);
 
