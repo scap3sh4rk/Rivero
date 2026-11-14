@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:rivero/core/database/daos/ingestion_logs_dao.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
+import 'package:rivero/core/ingestion/message_redactor.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Bank messages Rivero could not read. Shown so a real payment is never
 /// lost silently: add it on the Log tab, or dismiss it.
@@ -128,6 +130,19 @@ class UnreadableSheet extends ConsumerWidget {
                           ],
                         ],
                       ),
+                      if (l.failureReason != IngestionLogsDao.autopayFailed)
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            key: ValueKey('report-${l.id}'),
+                            onPressed: () => reportFormat(
+                              context,
+                              l.rawPayload,
+                              l.senderHeader,
+                            ),
+                            child: const Text('Report this format'),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -135,6 +150,60 @@ class UnreadableSheet extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+
+  /// Shows the message with personal details hidden, lets the user fix
+  /// anything still personal, then opens a filled-in GitHub report.
+  static Future<void> reportFormat(
+    BuildContext context,
+    String message,
+    String? sender,
+  ) async {
+    final text = TextEditingController(text: redactMessage(message));
+    final send = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Report this message format'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Digits, UPI IDs and names are hidden. Check nothing personal '
+                'is left: the report is public on GitHub.',
+                style: RiveroTypography.bodySmall,
+              ),
+              const SizedBox(height: RiveroSpacing.md),
+              TextField(
+                key: const ValueKey('report-text'),
+                controller: text,
+                maxLines: 8,
+                minLines: 3,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            key: const ValueKey('report-send'),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Open GitHub'),
+          ),
+        ],
+      ),
+    );
+    final body = text.text.trim();
+    text.dispose();
+    if (send != true || body.isEmpty) return;
+    await launchUrl(
+      bankMessageIssueUrl(message: body, sender: sender),
+      mode: LaunchMode.externalApplication,
     );
   }
 }
