@@ -5,6 +5,7 @@ import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/database/database_seeder.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/features/main/main_screen.dart';
+import 'package:rivero/features/transactions/screens/transactions_screen.dart';
 
 import '../../test_helper.dart';
 
@@ -96,5 +97,46 @@ void main() {
 
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 50));
+  });
+
+  testWidgets('back clears Activity search, then returns Home', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [databaseProvider.overrideWithValue(db)],
+        child: const MaterialApp(home: MainScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
+    final c = ProviderScope.containerOf(
+      tester.element(find.byType(MainScreen)),
+    );
+
+    await tester.tap(nav('Activity'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.enterText(find.byType(TextField).first, 'Zomato');
+    await tester.pump();
+    expect(find.byKey(const ValueKey('clear-search')), findsOneWidget);
+
+    Future<void> back() async {
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+    }
+
+    await back();
+    expect(c.read(activityQueryProvider), isEmpty);
+    expect(c.read(selectedNavIndexProvider), 4); // still on Activity
+
+    await back();
+    expect(c.read(selectedNavIndexProvider), 2); // Home
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 100));
   });
 }

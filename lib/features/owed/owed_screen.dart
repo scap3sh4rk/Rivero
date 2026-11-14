@@ -49,11 +49,11 @@ class OwedScreen extends ConsumerWidget {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(
+        padding: EdgeInsets.fromLTRB(
           RiveroSpacing.xl,
           0,
           RiveroSpacing.xl,
-          RiveroSpacing.huge,
+          RiveroSpacing.huge + MediaQuery.paddingOf(context).bottom,
         ),
         children: [
           Text('Still to come back', style: RiveroTypography.bodyMedium),

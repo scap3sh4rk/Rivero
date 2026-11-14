@@ -49,11 +49,11 @@ class HomeScreen extends ConsumerWidget {
       body: SafeArea(
         child: ListView(
           physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(
+          padding: EdgeInsets.fromLTRB(
             RiveroSpacing.lg,
             RiveroSpacing.xxxl,
             RiveroSpacing.lg,
-            RiveroSpacing.huge * 2,
+            RiveroSpacing.huge + MediaQuery.paddingOf(context).bottom,
           ),
           children: [
             const SafeToSpendHeroCard()

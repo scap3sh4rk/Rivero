@@ -19,12 +19,24 @@ class TransactionsScreen extends ConsumerStatefulWidget {
   ConsumerState<TransactionsScreen> createState() => _TransactionsScreenState();
 }
 
-enum _Filter { all, expenses, income, transfers }
+enum ActivityFilter { all, expenses, income, transfers }
+
+/// Activity search and filter live here (not in widget state) so the back
+/// button can clear them before leaving the tab.
+final activityQueryProvider = StateProvider<String>((ref) => '');
+final activityFilterProvider = StateProvider<ActivityFilter>(
+  (ref) => ActivityFilter.all,
+);
 
 class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
-  _Filter _filter = _Filter.all;
-  String _query = '';
-  final _search = TextEditingController();
+  ActivityFilter get _filter => ref.read(activityFilterProvider);
+  String get _query => ref.read(activityQueryProvider);
+  late final _search = TextEditingController(text: _query);
+
+  void _setQuery(String v) {
+    if (_search.text != v) _search.text = v;
+    ref.read(activityQueryProvider.notifier).state = v;
+  }
 
   @override
   void dispose() {
@@ -48,12 +60,12 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
       return false;
     }
     return switch (_filter) {
-      _Filter.all => true,
-      _Filter.expenses =>
+      ActivityFilter.all => true,
+      ActivityFilter.expenses =>
         t.amountMinorUnits < 0 && !_transferTypes.contains(t.transactionType),
-      _Filter.income =>
+      ActivityFilter.income =>
         t.amountMinorUnits > 0 && !_transferTypes.contains(t.transactionType),
-      _Filter.transfers => _transferTypes.contains(t.transactionType),
+      ActivityFilter.transfers => _transferTypes.contains(t.transactionType),
     };
   }
 
@@ -67,19 +79,19 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
           child: Wrap(
             spacing: RiveroSpacing.sm,
             children: [
-              for (final f in _Filter.values)
+              for (final f in ActivityFilter.values)
                 ChoiceChip(
                   label: Text(switch (f) {
-                    _Filter.all => 'All',
-                    _Filter.expenses => 'Expenses',
-                    _Filter.income => 'Income',
-                    _Filter.transfers => 'Transfers',
+                    ActivityFilter.all => 'All',
+                    ActivityFilter.expenses => 'Expenses',
+                    ActivityFilter.income => 'Income',
+                    ActivityFilter.transfers => 'Transfers',
                   }),
                   selected: _filter == f,
                   showCheckmark: false,
                   shape: const StadiumBorder(),
                   onSelected: (_) {
-                    setState(() => _filter = f);
+                    ref.read(activityFilterProvider.notifier).state = f;
                     Navigator.pop(ctx);
                   },
                 ),
@@ -94,6 +106,12 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
   Widget build(BuildContext context) {
     final txns = ref.watch(allTransactionsStreamProvider).value ?? const [];
     final privacy = ref.watch(privacyModeProvider);
+    ref
+      ..watch(activityQueryProvider)
+      ..watch(activityFilterProvider)
+      ..listen(activityQueryProvider, (_, v) {
+        if (_search.text != v) _search.text = v;
+      });
     final shown = txns.where(_matches).toList();
     final categories = ref.watch(logCategoriesProvider);
 
@@ -124,10 +142,18 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                 Expanded(
                   child: TextField(
                     controller: _search,
-                    onChanged: (v) => setState(() => _query = v),
+                    onChanged: _setQuery,
                     decoration: InputDecoration(
                       hintText: 'Search transactions',
                       prefixIcon: const Icon(Icons.search_rounded),
+                      suffixIcon: _query.isEmpty
+                          ? null
+                          : IconButton(
+                              key: const ValueKey('clear-search'),
+                              tooltip: 'Clear search',
+                              onPressed: () => _setQuery(''),
+                              icon: const Icon(Icons.close_rounded),
+                            ),
                       contentPadding: EdgeInsets.zero,
                       filled: false,
                       border: OutlineInputBorder(
@@ -151,7 +177,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                   onPressed: _openFilter,
                   icon: Icon(
                     Icons.tune_rounded,
-                    color: _filter == _Filter.all
+                    color: _filter == ActivityFilter.all
                         ? RiveroColors.textPrimary
                         : RiveroColors.salaryAccent,
                   ),
@@ -162,17 +188,18 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
           Expanded(
             child: ListView.builder(
               physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(
+              padding: EdgeInsets.fromLTRB(
                 RiveroSpacing.xl,
                 0,
                 RiveroSpacing.xl,
-                RiveroSpacing.huge,
+                RiveroSpacing.huge + MediaQuery.paddingOf(context).bottom,
               ),
               // Row 0: the month overview (only when not searching/filtering).
               itemCount: shown.length + 1,
               itemBuilder: (_, i) {
                 if (i == 0) {
-                  final browsing = _query.isEmpty && _filter == _Filter.all;
+                  final browsing =
+                      _query.isEmpty && _filter == ActivityFilter.all;
                   return Column(
                     children: [
                       if (browsing && txns.isNotEmpty)
@@ -180,12 +207,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                           padding: const EdgeInsets.only(
                             bottom: RiveroSpacing.md,
                           ),
-                          child: SpendingOverview(
-                            onCategoryTap: (c) => setState(() {
-                              _search.text = c;
-                              _query = c;
-                            }),
-                          ),
+                          child: SpendingOverview(onCategoryTap: _setQuery),
                         ),
                       if (shown.isEmpty)
                         Padding(

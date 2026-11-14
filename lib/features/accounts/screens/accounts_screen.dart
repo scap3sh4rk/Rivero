@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivero/core/database/database.dart';
+import 'package:rivero/core/domain/credit_utilization.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
@@ -93,11 +94,11 @@ class AccountsScreen extends ConsumerWidget {
       ),
       body: ListView(
         physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(
+        padding: EdgeInsets.fromLTRB(
           RiveroSpacing.xl,
           0,
           RiveroSpacing.xl,
-          RiveroSpacing.huge,
+          RiveroSpacing.huge + MediaQuery.paddingOf(context).bottom,
         ),
         children: [
           RiveroCard(
@@ -160,7 +161,7 @@ class AccountsScreen extends ConsumerWidget {
   }
 }
 
-/// One account or card in a single calm row. Cards add a thin usage bar.
+/// A bank/cash account or a credit card, with what matters for each.
 class _AccountRow extends StatelessWidget {
   const _AccountRow(this.a, {required this.money});
 
@@ -170,63 +171,169 @@ class _AccountRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tint = accountColor(a);
-    final owed = a.balanceMinorUnits < 0 ? -a.balanceMinorUnits : 0;
-    final usage = a.isLiability && a.creditLimitMinorUnits > 0
-        ? (owed / a.creditLimitMinorUnits).clamp(0.0, 1.0)
-        : null;
     return Padding(
-      padding: const EdgeInsets.only(bottom: RiveroSpacing.sm),
+      padding: const EdgeInsets.only(bottom: RiveroSpacing.md),
       child: RiveroCard(
+        padding: const EdgeInsets.all(RiveroSpacing.xl),
         onTap: () => AccountDetailScreen.open(context, a.id),
-        child: Column(
+        child: a.isLiability
+            ? _cardBody(tint)
+            : Row(
+                children: [
+                  BankBadge(
+                    name: a.institution,
+                    color: tint,
+                    imagePath: a.imagePath,
+                    size: 48,
+                  ),
+                  const SizedBox(width: RiveroSpacing.md),
+                  Expanded(child: _identity()),
+                  const SizedBox(width: RiveroSpacing.sm),
+                  Text(
+                    money(a.balanceMinorUnits),
+                    style: RiveroTypography.financialMedium,
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+
+  /// Name, then bank ••mask · type: which account this is at a glance.
+  Widget _identity() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        a.name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: RiveroTypography.titleMedium,
+      ),
+      const SizedBox(height: 2),
+      Text(
+        '${a.institution} ••${a.accountMask} · ${a.accountType}',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: RiveroTypography.bodySmall,
+      ),
+    ],
+  );
+
+  Widget _cardBody(Color tint) {
+    final u = CreditUtilization.fromBalance(
+      creditLimitMinorUnits: a.creditLimitMinorUnits,
+      balanceMinorUnits: a.balanceMinorUnits,
+    );
+    final hasLimit = u.creditLimitMinorUnits > 0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
           children: [
-            Row(
-              children: [
-                BankBadge(
-                  name: a.institution,
-                  color: tint,
-                  imagePath: a.imagePath,
-                  size: 40,
+            BankBadge(
+              name: a.institution,
+              color: tint,
+              imagePath: a.imagePath,
+              size: 48,
+            ),
+            const SizedBox(width: RiveroSpacing.md),
+            Expanded(child: _identity()),
+          ],
+        ),
+        const SizedBox(height: RiveroSpacing.lg),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Outstanding', style: RiveroTypography.bodySmall),
+                  Text(
+                    money(u.usedMinorUnits),
+                    style: RiveroTypography.financialMedium,
+                  ),
+                ],
+              ),
+            ),
+            if (hasLimit)
+              Container(
+                key: ValueKey('usage-${a.id}'),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: RiveroSpacing.md,
+                  vertical: RiveroSpacing.xs,
                 ),
-                const SizedBox(width: RiveroSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        a.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: RiveroTypography.bodyLarge,
-                      ),
-                      Text(
-                        '••${a.accountMask}',
-                        style: RiveroTypography.bodySmall,
-                      ),
-                    ],
+                decoration: BoxDecoration(
+                  color: u.statusColor.withValues(alpha: 0.15),
+                  borderRadius: RiveroRadii.borderFull,
+                  border: Border.all(
+                    color: u.statusColor.withValues(alpha: 0.5),
                   ),
                 ),
-                Text(
-                  a.isLiability ? money(owed) : money(a.balanceMinorUnits),
-                  style: RiveroTypography.titleMedium,
-                ),
-              ],
-            ),
-            if (usage != null) ...[
-              const SizedBox(height: RiveroSpacing.sm),
-              ClipRRect(
-                borderRadius: RiveroRadii.borderFull,
-                child: LinearProgressIndicator(
-                  value: usage,
-                  minHeight: 4,
-                  backgroundColor: RiveroColors.surfaceInteractive,
-                  // Score-friendly under 30% of the limit.
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    usage > 0.3 ? RiveroColors.warning : tint,
+                child: Text(
+                  u.pillLabel,
+                  style: RiveroTypography.labelLarge.copyWith(
+                    color: u.statusColor,
                   ),
                 ),
               ),
-            ],
+          ],
+        ),
+        if (hasLimit) ...[
+          const SizedBox(height: RiveroSpacing.md),
+          _UsageBar(percent: u.utilizationPercent, color: u.statusColor),
+          const SizedBox(height: RiveroSpacing.sm),
+          Text(
+            'Limit ${money(u.creditLimitMinorUnits)} · '
+            'Available ${money(u.availableMinorUnits)}',
+            style: RiveroTypography.bodySmall,
+          ),
+        ] else
+          Padding(
+            padding: const EdgeInsets.only(top: RiveroSpacing.sm),
+            child: Text(
+              'Add the card limit to see usage',
+              style: RiveroTypography.bodySmall,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Usage bar with ticks at 10% and 30%, the two lines that matter.
+class _UsageBar extends StatelessWidget {
+  const _UsageBar({required this.percent, required this.color});
+
+  final double percent;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, c) => SizedBox(
+        height: 10,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              top: 2,
+              bottom: 2,
+              child: ClipRRect(
+                borderRadius: RiveroRadii.borderFull,
+                child: LinearProgressIndicator(
+                  value: (percent / 100).clamp(0.0, 1.0),
+                  backgroundColor: RiveroColors.surfaceInteractive,
+                  valueColor: AlwaysStoppedAnimation<Color>(color),
+                ),
+              ),
+            ),
+            for (final mark in [0.10, 0.30])
+              Positioned(
+                left: c.maxWidth * mark - 1,
+                top: 0,
+                bottom: 0,
+                child: Container(width: 2, color: RiveroColors.textMuted),
+              ),
           ],
         ),
       ),

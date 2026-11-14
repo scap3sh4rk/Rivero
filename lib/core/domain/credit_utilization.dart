@@ -89,15 +89,25 @@ class CreditUtilization {
   Color get statusColor {
     switch (tier) {
       case CreditUtilizationTier.safe:
-        return RiveroColors.investmentAccent; // Emerald Green
+        return RiveroColors.success; // green
       case CreditUtilizationTier.moderate:
-        return RiveroColors.salaryAccent; // Warm Amber
+        return RiveroColors.warning; // amber
       case CreditUtilizationTier.risky:
         return RiveroColors.danger; // Rose Red
     }
   }
 
   /// Informative advisory text for the user.
+  /// Short pill text: under 10% is fine to leave until the statement;
+  /// above it, paying before the statement keeps the reported usage low.
+  String get pillLabel => switch (tier) {
+    CreditUtilizationTier.safe => '${utilizationPercent.round()}% · Safe',
+    CreditUtilizationTier.moderate =>
+      '${utilizationPercent.round()}% · Pay before statement',
+    CreditUtilizationTier.risky =>
+      '${utilizationPercent.round()}% · Hurts score',
+  };
+
   String get adviceMessage {
     switch (tier) {
       case CreditUtilizationTier.safe:

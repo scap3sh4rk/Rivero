@@ -24,6 +24,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   // Home sits in the middle so every other page is at most two swipes away.
   static const homeIndex = 2;
   static const logIndex = 3;
+  static const activityIndex = 4;
 
   static const _screens = <Widget>[
     OwedScreen(asTab: true),
@@ -79,60 +80,81 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       final page = _pager.hasClients ? _pager.page?.round() : null;
       if (page != null && page != i) _goTo(i);
     });
-    return Scaffold(
-      backgroundColor: RiveroColors.background,
-      body: NotificationListener<ScrollEndNotification>(
-        onNotification: (_) {
-          final page = _pager.page;
-          if (page != null) _settled = page.round();
-          return false;
-        },
-        child: PageView(
-          controller: _pager,
-          pageSnapping: false,
-          physics: EagerPagePhysics(settledPage: () => _settled),
-          onPageChanged: (i) {
-            HapticFeedback.selectionClick();
-            ref.read(selectedNavIndexProvider.notifier).state = i;
+    // Back steps out one level at a time: clear Activity's search/filter,
+    // then return to Home, and only then leave the app. Pushed pages and
+    // sheets above this screen close normally first.
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        final index = ref.read(selectedNavIndexProvider);
+        final query = ref.read(activityQueryProvider);
+        final filter = ref.read(activityFilterProvider);
+        if (index == activityIndex &&
+            (query.isNotEmpty || filter != ActivityFilter.all)) {
+          ref.read(activityQueryProvider.notifier).state = '';
+          ref.read(activityFilterProvider.notifier).state = ActivityFilter.all;
+        } else if (index != homeIndex) {
+          _goTo(homeIndex);
+        } else {
+          SystemNavigator.pop();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: RiveroColors.background,
+        body: NotificationListener<ScrollEndNotification>(
+          onNotification: (_) {
+            final page = _pager.page;
+            if (page != null) _settled = page.round();
+            return false;
           },
-          children: _screens,
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        // Swiping along the bar scrubs between tabs, one tab per ~56px.
-        child: GestureDetector(
-          key: const ValueKey('nav-bar'),
-          behavior: HitTestBehavior.translucent,
-          onHorizontalDragStart: (_) {
-            _dragStart = ref.read(selectedNavIndexProvider);
-            _dragDx = 0;
-          },
-          onHorizontalDragUpdate: (d) {
-            _dragDx += d.delta.dx;
-            final target = (_dragStart + (_dragDx / 56).round()).clamp(
-              0,
-              _tabs.length - 1,
-            );
-            if (target != ref.read(selectedNavIndexProvider)) {
+          child: PageView(
+            controller: _pager,
+            pageSnapping: false,
+            physics: EagerPagePhysics(settledPage: () => _settled),
+            onPageChanged: (i) {
               HapticFeedback.selectionClick();
-              _goTo(target);
-            }
-          },
-          child: SizedBox(
-            height: 84,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                for (var i = 0; i < _tabs.length; i++)
-                  _NavButton(
-                    key: ValueKey('nav-${_tabs[i].$3}'),
-                    icon: _tabs[i].$1,
-                    selectedIcon: _tabs[i].$2,
-                    label: _tabs[i].$3,
-                    selected: i == current,
-                    onTap: () => _goTo(i),
-                  ),
-              ],
+              ref.read(selectedNavIndexProvider.notifier).state = i;
+            },
+            children: _screens,
+          ),
+        ),
+        bottomNavigationBar: SafeArea(
+          // Swiping along the bar scrubs between tabs, one tab per ~56px.
+          child: GestureDetector(
+            key: const ValueKey('nav-bar'),
+            behavior: HitTestBehavior.translucent,
+            onHorizontalDragStart: (_) {
+              _dragStart = ref.read(selectedNavIndexProvider);
+              _dragDx = 0;
+            },
+            onHorizontalDragUpdate: (d) {
+              _dragDx += d.delta.dx;
+              final target = (_dragStart + (_dragDx / 56).round()).clamp(
+                0,
+                _tabs.length - 1,
+              );
+              if (target != ref.read(selectedNavIndexProvider)) {
+                HapticFeedback.selectionClick();
+                _goTo(target);
+              }
+            },
+            child: SizedBox(
+              height: 84,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  for (var i = 0; i < _tabs.length; i++)
+                    _NavButton(
+                      key: ValueKey('nav-${_tabs[i].$3}'),
+                      icon: _tabs[i].$1,
+                      selectedIcon: _tabs[i].$2,
+                      label: _tabs[i].$3,
+                      selected: i == current,
+                      onTap: () => _goTo(i),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
@@ -177,8 +199,19 @@ class _NavButton extends StatelessWidget {
             height: size,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x66000000),
+                  blurRadius: 12,
+                  offset: Offset(0, 4),
+                ),
+              ],
+              // Opaque so the button reads clearly over scrolling content.
               color: selected
-                  ? RiveroColors.accent.withValues(alpha: 0.18)
+                  ? Color.alphaBlend(
+                      RiveroColors.accent.withValues(alpha: 0.22),
+                      RiveroColors.surfaceElevated,
+                    )
                   : RiveroColors.surfaceElevated,
             ),
             child: Icon(
