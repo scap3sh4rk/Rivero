@@ -272,6 +272,7 @@ class SettingsScreen extends ConsumerWidget {
     Navigator.of(context).popUntil((r) => r.isFirst);
     await ref.read(databaseProvider).wipeAll();
     await MediaStore.wipe();
+    await NotificationBridge.clearQueue();
     await ref.read(settingsSyncProvider).load(); // -> back to setup
   }
 

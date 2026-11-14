@@ -70,6 +70,16 @@ class NotificationBridge {
     return run;
   }
 
+  /// Empties the phone's capture queue ("Delete all data").
+  static Future<void> clearQueue() async {
+    if (!supported) return;
+    try {
+      await _channel.invokeMethod<void>('clearQueue');
+    } on MissingPluginException {
+      // Not running on a device (tests).
+    }
+  }
+
   /// Blocks screenshots and the recent-apps preview (Android), used while
   /// app lock is on so amounts never show outside the app.
   static Future<void> setSecure({required bool on}) async {

@@ -33,10 +33,14 @@ class MainActivity : FlutterFragmentActivity() {
                     result.success(null)
                 }
                 "drain" -> synchronized(RiveroNotificationListener.LOCK) {
-                    val prefs = getSharedPreferences(RiveroNotificationListener.PREFS, Context.MODE_PRIVATE)
-                    val json = prefs.getString(RiveroNotificationListener.KEY, "[]")
-                    prefs.edit().remove(RiveroNotificationListener.KEY).apply()
+                    val json = CaptureQueue.read(this).toString()
+                    CaptureQueue.clear(this)
                     result.success(json)
+                }
+                // "Delete all data": nothing captured may survive it.
+                "clearQueue" -> synchronized(RiveroNotificationListener.LOCK) {
+                    CaptureQueue.clear(this)
+                    result.success(null)
                 }
                 // Blocks screenshots and blanks the recent-apps preview.
                 "setSecure" -> {
