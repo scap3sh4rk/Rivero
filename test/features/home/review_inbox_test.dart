@@ -94,6 +94,22 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.textContaining('YONO'), findsOneWidget);
+
+    // Report this format: the message is shown with details hidden, editable.
+    await tester.tap(find.byKey(const ValueKey('report-odd')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const ValueKey('report-text')))
+          .controller!
+          .text,
+      'Your SBI account was debited for a UPI payment. See YONO.',
+    );
+    await tester.tap(find.text('Cancel'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
     await tester.tap(find.byKey(const ValueKey('dismiss-odd')));
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 200)),

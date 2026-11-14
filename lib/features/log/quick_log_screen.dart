@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rivero/core/currency/currency.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/account_role.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
@@ -213,10 +214,12 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen>
     if (!account.isLiability &&
         account.balanceMinorUnits > 0 &&
         minor > account.balanceMinorUnits) {
-      final held = CurrencyFormatter.format(account.balanceMinorUnits);
+      final held = formatIn(account.balanceMinorUnits, account.currencyCode);
       reasons.add('more than the $held in ${account.name}');
     }
-    if (b != null && (b.fromAccount || b.planTotal > 0) && minor > b.usable) {
+    // The budget is in rupees: compare a foreign spend at the user's rate.
+    final inHome = ref.read(toHomeProvider)(account.id, minor);
+    if (b != null && (b.fromAccount || b.planTotal > 0) && inHome > b.usable) {
       if (b.usable > 0) {
         final left = CurrencyFormatter.format(b.usable);
         reasons.add('more than the $left you have left to spend');

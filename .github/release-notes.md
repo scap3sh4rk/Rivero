@@ -11,6 +11,20 @@
 - **Private by design.** AES-256 encrypted database, biometric lock, hide-amounts mode, and encrypted backups to your own Google Drive or a file that only your passphrase opens.
 
 ### What's new in this release
+**Your data, your way.** Export everything as an Excel workbook or CSV files. Automatic encrypted Google Drive backups, daily or weekly, keep the previous copy too; Home reminds you after two weeks without one.
+
+**Less typing.** Rules sort captured payments into categories (or ignore them), and Rivero offers a rule after you file the same payee twice. Payments that repeat every month or week are suggested as autopay. Put #tags in notes and filter Activity by them; search now looks in notes.
+
+**Reminders.** Card bills 3 days and 1 day before they are due (can your accounts cover it?), autopay the day before, paying someone back, and a nudge when a friend has owed you for 30 days.
+
+**Goals.** Save towards a trip or a bike: progress ring, what you need per month, on track or behind.
+
+**Import PDF statements** from your bank, Google Pay or PhonePe, read on the phone; a password is asked for, used once and never kept.
+
+**Other currencies.** Keep a USD, EUR, GBP, AED, SGD, CAD or AUD account; totals and Safe to spend count it in rupees at your own rate.
+
+**Play-ready.** A clear explanation before notification access, a battery check so capture keeps running, and a one-tap, redacted report for bank messages Rivero cannot read yet.
+
 **Safe to spend now follows your bank balance.** Home, the Plan tab, the breakdown sheet and the *Log this anyway?* check all show the same "left to spend". Forgot to log a chai? The balance already knows.
 
 **Plan, for real months.** Every category listed in *Moves out of …* with a total; investments default to your investment account; a plan can never push an account below zero; mid-month setup asks whether this month's money already moved; early-arriving salary starts the next cycle; changing pay day keeps your month.

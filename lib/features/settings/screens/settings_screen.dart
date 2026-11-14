@@ -1,9 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rivero/core/database/daos/settings_dao.dart';
 import 'package:rivero/core/ingestion/platform/notification_bridge.dart';
 import 'package:rivero/core/ingestion/upi_apps.dart';
 import 'package:rivero/core/providers/app_providers.dart';
+import 'package:rivero/core/reminders/reminder_planner.dart';
 import 'package:rivero/core/security/app_lock.dart';
 import 'package:rivero/core/storage/media_store.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
@@ -15,7 +17,11 @@ import 'package:rivero/features/mandates/mandates_screen.dart';
 import 'package:rivero/features/settings/screens/account_types_screen.dart';
 import 'package:rivero/features/settings/screens/capture_log_screen.dart';
 import 'package:rivero/features/settings/screens/categories_screen.dart';
+import 'package:rivero/features/settings/screens/exchange_rates_screen.dart';
+import 'package:rivero/features/settings/screens/export_data.dart';
 import 'package:rivero/features/settings/screens/import_statement.dart';
+import 'package:rivero/features/settings/screens/rules_screen.dart';
+import 'package:rivero/features/settings/widgets/capture_disclosure.dart';
 import 'package:rivero/features/tour/app_tour.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -139,6 +145,21 @@ class SettingsScreen extends ConsumerWidget {
             subtitle: 'Used by Log and Activity',
             onTap: () => CategoriesScreen.open(context),
           ),
+          if (foreignCurrencies(
+            ref.watch(activePhysicalAccountsProvider).value ?? const [],
+          ).isNotEmpty)
+            _Row(
+              icon: Icons.currency_exchange_rounded,
+              title: 'Exchange rates',
+              subtitle: 'For accounts not in rupees',
+              onTap: () => ExchangeRatesScreen.open(context),
+            ),
+          _Row(
+            icon: Icons.rule_rounded,
+            title: 'Rules',
+            subtitle: 'Sort captured payments automatically',
+            onTap: () => RulesScreen.open(context),
+          ),
           _Row(
             icon: Icons.category_outlined,
             title: 'Account types',
@@ -148,6 +169,8 @@ class SettingsScreen extends ConsumerWidget {
           if (NotificationBridge.supported) ...[
             const _Header('Capture'),
             const _CaptureRows(),
+            const _Header('Reminders'),
+            const _ReminderRows(),
           ],
           const _Header('Backup'),
           _Row(
@@ -185,7 +208,9 @@ class SettingsScreen extends ConsumerWidget {
           const _Header('Experimental'),
           _Row(
             icon: Icons.upload_file_outlined,
-            title: 'Import bank statement (CSV)',
+            title: NotificationBridge.supported
+                ? 'Import bank statement (PDF or CSV)'
+                : 'Import bank statement (CSV)',
             subtitle: 'Adds past transactions to an account',
             onTap: () => importStatement(context, ref),
           ),
@@ -200,6 +225,12 @@ class SettingsScreen extends ConsumerWidget {
             },
           ),
           const _Header('Data'),
+          _Row(
+            icon: Icons.ios_share_rounded,
+            title: 'Export data',
+            subtitle: 'Excel or CSV: transactions, accounts, plan, owed',
+            onTap: () => exportData(context, ref),
+          ),
           _Row(
             icon: Icons.delete_forever_outlined,
             title: 'Delete all data',
@@ -488,9 +519,17 @@ class _CaptureRowsState extends ConsumerState<_CaptureRows>
     if (state == AppLifecycleState.resumed) _refresh();
   }
 
+  bool _battery = true;
+
   Future<void> _refresh() async {
     final on = await NotificationBridge.isEnabled();
-    if (mounted) setState(() => _enabled = on);
+    final battery = await NotificationBridge.batteryUnrestricted();
+    if (mounted) {
+      setState(() {
+        _enabled = on;
+        _battery = battery;
+      });
+    }
   }
 
   Future<void> _pickUpi() async {
@@ -545,7 +584,7 @@ class _CaptureRowsState extends ConsumerState<_CaptureRows>
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(text)));
-    if (status == 'no_access') await NotificationBridge.openSettings();
+    if (status == 'no_access' && mounted) await openCaptureAccess(context);
   }
 
   @override
@@ -560,8 +599,18 @@ class _CaptureRowsState extends ConsumerState<_CaptureRows>
             true => 'On · spends log themselves',
             false => 'Off · tap to turn on',
           },
-          onTap: NotificationBridge.openSettings,
+          onTap: () => openCaptureAccess(context),
         ),
+        if (NotificationBridge.supported)
+          _Row(
+            key: const ValueKey('battery-row'),
+            icon: Icons.battery_charging_full_rounded,
+            title: 'Battery: keep capture running',
+            subtitle: _battery
+                ? 'Unrestricted · capture keeps working'
+                : 'Restricted · tap, then Battery > Unrestricted',
+            onTap: NotificationBridge.openBatterySettings,
+          ),
         _Row(
           key: const ValueKey('primary-upi'),
           icon: Icons.account_balance_wallet_outlined,
@@ -685,4 +734,75 @@ class _DeveloperCard extends StatelessWidget {
 extension on String {
   /// This text, or null when it is empty.
   String? get nonEmpty => isEmpty ? null : this;
+}
+
+/// Settings > Reminders: which reminders the phone shows.
+class _ReminderRows extends ConsumerStatefulWidget {
+  const _ReminderRows();
+
+  @override
+  ConsumerState<_ReminderRows> createState() => _ReminderRowsState();
+}
+
+class _ReminderRowsState extends ConsumerState<_ReminderRows> {
+  final _on = <String, bool>{
+    SettingKeys.remindCards: true,
+    SettingKeys.remindAutopay: true,
+    SettingKeys.remindOwed: true,
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    final dao = ref.read(databaseProvider).settingsDao;
+    for (final k in _on.keys.toList()) {
+      dao.get(k).then((v) {
+        if (mounted) setState(() => _on[k] = v != '0');
+      });
+    }
+  }
+
+  Future<void> _set(String key, bool v) async {
+    setState(() => _on[key] = v);
+    final db = ref.read(databaseProvider);
+    await db.settingsDao.set(key, v ? '1' : '0');
+    await replanReminders(db, NotificationBridge.scheduleReminders);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Widget row(String key, IconData icon, String title, String subtitle) =>
+        _Row(
+          icon: icon,
+          title: title,
+          subtitle: subtitle,
+          trailing: Switch(
+            key: ValueKey('remind-$key'),
+            value: _on[key]!,
+            onChanged: (v) => _set(key, v),
+          ),
+        );
+    return Column(
+      children: [
+        row(
+          SettingKeys.remindCards,
+          Icons.credit_card_rounded,
+          'Card bills',
+          '3 days and 1 day before each due date',
+        ),
+        row(
+          SettingKeys.remindAutopay,
+          Icons.autorenew_rounded,
+          'Autopay tomorrow',
+          'With a warning if the account is short',
+        ),
+        row(
+          SettingKeys.remindOwed,
+          Icons.handshake_outlined,
+          'Money owed',
+          'Debts due tomorrow, and money owed to you for a month',
+        ),
+      ],
+    );
+  }
 }

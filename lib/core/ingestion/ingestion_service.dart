@@ -15,6 +15,7 @@ import 'package:rivero/core/ingestion/parser/message_intent.dart';
 import 'package:rivero/core/ledger/ledger_service.dart';
 import 'package:rivero/core/plan/plan_transfer_service.dart';
 import 'package:rivero/core/reconciliation/reconciliation_service.dart';
+import 'package:rivero/core/rules/capture_rules.dart';
 import 'package:uuid/uuid.dart';
 
 /// Central ingestion orchestrator coordinating the audit trail,
@@ -195,6 +196,28 @@ class IngestionService {
     // Exact planned amount, out of the salary account, category still unpaid.
     final category = await _matchPlanCategory(accountId, signedAmount);
 
+    // The user's own rules: a category, or "ignore this kind of message".
+    final rule = category != null
+        ? null
+        : await CaptureRules(database).match(
+            merchant: parsed.merchant ?? '',
+            message: notification.body,
+            amountMinorUnits: signedAmount,
+          );
+    if (rule != null && rule.ignore) {
+      await database.ingestionLogsDao.updateParseStatus(
+        logId,
+        ParseStatus.ignored,
+        failureReason: 'Ignored by your rule: ${rule.contains}',
+      );
+      return IngestionResult(
+        rawLogId: logId,
+        status: ParseStatus.ignored,
+        isDuplicate: false,
+        parsedTransaction: parsed,
+      );
+    }
+
     // By default (set when the app starts) every capture waits on Home for
     // Accept or Ignore, so nothing counts, or counts twice, unseen. Turning
     // "accept automatically" on lets confident, certain ones through.
@@ -220,7 +243,12 @@ class IngestionService {
         ),
         transactionState: Value(state),
         merchant: Value(parsed.merchant ?? 'Unknown Merchant'),
-        category: Value(category?.name ?? parsed.category ?? 'General Expense'),
+        category: Value(
+          category?.name ??
+              rule?.category ??
+              parsed.category ??
+              'General Expense',
+        ),
         referenceNumber: Value(parsed.referenceNumber),
         transactionTimestamp: Value(parsed.timestamp),
         createdAt: Value(now),

@@ -6,6 +6,7 @@ import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/brand_wordmark.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
+import 'package:rivero/features/home/widgets/backup_reminder_card.dart';
 import 'package:rivero/features/home/widgets/capture_hint_card.dart';
 import 'package:rivero/features/home/widgets/get_started_card.dart';
 import 'package:rivero/features/home/widgets/home_shortcuts.dart';
@@ -69,6 +70,7 @@ class HomeScreen extends ConsumerWidget {
             const SizedBox(height: RiveroSpacing.huge),
             const GetStartedCard(),
             const CaptureHintCard(),
+            const BackupReminderCard(),
             const SalaryPrompt(),
             const ReviewInbox(),
             const SizedBox(height: RiveroSpacing.lg),

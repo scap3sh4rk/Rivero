@@ -45,10 +45,12 @@ per day         = safe to payday ÷ days to payday
 | **Payments captured for you** | Reads bank and UPI notifications (notification access, never SMS permission). Pick your main UPI app (from those installed), merge duplicates, ignore OTPs and promotions, see what happened to every notification, Accept or Ignore each payment before it counts, and add a payment straight from its phone notification in two taps. |
 | **Cards with their own billing cycle** | Days left in each card's cycle, its due date, and whether your accounts can pay the bill. Autopay (including overdue and weekly) held back; card bills recognised as transfers. |
 | **Owed, both ways** | Two frames: Owed to you and You owe people (with every bill to pay: cards, loans, autopay). Split bills, loans, borrowing, part-payments, all kept out of your spending. |
-| **Activity that answers questions** | Filter by type, a day, a month or any from–to range; each day has its own heading and total. |
+| **Activity that answers questions** | Search notes, filter by #tag, type, a day, a month or any from–to range; each day has its own heading and total. |
 | **No setup wizard** | Opens straight to Home with a guided tour of every tab; add accounts and your plan in your own order. |
 | **Private by design** | AES-256 encrypted database, biometric lock, hide-amounts mode, encrypted backups to your own Google Drive or a file. |
-| **Scan and import** | On-device bill scanning (ML Kit) and CSV statement import (experimental). |
+| **Scan and import** | On-device bill scanning (ML Kit); bank, Google Pay and PhonePe statements imported from PDF (Android, password asked and never kept) or CSV. |
+| **Rules, reminders, goals** | Rules sort captured payments; repeat payments are suggested as autopay; phone reminders for card bills, autopay and debts; savings goals with progress and "behind by". |
+| **Your data, your way** | Export everything to Excel or CSV; automatic daily or weekly encrypted Drive backups; #tags and note search; accounts in other currencies at your own rates. |
 | **Yours to style** | "Ink & Sky" dark and paper-light themes, six bundled fonts, your own categories and account types. |
 
 ## How it thinks about money

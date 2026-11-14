@@ -97,6 +97,8 @@
 <div class="warn"><p>A plan never takes an account below zero. If the salary account holds less than the plan moves, Apply refuses and tells you why.</p></div>
 <h3>Marking a category paid</h3>
 <p>Tap a plan-only category on the Plan tab. Choose <strong>Already paid</strong> and pick the day you paid: the payment is added to Activity on that day and the category counts as paid, without changing the balance (it already shows the payment). Or choose <strong>Paying now</strong>: the amount comes out of the salary account today. Deleting that entry in Activity makes the category unpaid again.</p>
+<h3>Goals</h3>
+<p>At the bottom of the Plan tab, <strong>Goals</strong> lets you save towards something ("Goa trip, ₹50,000 by June"). Link a goal to an <strong>account</strong> (its balance is the progress) or to a <strong>plan category</strong> (what you paid into it since the goal began). Each goal shows a progress ring, how much you still need each month, and whether you are on track or <em>behind by ₹…</em>. A goal never creates or moves money; it only reads it.</p>
 <h3>When salary arrives</h3>
 <p>If a salary credit is captured, Home offers to split it. A salary that lands a few days early (weekends, holidays) is treated as the next cycle's salary. Bonuses and refunds are only offered when the bank calls them salary.</p>
 
@@ -110,6 +112,7 @@
 <li>Long-press and drag to reorder. Give each account a picture and colour.</li>
 <li>Tap <strong>Net worth</strong> for the breakdown.</li>
 <li>Removing an account hides it; past transactions stay, and plan categories that pointed to it are un-linked.</li>
+<li><strong>Other currencies:</strong> a bank or cash account can be in USD, EUR, GBP, AED, SGD, CAD or AUD (cards stay in rupees). Its balance shows in its own currency. Set what one unit is worth in Settings → <strong>Exchange rates</strong>; totals, net worth, Safe to spend and spending then count it in rupees at that rate. Until a rate is set, the account is left out of totals and Accounts tells you so. Rates are typed in; Rivero never downloads them.</li>
 </ul>
 
 <h2 id="log-a-payment">Log a payment</h2>
@@ -122,7 +125,7 @@
 
 <h2 id="activity-and-analytics">Activity and analytics</h2>
 <ul>
-<li>Search by merchant or category. The filter button sets the <strong>type</strong> (All, Expenses, Income, Transfers) and the <strong>date</strong>: today, yesterday, the last 7 days, this or last month, any of the last 12 months, a single day, or a from–to range. The chosen dates show as a chip you can clear.</li>
+<li>Search by merchant, category or <strong>note</strong>. Put <strong>#tags</strong> in a note ("Dinner #goa #office") and each tag becomes a chip above the list: tap one to see only those entries. The filter button sets the <strong>type</strong> (All, Expenses, Income, Transfers) and the <strong>date</strong>: today, yesterday, the last 7 days, this or last month, any of the last 12 months, a single day, or a from–to range. The chosen dates show as a chip you can clear.</li>
 <li>Each day starts with a heading (Today, Yesterday, Sat, 14 Nov) and what you spent that day.</li>
 <li>Tap an entry to edit the note and category, attach a bill photo, split the bill, confirm or ignore it, or delete it. Deleting undoes its effect on balances and budget.</li>
 <li>The small overview at the top shows what you spent this cycle, or in the dates you picked; tap it for a daily chart and top categories. <strong>Analytics</strong> shows month by month and per account.</li>
@@ -151,6 +154,7 @@
 <li>When the real debit is recorded (captured or typed in), the autopay moves to its next date. Matching uses the payee name and the amount.</li>
 <li>An autopay that passed its date without a debit shows <strong>Overdue</strong> and stays reserved for 5 days, then is assumed paid and moved on.</li>
 <li>Month-end dates are handled properly: a 31st rolls to the 28th or 29th in February.</li>
+<li><strong>Looks like autopay:</strong> when the same payee was paid a similar amount (within 10%) every month or every week, at least three times in the last six months, the Autopay page suggests it ("Netflix ₹649 monthly"). <strong>Add autopay</strong> registers it so Safe to spend keeps it aside; <strong>Not autopay</strong> stops suggesting it.</li>
 </ul>
 <h3>Credit cards</h3>
 <p>Card spending does not use up your spending budget when you swipe; it is held back as a bill to pay (Settings → "Keep money aside for card bills"). When you pay the bill from your bank, the bank's debit and the card's "payment received" are recognised as <strong>one transfer</strong>: the card's outstanding drops and your spending is not counted twice.</p>
@@ -167,8 +171,14 @@
 <p>When Rivero captures a payment and you are not in the app, your phone shows a notification such as <em>₹450 spent</em>. Tap it (or <strong>Add</strong>) and a small popup opens over whatever you are doing: pick a category, type a note if you like (the popup moves up above the keyboard), and press <strong>Add</strong> or <strong>Ignore</strong>. Rivero does not even need to open. <strong>Open Rivero</strong> instead opens the app on that payment. One-time passwords, reminders and statement notices never notify. On Android 13 and newer, allow Rivero to show notifications when asked.</p>
 <h3>Accept or ignore each payment</h3>
 <p>By default every captured payment waits on Home under <strong>To review</strong> for your <strong>Accept</strong> or <strong>Ignore</strong>. Nothing counts, or counts twice, until you say so, and duplicates are easy to spot. If you prefer, turn on Settings → Capture → <em>Accept payments automatically</em>; then only confident, certain captures go straight through.</p>
+<h3>Rules</h3>
+<p>Settings → <strong>Rules</strong> sorts captured payments for you: <em>when the payee or message contains</em> some text (and, optionally, the amount is in a range), <em>put it in</em> a category, or <em>ignore it</em>. The first matching rule wins. A payment sorted by a rule still waits for your Accept unless automatic accept is on. After you file the same payee in the same category twice, Rivero offers to <strong>Make a rule</strong>.</p>
 <h3>When a payment does not show up</h3>
 <p>Open Settings → Capture → <strong>Recent captures</strong>. It lists every notification Rivero received and what it did (recorded, ignored and why, or could not read), plus counters from the phone: how many notifications from your payment and bank apps had money in them, how many did not, and how many had <em>hidden text</em>. If text is hidden, set your phone's notifications to show content for your messages and UPI apps. Home also shows a card while notification access is off.</p>
+<p>A message Rivero could not read appears under <em>Bank messages to check</em> on Home. <strong>Report this format</strong> helps fix it for everyone: it shows the message with every digit, UPI ID and name hidden, lets you remove anything else personal, and then opens a filled-in GitHub report in your browser. Nothing is sent unless you submit it there.</p>
+<h3>Reminders</h3>
+<p>Settings → <strong>Reminders</strong> (Android) sends phone reminders: a credit card bill 3 days and 1 day before it is due (with whether your accounts cover it), an autopay the day before (warning if the account is short), money you owe the day before you said you would pay it back, and a nudge when someone has owed you for 30 days. Each kind can be switched off. Reminders are planned on the phone and survive a restart.</p>
+<p><strong>Battery:</strong> some phones stop background apps. Settings → Capture shows <em>Battery: keep capture running</em>; set Rivero to <em>Unrestricted</em> so capture and reminders keep working. Before opening notification access, Rivero explains exactly what it reads and that nothing leaves the phone.</p>
 <h3>How Rivero decides</h3>
 <ul>
 <li>One-time passwords, pre-debit reminders, mandate notices and card statements are never recorded as payments.</li>
@@ -181,7 +191,9 @@
 <h2 id="backup-restore-lock">Backup, restore, lock</h2>
 <ul>
 <li><strong>Backup &amp; restore</strong>: save to your own Google Drive or to a file. You choose a passphrase (8+ characters); the backup is encrypted on the phone before it leaves. Bill photos and account pictures are included; raw bank message text is not. <strong>Keep your passphrase safe: it cannot be recovered.</strong></li>
+<li><strong>Automatic backup:</strong> Backup &amp; restore → "Automatic backup to Google Drive": daily or weekly. It uses the passphrase you set once (kept in the phone's secure storage) and runs when you open Rivero and a backup is due. The previous copy is kept too, so one bad backup never replaces the only good one. If no backup was made for two weeks, Home reminds you.</li>
 <li>Restore replaces everything on the phone, and refuses a backup made by a newer version of the app.</li>
+<li><strong>Export data</strong> (Settings → Data): everything as an Excel workbook (one sheet each for transactions, accounts, plan, owed and autopay) or as CSV files in a .zip. Amounts are exact; nothing is uploaded, you choose where to save it.</li>
 <li><strong>App lock</strong>: fingerprint, face or phone PIN to open. While on, screenshots and the recent-apps preview are blocked.</li>
 <li><strong>Hide amounts</strong> shows dots instead of numbers.</li>
 <li><strong>Delete all data</strong> wipes the database, photos and the capture queue, then starts setup again.</li>
@@ -198,7 +210,11 @@
 <tr><td>Open on quick log</td><td>Start on the Log keypad instead of Home.</td></tr>
 <tr><td>Categories</td><td>Your spending categories, colours and order.</td></tr>
 <tr><td>Account types</td><td>Add your own (for example "Chit fund").</td></tr>
-<tr><td>Import bank statement (CSV)</td><td>Adds past transactions to an account for history and charts. Does not change balances. Experimental.</td></tr>
+<tr><td>Rules</td><td>Sort captured payments into categories, or ignore some, automatically.</td></tr>
+<tr><td>Reminders</td><td>Card bills, autopay and paying people back.</td></tr>
+<tr><td>Exchange rates</td><td>Shown when an account is not in rupees: what one unit is worth in ₹.</td></tr>
+<tr><td>Export data</td><td>Excel workbook or CSV files of everything.</td></tr>
+<tr><td>Import bank statement (PDF or CSV)</td><td>Adds past transactions to an account for history and charts. Does not change balances. On Android a <strong>PDF</strong> statement from your bank, Google Pay or PhonePe can be read on the phone; if it has a password, Rivero asks for it, uses it once and does not keep it. A preview shows the first entries before anything is added. Experimental.</td></tr>
 </table>
 
 <h2 id="faq">FAQ</h2>

@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:rivero/core/backup/auto_backup.dart';
 import 'package:rivero/core/backup/backup_codec.dart';
 import 'package:rivero/core/backup/drive_backup.dart';
 import 'package:rivero/core/providers/app_providers.dart';
@@ -35,6 +36,81 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  BackupFrequency _freq = BackupFrequency.off;
+  DateTime? _last;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAuto();
+  }
+
+  Future<void> _loadAuto() async {
+    final auto = AutoBackup(ref.read(databaseProvider));
+    final f = await auto.frequency();
+    final last = await auto.lastBackup();
+    if (mounted) {
+      setState(() {
+        _freq = f;
+        _last = last;
+      });
+    }
+  }
+
+  String _autoLabel() {
+    final when = _last == null
+        ? 'never backed up'
+        : 'last backup ${DateFormat('d MMM, h:mm a').format(_last!)}';
+    return switch (_freq) {
+      BackupFrequency.off => 'Off · $when',
+      BackupFrequency.daily => 'Every day · $when',
+      BackupFrequency.weekly => 'Every week · $when',
+    };
+  }
+
+  /// Off, daily or weekly. Turning it on asks for the passphrase once (kept
+  /// in the phone's keystore) and makes the first backup now, which also
+  /// signs in to Google so later backups need no screen at all.
+  Future<void> _chooseAuto() async {
+    final picked = await showModalBottomSheet<BackupFrequency>(
+      context: context,
+      backgroundColor: RiveroColors.surface,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final f in BackupFrequency.values)
+              ListTile(
+                title: Text(switch (f) {
+                  BackupFrequency.off => 'Off',
+                  BackupFrequency.daily => 'Every day',
+                  BackupFrequency.weekly => 'Every week',
+                }),
+                trailing: f == _freq ? const Icon(Icons.check_rounded) : null,
+                onTap: () => Navigator.pop(ctx, f),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (picked == null) return;
+    final auto = AutoBackup(ref.read(databaseProvider));
+    if (picked == BackupFrequency.off) {
+      await auto.configure(picked);
+      await _loadAuto();
+      _say('Automatic backup is off');
+      return;
+    }
+    final pass = await _askPassphrase(confirm: true);
+    if (pass == null) return;
+    final data = await BackupCodec.export(ref.read(databaseProvider));
+    await DriveBackup().upload(await _codec.encrypt(data, pass));
+    await auto.configure(picked, passphrase: pass);
+    await auto.markBackedUp(DateTime.now());
+    await _loadAuto();
+    _say('Backed up now; the next ones happen by themselves');
   }
 
   Future<String?> _askPassphrase({required bool confirm}) {
@@ -168,6 +244,13 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
           ),
           if (_busy) const LinearProgressIndicator(),
           ListTile(
+            key: const ValueKey('auto-backup'),
+            leading: const Icon(Icons.schedule_rounded),
+            title: const Text('Automatic backup to Google Drive'),
+            subtitle: Text(_autoLabel()),
+            onTap: () => _run(_chooseAuto),
+          ),
+          ListTile(
             leading: const Icon(Icons.cloud_upload_outlined),
             title: const Text('Back up to Google Drive'),
             subtitle: _status == null ? null : Text(_status!),
@@ -175,6 +258,8 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
               final bytes = await _encryptedBackup();
               if (bytes == null) return;
               await drive.upload(bytes);
+              await AutoBackup(ref.read(databaseProvider))
+                  .markBackedUp(DateTime.now());
               _say(
                 'Backed up ${DateFormat('d MMM, h:mm a').format(DateTime.now())}',
               );
@@ -204,7 +289,11 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                 bytes: Uint8List.fromList(bytes),
                 mimeType: 'application/json',
               );
-              if (saved != null) _say('Saved $name');
+              if (saved != null) {
+                await AutoBackup(ref.read(databaseProvider))
+                    .markBackedUp(DateTime.now());
+                _say('Saved $name');
+              }
             }),
           ),
           ListTile(

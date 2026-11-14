@@ -43,7 +43,7 @@ class OwedScreen extends ConsumerWidget {
     final owedToYou = DuesService.totalOutstanding(dues);
     final youOwe = DuesService.totalYouOwe(dues);
     final bills = CommitmentTotals.of(
-      accounts,
+      ref.watch(exchangeRatesProvider).inHome(accounts),
       mandates,
       cycle.cycleEndDate,
       DateTime.now(),

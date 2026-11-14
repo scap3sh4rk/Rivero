@@ -17,6 +17,7 @@ class SpendingSummary {
     required DateTime end,
     Map<String, int> othersShare = const {},
     bool includePlan = true,
+    int Function(String accountId, int minor)? toHome,
   }) {
     final from = DateTime(start.year, start.month, start.day);
     final days =
@@ -43,6 +44,8 @@ class SpendingSummary {
       } else {
         continue;
       }
+      // Spends on a foreign-currency account count in rupees.
+      if (toHome != null) delta = toHome(t.physicalAccountId, delta);
       byCat[t.category] = (byCat[t.category] ?? 0) + delta;
       final day = DateTime(ts.year, ts.month, ts.day).difference(from).inDays;
       if (day >= 0 && day < byDay.length) byDay[day] += delta;

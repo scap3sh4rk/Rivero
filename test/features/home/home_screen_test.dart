@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rivero/core/database/daos/settings_dao.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/database/database_seeder.dart';
 import 'package:rivero/core/providers/app_providers.dart';
@@ -18,6 +19,11 @@ void main() {
   setUp(() async {
     db = RiveroDatabase.memory();
     await DatabaseSeeder(db).seedIfEmpty();
+    // Backed up recently: no backup reminder on Home.
+    await db.settingsDao.set(
+      SettingKeys.lastBackupAt,
+      DateTime.now().toIso8601String(),
+    );
   });
 
   tearDown(() async {

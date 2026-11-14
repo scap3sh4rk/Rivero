@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart' show OrderingTerm;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rivero/core/currency/currency.dart';
 import 'package:rivero/core/database/daos/settings_dao.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/database/database_seeder.dart';
@@ -87,6 +88,9 @@ class SettingsSync {
     );
     ref.read(appLockEnabledProvider.notifier).state =
         (await dao.get(SettingKeys.appLock)) == '1';
+    ref.read(exchangeRatesProvider.notifier).state = ExchangeRates.fromJson(
+      await dao.get(SettingKeys.exchangeRates),
+    );
     final catsJson = await dao.get(SettingKeys.logCategories);
     if (catsJson != null) {
       ref.read(logCategoriesProvider.notifier).state = [
@@ -166,6 +170,10 @@ class SettingsSync {
       ..listen(
         appLockEnabledProvider,
         (_, v) => save(SettingKeys.appLock, v ? '1' : '0'),
+      )
+      ..listen(
+        exchangeRatesProvider,
+        (_, v) => save(SettingKeys.exchangeRates, v.toJson()),
       )
       ..listen(logCategoriesProvider, (_, v) {
         save(
@@ -444,7 +452,7 @@ final stsBreakdownProvider = Provider<AsyncValue<StsBreakdown>>((ref) {
   return AsyncValue.data(
     StsBreakdown.compute(
       buckets: bucketsAsync.value ?? const [],
-      accounts: accounts,
+      accounts: ref.watch(exchangeRatesProvider).inHome(accounts),
       mandates: ref.watch(activeMandatesProvider).value ?? const [],
       dues: ref.watch(duesProvider).value ?? const [],
       salaryAccountId: ref.watch(salaryAccountIdProvider),
@@ -519,10 +527,38 @@ final logPrefillProvider = StateProvider<LogPrefill?>((ref) => null);
 /// on its notification). MainScreen shows it and clears this.
 final openCaptureProvider = StateProvider<String?>((ref) => null);
 
+/// When data was last backed up (manual or automatic), or null.
+final lastBackupProvider = StreamProvider<DateTime?>((ref) {
+  return ref
+      .watch(databaseProvider)
+      .settingsDao
+      .watch(SettingKeys.lastBackupAt)
+      .map((v) => v == null ? null : DateTime.tryParse(v));
+});
+
 /// Last account used on the quick-log keypad.
 final lastLogAccountProvider = StateProvider<String?>((ref) => null);
 
 /// The user's spending categories (with colours), in their order.
+/// The user's exchange rates to rupees (only needed for non-₹ accounts).
+final exchangeRatesProvider = StateProvider<ExchangeRates>(
+  (ref) => const ExchangeRates({}),
+);
+
+/// Converts an amount on an account to rupees (as-is for ₹ accounts).
+final toHomeProvider = Provider<int Function(String accountId, int minor)>((
+  ref,
+) {
+  final rates = ref.watch(exchangeRatesProvider);
+  final code = {
+    for (final a
+        in ref.watch(activePhysicalAccountsProvider).value ??
+            const <PhysicalAccount>[])
+      a.id: a.currencyCode,
+  };
+  return (id, minor) => rates.toHome(minor, code[id] ?? homeCurrency);
+});
+
 final logCategoriesProvider = StateProvider<List<LogCategory>>(
   (ref) => LogCategory.defaults,
 );

@@ -79,6 +79,33 @@ class MainActivity : FlutterFragmentActivity() {
                     result.success(null)
                 }
                 "diagnostics" -> result.success(Diagnostics.read(this))
+                // A PDF statement's text, read off the main thread.
+                "pdfText" -> {
+                    val path = call.argument<String>("path") ?: ""
+                    val password = call.argument<String>("password")
+                    Thread {
+                        val out = PdfText.extract(this, path, password)
+                        runOnUiThread { result.success(out) }
+                    }.start()
+                }
+                "scheduleReminders" -> {
+                    Reminders.schedule(this, call.argument<String>("json") ?: "[]")
+                    result.success(null)
+                }
+                // Battery savers stop notification listeners; capture needs
+                // Rivero to be "Unrestricted".
+                "batteryUnrestricted" -> {
+                    val pm = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+                    result.success(pm.isIgnoringBatteryOptimizations(packageName))
+                }
+                "openBatterySettings" -> {
+                    // The app's own page, where Battery > Unrestricted lives.
+                    startActivity(
+                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                            .setData(android.net.Uri.parse("package:$packageName")),
+                    )
+                    result.success(null)
+                }
                 // Choices made in the notification popup, and "Open Rivero" taps.
                 "takeDecisions" -> result.success(CaptureNotifier.takeDecisions(this))
                 "takeOpenRequest" -> result.success(CaptureNotifier.takeOpenRequest(this))
@@ -103,6 +130,7 @@ class MainActivity : FlutterFragmentActivity() {
                     CaptureQueue.clear(this)
                     Diagnostics.clear(this)
                     CaptureNotifier.clear(this)
+                    Reminders.clear(this)
                     result.success(null)
                 }
                 // Blocks screenshots and blanks the recent-apps preview.

@@ -20,6 +20,7 @@ dependencies:
   intl: ^0.20.3
   drift: ^2.35.4
   path: ^1.9.1
+  archive: ^4.0.0
   sqlite3: ^3.9.1
   crypto: ^3.0.8
   uuid: ^4.6.0

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:rivero/core/ingestion/platform/notification_bridge.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
+import 'package:rivero/features/settings/widgets/capture_disclosure.dart';
 
 /// Android only: while notification access is off Rivero cannot see bank or
 /// UPI payments, so Home says so and takes you straight to the switch.
@@ -47,7 +48,7 @@ class _CaptureHintCardState extends State<CaptureHintCard>
       padding: const EdgeInsets.only(bottom: RiveroSpacing.xl),
       child: RiveroCard(
         key: const ValueKey('capture-hint'),
-        onTap: NotificationBridge.openSettings,
+        onTap: () => openCaptureAccess(context),
         child: Row(
           children: [
             const Icon(

@@ -66,6 +66,7 @@ class CaptureLogScreen extends ConsumerStatefulWidget {
 class _CaptureLogScreenState extends ConsumerState<CaptureLogScreen> {
   Map<String, dynamic> _diag = const {};
   bool? _listening;
+  bool _battery = true;
 
   @override
   void initState() {
@@ -75,6 +76,9 @@ class _CaptureLogScreenState extends ConsumerState<CaptureLogScreen> {
     });
     NotificationBridge.isEnabled().then((on) {
       if (mounted) setState(() => _listening = on);
+    });
+    NotificationBridge.batteryUnrestricted().then((ok) {
+      if (mounted) setState(() => _battery = ok);
     });
   }
 
@@ -104,6 +108,12 @@ class _CaptureLogScreenState extends ConsumerState<CaptureLogScreen> {
     final lines = <String>['Notification access: $access', heard];
     if (lastLine != null) lines.add(lastLine);
     if (noText > 0) lines.add(hiddenHint);
+    if (!_battery) {
+      lines.add(
+        'Battery saving is limiting Rivero, which can stop capture. Settings, '
+        'Capture, Battery: choose Unrestricted.',
+      );
+    }
 
     return Padding(
       padding: const EdgeInsets.only(bottom: RiveroSpacing.lg),

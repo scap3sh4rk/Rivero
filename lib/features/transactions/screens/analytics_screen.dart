@@ -50,11 +50,13 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
       month.month + 1,
     ).subtract(const Duration(milliseconds: 1)),
     othersShare: shares,
+    toHome: ref.read(toHomeProvider),
   );
 
   @override
   Widget build(BuildContext context) {
     final privacy = ref.watch(privacyModeProvider);
+    ref.watch(toHomeProvider); // rebuild when a rate changes
     String money(int v) => privacy ? '••••' : CurrencyFormatter.format(v);
     final accounts =
         ref.watch(activePhysicalAccountsProvider).value ?? const [];

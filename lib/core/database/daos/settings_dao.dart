@@ -22,9 +22,30 @@ abstract final class SettingKeys {
   static const salaryAccount = 'salary_account_id';
   static const tourDone = 'tour_done';
 
+  /// Reminder switches ('0' = off; anything else, including unset, = on).
+  static const remindCards = 'remind_cards';
+  static const remindAutopay = 'remind_autopay';
+  static const remindOwed = 'remind_owed';
+
+  /// Automatic backup frequency (off, daily, weekly) and the last backup.
+  static const autoBackup = 'auto_backup';
+  static const lastBackupAt = 'last_backup_at';
+
   /// '1' = confident captures count straight away; '0' (the app default) =
   /// every capture waits on Home for Accept or Ignore.
   static const captureAutoAccept = 'capture_auto_accept';
+
+  /// Capture rules as JSON (see CaptureRules).
+  static const captureRules = 'capture_rules_json';
+
+  /// Payees the user said are not subscriptions (JSON list).
+  static const dismissedSubscriptions = 'dismissed_subscriptions_json';
+
+  /// Savings goals (JSON list, see Goals).
+  static const goals = 'goals_json';
+
+  /// Rates to rupees (JSON: code -> paise per unit), see ExchangeRates.
+  static const exchangeRates = 'exchange_rates_json';
   static const primaryUpi = 'primary_upi_package';
   static const primaryUpiName = 'primary_upi_name';
 
