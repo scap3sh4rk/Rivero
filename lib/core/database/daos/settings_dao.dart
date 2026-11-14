@@ -37,6 +37,9 @@ abstract final class SettingKeys {
 
   /// Capture rules as JSON (see CaptureRules).
   static const captureRules = 'capture_rules_json';
+
+  /// Payees the user said are not subscriptions (JSON list).
+  static const dismissedSubscriptions = 'dismissed_subscriptions_json';
   static const primaryUpi = 'primary_upi_package';
   static const primaryUpiName = 'primary_upi_name';
 

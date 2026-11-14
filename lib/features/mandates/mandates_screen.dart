@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:rivero/core/database/daos/mandates_dao.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
+import 'package:rivero/core/mandates/subscription_finder.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/amount_parser.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
@@ -75,6 +76,7 @@ class MandatesScreen extends ConsumerWidget {
               ],
             ),
           ),
+          const _Suggestions(),
           const SizedBox(height: RiveroSpacing.xl),
           if (mandates.isEmpty)
             Padding(
@@ -331,6 +333,93 @@ class _AddMandateSheetState extends ConsumerState<_AddMandateSheet> {
               child: const Text('Save'),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Payments that repeat like a subscription but are not an autopay yet.
+final AutoDisposeFutureProvider<List<RecurringSuggestion>>
+subscriptionSuggestionsProvider = FutureProvider.autoDispose((ref) {
+  ref
+    ..watch(allMandatesProvider) // re-check after one is added
+    ..watch(allTransactionsStreamProvider);
+  return SubscriptionFinder(ref.watch(databaseProvider)).find();
+});
+
+class _Suggestions extends ConsumerWidget {
+  const _Suggestions();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final list = ref.watch(subscriptionSuggestionsProvider).value ?? const [];
+    if (list.isEmpty) return const SizedBox.shrink();
+    final privacy = ref.watch(privacyModeProvider);
+    final finder = SubscriptionFinder(ref.read(databaseProvider));
+    return Padding(
+      padding: const EdgeInsets.only(top: RiveroSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'LOOKS LIKE AUTOPAY',
+            style: RiveroTypography.labelSmall.copyWith(letterSpacing: 1.5),
+          ),
+          const SizedBox(height: RiveroSpacing.sm),
+          for (final s in list)
+            Padding(
+              key: ValueKey('suggest-${s.merchant}'),
+              padding: const EdgeInsets.only(bottom: RiveroSpacing.sm),
+              child: RiveroCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${s.merchant} · '
+                      '${privacy ? '₹••••' : CurrencyFormatter.format(s.amountMinorUnits)} '
+                      '${s.frequency == MandateFrequency.weekly ? 'weekly' : 'monthly'}',
+                      style: RiveroTypography.titleMedium,
+                    ),
+                    Text(
+                      'Paid ${s.count} times at a regular interval. Next '
+                      'around ${DateFormat('d MMM').format(s.next)}. Add it '
+                      'so Safe to spend keeps it aside?',
+                      style: RiveroTypography.bodySmall,
+                    ),
+                    const SizedBox(height: RiveroSpacing.sm),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            key: ValueKey('suggest-no-${s.merchant}'),
+                            onPressed: () async {
+                              await finder.dismiss(s);
+                              ref.invalidate(subscriptionSuggestionsProvider);
+                            },
+                            style: OutlinedButton.styleFrom(
+                              shape: const StadiumBorder(),
+                            ),
+                            child: const Text('Not autopay'),
+                          ),
+                        ),
+                        const SizedBox(width: RiveroSpacing.sm),
+                        Expanded(
+                          child: FilledButton(
+                            key: ValueKey('suggest-add-${s.merchant}'),
+                            onPressed: () => finder.accept(s),
+                            style: FilledButton.styleFrom(
+                              shape: const StadiumBorder(),
+                            ),
+                            child: const Text('Add autopay'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );
