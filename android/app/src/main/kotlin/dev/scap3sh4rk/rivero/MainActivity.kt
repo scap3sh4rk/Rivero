@@ -215,11 +215,20 @@ class MainActivity : FlutterFragmentActivity() {
         val extras = Bundle().apply { putBoolean(RiveroNotificationListener.EXTRA_TEST, true) }
         @Suppress("DEPRECATION")
         val builder = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(this, channelId) else Notification.Builder(this)
+        // Tapping the fake alert (if it is still there) just opens Rivero;
+        // normally it is replaced at once by the real "add it" notification.
+        val open = android.app.PendingIntent.getActivity(
+            this,
+            41,
+            Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE,
+        )
         val notification = builder
             .setSmallIcon(applicationInfo.icon)
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(Notification.BigTextStyle().bigText(body))
+            .setContentIntent(open)
             .setAutoCancel(true)
             .addExtras(extras)
             .build()

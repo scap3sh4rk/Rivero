@@ -96,6 +96,10 @@ void main() {
     tester,
   ) async {
     await pumpLog(tester);
+    // No amount yet: no note pill.
+    expect(find.byKey(const ValueKey('log-note')), findsNothing);
+    await press(tester, 'key-2');
+    expect(find.byKey(const ValueKey('log-note')), findsOneWidget);
     expect(find.byKey(const ValueKey('key-5')), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('log-note')));
     await tester.pump();
@@ -126,14 +130,14 @@ void main() {
     tester,
   ) async {
     await pumpLog(tester);
+    await press(tester, 'key-2');
+    await press(tester, 'key-0');
+    await press(tester, 'key-0');
     await tester.enterText(
       find.byKey(const ValueKey('log-note')),
       'Metro card',
     );
     await tester.tap(find.widgetWithText(ChoiceChip, 'Transport'));
-    await press(tester, 'key-2');
-    await press(tester, 'key-0');
-    await press(tester, 'key-0');
     await saveAndSettle(tester);
     await tester.pump(const Duration(milliseconds: 1600));
 
@@ -142,6 +146,7 @@ void main() {
     ))!.firstWhere((t) => t.merchant == 'Metro card');
     expect(saved.category, 'Transport');
 
+    await press(tester, 'key-1');
     await tester.enterText(
       find.byKey(const ValueKey('log-note')),
       'metro card',

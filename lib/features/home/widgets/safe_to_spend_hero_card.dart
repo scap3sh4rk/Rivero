@@ -85,7 +85,12 @@ class SafeToSpendHeroCard extends ConsumerWidget {
           ),
           const SizedBox(height: RiveroSpacing.sm),
           if (isPrivacy)
-            Text('••••••••', style: RiveroTypography.financialHero)
+            Text(
+              '••••••••',
+              style: RiveroTypography.financialHero.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            )
           else
             FinancialAmountText(
               minorUnits: sts.isDeficit ? 0 : sts.dailySpendingPace,

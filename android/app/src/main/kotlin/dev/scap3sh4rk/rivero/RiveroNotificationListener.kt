@@ -45,9 +45,13 @@ class RiveroNotificationListener : NotificationListenerService() {
         }
         // If the app is open, tell it to process the queue now.
         Handler(Looper.getMainLooper()).post { onQueued?.invoke() }
-        // Not looking at Rivero right now: a notification to add it in two
-        // taps (the test notification included, so it shows the same flow).
-        if (!MainActivity.isForeground) {
+        // A notification to add it in two taps, when Rivero is not on screen.
+        // The capture test always gets one (it is sent from inside Rivero),
+        // replacing the fake bank alert, so the whole flow can be tried.
+        if (isTest) {
+            cancelNotification(sbn.key)
+            CaptureNotifier.notify(this, captureId, title, body)
+        } else if (!MainActivity.isForeground) {
             CaptureNotifier.notify(this, captureId, title, body)
         }
     }
