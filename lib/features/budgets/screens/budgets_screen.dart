@@ -11,6 +11,7 @@ import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
+import 'package:rivero/features/goals/goals_screen.dart';
 import 'package:rivero/features/plan/salary_plan_screen.dart';
 
 /// Plan: where this month's salary goes. One card for the salary, one short
@@ -224,6 +225,29 @@ class BudgetsScreen extends ConsumerWidget {
                 .animate()
                 .fadeIn(duration: 260.ms)
                 .slideY(begin: 0.05, curve: Curves.easeOutCubic),
+          const SizedBox(height: RiveroSpacing.xl),
+          RiveroCard(
+            key: const ValueKey('open-goals'),
+            onTap: () => GoalsScreen.open(context),
+            child: Row(
+              children: [
+                const Icon(Icons.flag_outlined),
+                const SizedBox(width: RiveroSpacing.md),
+                Expanded(
+                  child: Text('Goals', style: RiveroTypography.titleMedium),
+                ),
+                Text(
+                  'Save towards something',
+                  style: RiveroTypography.bodySmall,
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 18,
+                  color: RiveroColors.textSecondary,
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

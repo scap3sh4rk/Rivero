@@ -40,6 +40,9 @@ abstract final class SettingKeys {
 
   /// Payees the user said are not subscriptions (JSON list).
   static const dismissedSubscriptions = 'dismissed_subscriptions_json';
+
+  /// Savings goals (JSON list, see Goals).
+  static const goals = 'goals_json';
   static const primaryUpi = 'primary_upi_package';
   static const primaryUpiName = 'primary_upi_name';
 
