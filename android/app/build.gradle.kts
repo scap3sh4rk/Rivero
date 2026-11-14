@@ -9,6 +9,13 @@ android {
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
+    // The release-time "lint vital" pass crashes on some plugin sources with
+    // older JDKs (a lint bug, not an app problem); flutter analyze and the
+    // test suite are the quality gate here.
+    lint {
+        checkReleaseBuilds = false
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
