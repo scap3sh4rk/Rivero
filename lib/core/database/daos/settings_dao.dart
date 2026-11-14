@@ -22,6 +22,11 @@ abstract final class SettingKeys {
   static const salaryAccount = 'salary_account_id';
   static const tourDone = 'tour_done';
 
+  /// Reminder switches ('0' = off; anything else, including unset, = on).
+  static const remindCards = 'remind_cards';
+  static const remindAutopay = 'remind_autopay';
+  static const remindOwed = 'remind_owed';
+
   /// Automatic backup frequency (off, daily, weekly) and the last backup.
   static const autoBackup = 'auto_backup';
   static const lastBackupAt = 'last_backup_at';

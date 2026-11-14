@@ -2,6 +2,8 @@
     <!-- For the "payment captured, add it" notifications and the capture
          test. No SMS permissions. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Re-arm reminders (card bills, autopay) after the phone restarts. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <application
         android:label="Rivero"
         android:allowBackup="false"
@@ -38,6 +40,13 @@
             android:taskAffinity="dev.scap3sh4rk.rivero.quickadd"
             android:theme="@style/QuickAddTheme"
             android:windowSoftInputMode="adjustResize"/>
+        <receiver android:name=".ReminderReceiver" android:exported="false"/>
+        <receiver android:name=".BootReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+            </intent-filter>
+        </receiver>
         <service
             android:name=".RiveroNotificationListener"
             android:exported="true"

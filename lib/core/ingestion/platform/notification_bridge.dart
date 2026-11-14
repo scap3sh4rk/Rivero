@@ -191,6 +191,16 @@ class NotificationBridge {
     }
   }
 
+  /// Hands the planned reminders to Android, replacing the previous plan.
+  static Future<void> scheduleReminders(String json) async {
+    if (!supported) return;
+    try {
+      await _channel.invokeMethod<void>('scheduleReminders', {'json': json});
+    } on MissingPluginException {
+      // Not running on a device (tests).
+    }
+  }
+
   /// Empties the phone's capture queue ("Delete all data").
   static Future<void> clearQueue() async {
     if (!supported) return;

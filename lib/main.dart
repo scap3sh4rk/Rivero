@@ -13,6 +13,7 @@ import 'package:rivero/core/ingestion/capture_decisions.dart';
 import 'package:rivero/core/ingestion/mandate_tracker.dart';
 import 'package:rivero/core/ingestion/platform/notification_bridge.dart';
 import 'package:rivero/core/providers/app_providers.dart';
+import 'package:rivero/core/reminders/reminder_planner.dart';
 import 'package:rivero/core/security/app_lock.dart';
 import 'package:rivero/core/security/database_key_manager.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
@@ -140,6 +141,8 @@ class _RiveroAppState extends ConsumerState<RiveroApp>
     try {
       final db = ref.read(databaseProvider);
       await MandateTracker(db).rollOverdue(now);
+      // Reminders for the next two weeks, armed in Android's alarm service.
+      await replanReminders(db, NotificationBridge.scheduleReminders);
       // Automatic encrypted backup, when due (never shows a screen; a
       // failure, such as no network, just waits for the next time).
       try {

@@ -79,6 +79,10 @@ class MainActivity : FlutterFragmentActivity() {
                     result.success(null)
                 }
                 "diagnostics" -> result.success(Diagnostics.read(this))
+                "scheduleReminders" -> {
+                    Reminders.schedule(this, call.argument<String>("json") ?: "[]")
+                    result.success(null)
+                }
                 // Battery savers stop notification listeners; capture needs
                 // Rivero to be "Unrestricted".
                 "batteryUnrestricted" -> {
@@ -117,6 +121,7 @@ class MainActivity : FlutterFragmentActivity() {
                     CaptureQueue.clear(this)
                     Diagnostics.clear(this)
                     CaptureNotifier.clear(this)
+                    Reminders.clear(this)
                     result.success(null)
                 }
                 // Blocks screenshots and blanks the recent-apps preview.

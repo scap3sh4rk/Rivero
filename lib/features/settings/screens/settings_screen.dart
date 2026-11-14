@@ -1,9 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rivero/core/database/daos/settings_dao.dart';
 import 'package:rivero/core/ingestion/platform/notification_bridge.dart';
 import 'package:rivero/core/ingestion/upi_apps.dart';
 import 'package:rivero/core/providers/app_providers.dart';
+import 'package:rivero/core/reminders/reminder_planner.dart';
 import 'package:rivero/core/security/app_lock.dart';
 import 'package:rivero/core/storage/media_store.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
@@ -150,6 +152,8 @@ class SettingsScreen extends ConsumerWidget {
           if (NotificationBridge.supported) ...[
             const _Header('Capture'),
             const _CaptureRows(),
+            const _Header('Reminders'),
+            const _ReminderRows(),
           ],
           const _Header('Backup'),
           _Row(
@@ -711,4 +715,75 @@ class _DeveloperCard extends StatelessWidget {
 extension on String {
   /// This text, or null when it is empty.
   String? get nonEmpty => isEmpty ? null : this;
+}
+
+/// Settings > Reminders: which reminders the phone shows.
+class _ReminderRows extends ConsumerStatefulWidget {
+  const _ReminderRows();
+
+  @override
+  ConsumerState<_ReminderRows> createState() => _ReminderRowsState();
+}
+
+class _ReminderRowsState extends ConsumerState<_ReminderRows> {
+  final _on = <String, bool>{
+    SettingKeys.remindCards: true,
+    SettingKeys.remindAutopay: true,
+    SettingKeys.remindOwed: true,
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    final dao = ref.read(databaseProvider).settingsDao;
+    for (final k in _on.keys.toList()) {
+      dao.get(k).then((v) {
+        if (mounted) setState(() => _on[k] = v != '0');
+      });
+    }
+  }
+
+  Future<void> _set(String key, bool v) async {
+    setState(() => _on[key] = v);
+    final db = ref.read(databaseProvider);
+    await db.settingsDao.set(key, v ? '1' : '0');
+    await replanReminders(db, NotificationBridge.scheduleReminders);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Widget row(String key, IconData icon, String title, String subtitle) =>
+        _Row(
+          icon: icon,
+          title: title,
+          subtitle: subtitle,
+          trailing: Switch(
+            key: ValueKey('remind-$key'),
+            value: _on[key]!,
+            onChanged: (v) => _set(key, v),
+          ),
+        );
+    return Column(
+      children: [
+        row(
+          SettingKeys.remindCards,
+          Icons.credit_card_rounded,
+          'Card bills',
+          '3 days and 1 day before each due date',
+        ),
+        row(
+          SettingKeys.remindAutopay,
+          Icons.autorenew_rounded,
+          'Autopay tomorrow',
+          'With a warning if the account is short',
+        ),
+        row(
+          SettingKeys.remindOwed,
+          Icons.handshake_outlined,
+          'Money owed',
+          'Debts due tomorrow, and money owed to you for a month',
+        ),
+      ],
+    );
+  }
 }
