@@ -535,9 +535,9 @@ class _CaptureRowsState extends ConsumerState<_CaptureRows>
     if (!mounted) return;
     final text = switch (status) {
       'posted' =>
-        'Test sent. A ₹1 "rivero.test" payment should appear under To '
-            'review on Home within a few seconds. Ignore it, or Accept and '
-            'delete it in Activity.',
+        'Test sent. A "₹1 spent" notification appears in a moment: tap it '
+            'to try the quick add popup. The payment also waits under To '
+            'review on Home.',
       'no_access' => 'Turn on notification access first.',
       'no_permission' => 'Allow Rivero to show notifications, then try again.',
       _ => 'Not available on this device.',
