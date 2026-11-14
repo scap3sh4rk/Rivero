@@ -346,6 +346,7 @@ final stsBreakdownProvider = Provider<AsyncValue<StsBreakdown>>((ref) {
       accounts: accounts,
       mandates: ref.watch(activeMandatesProvider).value ?? const [],
       dues: ref.watch(duesProvider).value ?? const [],
+      salaryAccountId: ref.watch(salaryAccountIdProvider),
       cycle: ref.watch(currentPaycycleProvider),
       reserveCards: ref.watch(reserveCreditCardsProvider),
       includeOwed: ref.watch(includePendingReimbursementsProvider),

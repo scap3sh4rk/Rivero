@@ -119,8 +119,12 @@ void main() {
         of: find.byKey(const ValueKey('moves-card')),
         matching: find.textContaining('→'),
       ),
-      findsOneWidget, // only salary -> spending is a self-transfer
+      // salary -> spending, plus the plan-only categories (also paid out of
+      // the salary account, just not into a tracked account)
+      findsNWidgets(3),
     );
+    expect(find.byKey(const ValueKey('moves-total')), findsOneWidget);
+    expect(find.textContaining('Total out of'), findsOneWidget);
     expect(find.byKey(const ValueKey('dest-bucket-invest')), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox());

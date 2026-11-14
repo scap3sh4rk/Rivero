@@ -4,6 +4,7 @@ import 'package:rivero/core/domain/account_role.dart';
 import 'package:rivero/core/dues/dues_service.dart';
 import 'package:rivero/core/engine/paycycle.dart';
 import 'package:rivero/core/engine/safe_to_spend_calculator.dart';
+import 'package:rivero/core/plan/plan_transfer_service.dart';
 
 /// Everything behind the Safe-to-Spend number, in the order it is used.
 /// The Home card and the "how is this calculated" sheet both read this, so
@@ -39,6 +40,7 @@ class StsBreakdown {
     required Paycycle cycle,
     required bool reserveCards,
     required bool includeOwed,
+    String? salaryAccountId,
     DateTime? now,
     DateTime? lastSyncedAt,
     SafeToSpendCalculator calculator = const SafeToSpendCalculator(),
@@ -75,7 +77,13 @@ class StsBreakdown {
 
     // Money in the spending account that the plan has promised elsewhere
     // (e.g. rent that is paid out of the same account), not spendable.
-    final reserved = accountBalance == null
+    // Plan-only categories are paid out of the SALARY account, so they only
+    // tie up money when that account is the one spending draws from.
+    final salaryId = PlanTransferService.salaryAccountOf(
+      accounts,
+      salaryAccountId,
+    )?.id;
+    final reserved = accountBalance == null || !linked.contains(salaryId)
         ? 0
         : buckets
               .where(

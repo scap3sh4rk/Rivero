@@ -36,6 +36,7 @@ PhysicalAccount _account(
   int balance, {
   bool card = false,
   int limit = 0,
+  String type = 'Savings',
 }) => PhysicalAccount(
   id: id,
   name: id,
@@ -43,7 +44,7 @@ PhysicalAccount _account(
   accountMask: '1234',
   balanceMinorUnits: balance,
   creditLimitMinorUnits: limit,
-  accountType: 'Savings',
+  accountType: type,
   currencyCode: 'INR',
   isLiability: card,
   isActive: true,
@@ -243,6 +244,29 @@ void main() {
             ),
           ],
           accounts: [_account('a', 3000000), _account('b', 0)],
+        );
+        expect(b.reservedInAccount, 0);
+        expect(b.result.effectiveSafeToSpend, 3000000);
+      },
+    );
+
+    test(
+      'rent in the salary account does not shrink a separate spending one',
+      () {
+        final b = _sts(
+          buckets: [
+            _bucket(
+              'exp',
+              AccountRole.expense,
+              allocated: 3000000,
+              account: 'd',
+            ),
+            _bucket('rent', AccountRole.custom, allocated: 1500000),
+          ],
+          accounts: [
+            _account('sal', 9000000, type: 'Salary'),
+            _account('d', 3000000),
+          ],
         );
         expect(b.reservedInAccount, 0);
         expect(b.result.effectiveSafeToSpend, 3000000);

@@ -23,6 +23,24 @@ void main() {
       await db.close();
     });
 
+    test('an SBI-style payment to a friend lands in the review inbox', () async {
+      final result = await service.processNotification(
+        RawNotification(
+          id: 'sms-sbi-1',
+          title: 'Rahul',
+          sender: 'VM-SBIUPI',
+          packageName: 'com.samsung.android.messaging',
+          body:
+              'Dear UPI user A/C X1234 debited by 500.0 on date 13Nov26 trf to '
+              'Rahul Kumar Refno 612345678901 If not u? call 1800111109. -SBI',
+          receivedAt: now,
+        ),
+      );
+      expect(result.status, ParseStatus.parsed);
+      final txns = await db.transactionsDao.watchRecentTransactions().first;
+      expect(txns.single.amountMinorUnits, -50000);
+    });
+
     test('ingests and confirms standard bank SMS into ledger', () async {
       final notif = RawNotification(
         id: 'sms-hdfc-1',

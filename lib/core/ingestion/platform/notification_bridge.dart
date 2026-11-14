@@ -94,6 +94,8 @@ class NotificationBridge {
             id: m['id'] as String,
             body: m['body'] as String,
             title: m['title'] as String?,
+            // In an SMS app the title is the sender ("VM-SBIUPI", "Mom").
+            sender: m['title'] as String?,
             packageName: m['package'] as String?,
             receivedAt: DateTime.fromMillisecondsSinceEpoch(m['time'] as int),
           ),

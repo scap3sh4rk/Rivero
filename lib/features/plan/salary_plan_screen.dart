@@ -231,26 +231,48 @@ class _SalaryPlanScreenState extends ConsumerState<SalaryPlanScreen> {
     final spendingAcc =
         accounts.where((a) => a.id == _spendingId).firstOrNull ??
         PlanTransferService.spendingAccountOf(buckets, accounts, salaryAcc);
+    // An investment category with no account chosen goes to the one
+    // investment account, if there is exactly one.
+    for (final b in fixed) {
+      if (_dest.containsKey(b.id) || b.linkedPhysicalAccountId != null) {
+        continue;
+      }
+      final d = PlanTransferService.defaultDestination(
+        b,
+        accounts,
+        salaryId: salaryAcc?.id,
+        spendingId: spendingAcc?.id,
+      );
+      if (d != null) _dest[b.id] = d;
+    }
+    final effective = [
+      for (final b in buckets)
+        if (b.role != AccountRole.expense && _dest.containsKey(b.id))
+          b.copyWith(linkedPhysicalAccountId: drift.Value(_dest[b.id]))
+        else
+          b,
+    ];
+    final transfers = ref.read(planTransferServiceProvider);
     final moves = salaryAcc == null
         ? const <PlannedMove>[]
-        : ref
-              .read(planTransferServiceProvider)
-              .movesFor(
-                allocations: split,
-                buckets: [
-                  for (final b in buckets)
-                    if (b.role == AccountRole.expense)
-                      b
-                    else if (_dest.containsKey(b.id))
-                      b.copyWith(
-                        linkedPhysicalAccountId: drift.Value(_dest[b.id]),
-                      )
-                    else
-                      b,
-                ],
-                salary: salaryAcc,
-                spending: spendingAcc,
-              );
+        : transfers.movesFor(
+            allocations: split,
+            buckets: effective,
+            salary: salaryAcc,
+            spending: spendingAcc,
+          );
+    // Everything else in the plan is also paid out of the salary account,
+    // just not into an account Rivero tracks (rent, family...).
+    final planOnly = salaryAcc == null
+        ? const <PlannedMove>[]
+        : transfers.planOnly(
+            allocations: split,
+            buckets: effective,
+            salary: salaryAcc,
+          );
+    final totalOut =
+        moves.fold<int>(0, (t, m) => t + m.amount) +
+        planOnly.fold<int>(0, (t, m) => t + m.amount);
     final short = salaryAcc == null
         ? 0
         : PlanTransferService.shortfall(salaryAcc, moves);
@@ -401,7 +423,8 @@ class _SalaryPlanScreenState extends ConsumerState<SalaryPlanScreen> {
               ],
             ),
           ),
-          if (salaryAcc != null && moves.isNotEmpty) ...[
+          if (salaryAcc != null &&
+              (moves.isNotEmpty || planOnly.isNotEmpty)) ...[
             const SizedBox(height: RiveroSpacing.md),
             RiveroCard(
               key: const ValueKey('moves-card'),
@@ -430,6 +453,51 @@ class _SalaryPlanScreenState extends ConsumerState<SalaryPlanScreen> {
                             style: RiveroTypography.bodyLarge,
                           ),
                         ],
+                      ),
+                    ),
+                  for (final m in planOnly)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '${m.name} → Paid outside Rivero',
+                              style: RiveroTypography.bodyMedium,
+                            ),
+                          ),
+                          Text(
+                            money(m.amount),
+                            style: RiveroTypography.bodyLarge,
+                          ),
+                        ],
+                      ),
+                    ),
+                  const Divider(height: RiveroSpacing.xl),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Total out of ${salaryAcc.name}',
+                          style: RiveroTypography.titleMedium,
+                        ),
+                      ),
+                      Text(
+                        money(totalOut),
+                        key: const ValueKey('moves-total'),
+                        style: RiveroTypography.titleMedium,
+                      ),
+                    ],
+                  ),
+                  if (planOnly.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: RiveroSpacing.sm),
+                      child: Text(
+                        'Rivero moves money between your own accounts when you '
+                        'apply. The rest changes ${salaryAcc.name} only when '
+                        'you pay it: tap the category on the Plan tab, or the '
+                        'bank message is matched.',
+                        style: RiveroTypography.bodySmall,
                       ),
                     ),
                   if (short > 0)

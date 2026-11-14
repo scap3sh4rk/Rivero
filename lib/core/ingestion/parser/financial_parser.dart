@@ -40,6 +40,13 @@ class FinancialParser {
     caseSensitive: false,
   );
 
+  // Banks such as SBI often omit the currency: "debited by 500.0",
+  // "credited with 1,250.50", "debited for 250".
+  static final RegExp _verbAmountRegex = RegExp(
+    r'\b(?:debited|credited|withdrawn|transferred|deducted)\s+(?:by|for|with|of)\s+(?:Rs\.?|INR|₹)?\s*([\d,]+(?:\.\d{1,2})?)',
+    caseSensitive: false,
+  );
+
   // Direction patterns
   static final RegExp _debitRegex = RegExp(
     r'\b(?:debited|spent|paid|withdrawn|transferred to|transfer to|sent to|purchase of|used at|auto-debited|auto debit)\b',
@@ -217,14 +224,18 @@ class FinancialParser {
     }
 
     final hasKeyword = _financialKeywordRegex.hasMatch(text);
-    final hasCurrency = _currencyIndicatorRegex.hasMatch(text);
+    final hasCurrency =
+        _currencyIndicatorRegex.hasMatch(text) ||
+        _verbAmountRegex.hasMatch(text);
     return hasKeyword && hasCurrency;
   }
 
   /// Parses monetary amounts into integer minor units (paise) using pure integer arithmetic.
   int? _extractAmount(String text) {
     final match =
-        _strictAmountRegex.firstMatch(text) ?? _amountRegex.firstMatch(text);
+        _strictAmountRegex.firstMatch(text) ??
+        _verbAmountRegex.firstMatch(text) ??
+        _amountRegex.firstMatch(text);
     if (match == null) return null;
 
     final raw = match.group(1)?.replaceAll(',', '').trim();

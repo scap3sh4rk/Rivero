@@ -73,30 +73,8 @@ class IngestionService {
       );
     }
 
-    // 2. Check for low confidence / quarantine (EC-10)
-    if (parsed.isLowConfidence) {
-      await database.ingestionLogsDao.insertLog(
-        RawIngestionLogsCompanion(
-          id: Value(logId),
-          sourceChannel: Value(notification.channel),
-          senderHeader: Value(notification.sender ?? notification.packageName),
-          rawPayload: Value(notification.body),
-          receivedAt: Value(notification.receivedAt),
-          parseStatus: const Value(ParseStatus.quarantined),
-          confidenceScore: Value(parsed.confidenceScore),
-          failureReason: const Value('Confidence score below 0.60 threshold'),
-          createdAt: Value(now),
-        ),
-      );
-
-      return IngestionResult(
-        rawLogId: logId,
-        status: ParseStatus.quarantined,
-        isDuplicate: false,
-        parsedTransaction: parsed,
-        failureReason: 'Confidence score below 0.60 threshold',
-      );
-    }
+    // 2. A message we are unsure about is never dropped silently: it is
+    // saved for the user to confirm (see the state chosen in step 5).
 
     // 3. Persist successful raw audit log
     await database.ingestionLogsDao.insertLog(

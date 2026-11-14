@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rivero/core/database/daos/settings_dao.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/account_role.dart';
+import 'package:rivero/core/domain/custom_account_types.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/ingestion/ingestion_service.dart';
 import 'package:rivero/core/ingestion/models/raw_notification.dart';
@@ -214,6 +215,54 @@ void main() {
         moveMoney: true,
       );
       expect(await bal('invacc'), 500000);
+    },
+  );
+
+  test(
+    'an investment category defaults to the one investment account',
+    () async {
+      await account('mf', 'Zerodha', 0, '5555');
+      await (db.update(
+        db.physicalAccounts,
+      )..where((a) => a.id.equals('mf'))).write(
+        const PhysicalAccountsCompanion(
+          accountType: Value(StandardAccountTypes.investment),
+        ),
+      );
+      final accounts = await db.accountsDao.getAllActivePhysicalAccounts();
+      final inv = (await db.accountsDao.getBucketById('inv'))!;
+      final rent = (await db.accountsDao.getBucketById('rent'))!;
+      expect(
+        PlanTransferService.defaultDestination(
+          inv,
+          accounts,
+          salaryId: 'salary',
+        ),
+        'mf',
+      );
+      // Only investment/savings categories are guessed; rent never is.
+      expect(
+        PlanTransferService.defaultDestination(
+          rent,
+          accounts,
+          salaryId: 'salary',
+        ),
+        isNull,
+      );
+      // Two investment accounts: unclear, so no guess.
+      await account('mf2', 'Groww', 0, '6666');
+      await (db.update(
+        db.physicalAccounts,
+      )..where((a) => a.id.equals('mf2'))).write(
+        const PhysicalAccountsCompanion(
+          accountType: Value(StandardAccountTypes.investment),
+        ),
+      );
+      final both = await db.accountsDao.getAllActivePhysicalAccounts();
+      expect(
+        PlanTransferService.defaultDestination(inv, both, salaryId: 'salary'),
+        isNull,
+      );
     },
   );
 

@@ -83,6 +83,33 @@ class PlanTransferService {
         salary;
   }
 
+  /// The account a category most likely belongs in when none is chosen: the
+  /// one investment account for an investment category, the one savings
+  /// account for a savings category. Null when unclear (none, or several).
+  static String? defaultDestination(
+    AllocationBucket b,
+    List<PhysicalAccount> accounts, {
+    required String? salaryId,
+    String? spendingId,
+  }) {
+    final type = switch (b.role) {
+      AccountRole.investment => StandardAccountTypes.investment,
+      AccountRole.savings => StandardAccountTypes.savings,
+      _ => null,
+    };
+    if (type == null) return null;
+    final hits = accounts
+        .where(
+          (a) =>
+              !a.isLiability &&
+              a.accountType == type &&
+              a.id != salaryId &&
+              a.id != spendingId,
+        )
+        .toList();
+    return hits.length == 1 ? hits.single.id : null;
+  }
+
   /// The moves that follow from [allocations] (bucket id -> amount): only
   /// transfers between accounts the user tracks in Rivero. A category with
   /// no destination account (rent, family) is "plan only": no numbers change
