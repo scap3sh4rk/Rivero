@@ -75,8 +75,38 @@ class MainActivity : FlutterFragmentActivity() {
         super.onDestroy()
     }
 
-    /** [{package, label}] for every installed app that can handle a UPI payment request. */
+    /** UPI and wallet apps commonly used in India: found by package even when they
+     *  do not answer a plain upi://pay request. */
+    private val knownUpiPackages = listOf(
+        "com.google.android.apps.nbu.paisa.user",
+        "com.phonepe.app",
+        "net.one97.paytm",
+        "in.org.npci.upiapp",
+        "com.dreamplug.androidapp",
+        "in.amazon.mShop.android.shopping",
+        "com.sbi.lotusintouch",
+        "com.sbi.SBIFreedomPlus",
+        "indwin.c3.shareapp",
+        "com.samsung.android.spay",
+        "com.samsung.android.spaylite",
+        "com.csam.icici.bank.imobile",
+        "com.snapwork.hdfc",
+        "com.enstage.wibmo.hdfc",
+        "com.axis.mobile",
+        "com.msf.kopl",
+        "com.naviapp",
+        "com.mobikwik_new",
+        "com.freecharge.android",
+        "com.epifi.paisa",
+        "money.jupiter",
+        "com.myairtelapp",
+        "com.google.android.apps.walletnfcrel",
+    )
+
+    /** [{package, label}] for every installed UPI-capable app: apps that can open
+     *  upi://pay, plus well-known UPI and wallet apps that are installed. */
     private fun installedUpiApps(): List<Map<String, String>> {
+        val found = linkedMapOf<String, String>()
         val probe = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("upi://pay?pa=test@upi&pn=Test&cu=INR"))
         val infos = if (Build.VERSION.SDK_INT >= 33) {
             packageManager.queryIntentActivities(
@@ -87,12 +117,22 @@ class MainActivity : FlutterFragmentActivity() {
             @Suppress("DEPRECATION")
             packageManager.queryIntentActivities(probe, PackageManager.MATCH_ALL)
         }
-        return infos
-            .map { it.activityInfo.packageName to it.loadLabel(packageManager).toString() }
-            .distinctBy { it.first }
-            .filter { it.first != packageName }
-            .sortedBy { it.second.lowercase() }
-            .map { mapOf("package" to it.first, "label" to it.second) }
+        for (info in infos) {
+            found[info.activityInfo.packageName] = info.loadLabel(packageManager).toString()
+        }
+        for (pkg in knownUpiPackages) {
+            if (found.containsKey(pkg)) continue
+            try {
+                val app = packageManager.getApplicationInfo(pkg, 0)
+                found[pkg] = packageManager.getApplicationLabel(app).toString()
+            } catch (_: PackageManager.NameNotFoundException) {
+                // not installed
+            }
+        }
+        return found
+            .filterKeys { it != packageName }
+            .map { mapOf("package" to it.key, "label" to it.value) }
+            .sortedBy { (it["label"] ?: "").lowercase() }
     }
 
     private fun listenerEnabled(): Boolean {

@@ -50,6 +50,18 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // A message sent here from Home ("Add it") arrives pre-filled.
+    ref.listenManual<LogPrefill?>(logPrefillProvider, (_, p) {
+      if (p == null) return;
+      setState(() {
+        _text = p.amountText;
+        _income = p.income;
+        _note.text = p.note;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) ref.read(logPrefillProvider.notifier).state = null;
+      });
+    }, fireImmediately: true);
     _noteFocus.addListener(() {
       if (mounted && _typingNote != _noteFocus.hasFocus) {
         setState(() => _typingNote = _noteFocus.hasFocus);

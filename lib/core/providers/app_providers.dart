@@ -462,6 +462,55 @@ final liveSafeToSpendResultProvider = Provider<AsyncValue<SafeToSpendResult>>((
 /// Active tab: 0 Accounts, 1 Plan, 2 Home (centre, default), 3 Log, 4 Activity.
 final selectedNavIndexProvider = StateProvider<int>((ref) => 2);
 
+/// Text to start the Log screen with (from a bank message Rivero could not
+/// read): the amount it found, a note, and whether money came in.
+class LogPrefill {
+  const LogPrefill({
+    required this.amountText,
+    required this.note,
+    this.income = false,
+  });
+
+  /// Best guess from a raw message: the first amount that follows Rs / INR /
+  /// ₹ or "debited/credited by|for|with", else the first decimal number.
+  factory LogPrefill.fromMessage(String text) {
+    final clean = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    final m =
+        RegExp(
+          r'(?:rs\.?|inr|₹)\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)',
+          caseSensitive: false,
+        ).firstMatch(clean) ??
+        RegExp(
+          r'(?:debited|credited|paid|sent|received)\s+(?:by|for|with|of)?\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)',
+          caseSensitive: false,
+        ).firstMatch(clean);
+    var amount = (m?.group(1) ?? '').replaceAll(',', '');
+    if (amount.endsWith('.0') || amount.endsWith('.00')) {
+      amount = amount.substring(0, amount.indexOf('.'));
+    }
+    final income =
+        RegExp(
+          r'\b(?:credited|received|deposited|refund)',
+          caseSensitive: false,
+        ).hasMatch(clean) &&
+        !RegExp(r'\bdebited', caseSensitive: false).hasMatch(clean);
+    return LogPrefill(
+      amountText: amount,
+      note: clean.length > 80 ? clean.substring(0, 80) : clean,
+      income: income,
+    );
+  }
+
+  /// Rupees as typed on the keypad ("450" or "450.5"); empty if none found.
+  final String amountText;
+  final String note;
+  final bool income;
+}
+
+/// Set by "Add it" on a message Rivero could not read; the Log screen takes
+/// it (and clears it) when it opens.
+final logPrefillProvider = StateProvider<LogPrefill?>((ref) => null);
+
 /// Last account used on the quick-log keypad.
 final lastLogAccountProvider = StateProvider<String?>((ref) => null);
 
