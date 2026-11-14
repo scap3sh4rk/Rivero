@@ -3,8 +3,13 @@ name: Test APK
 # A release-signed APK of any branch, for testing on a phone that already
 # has the released app (same signature, so it updates in place and keeps
 # the data). Uploaded as a run artifact; publishes nothing.
+#
+# Run it by pushing the commit to test to the test-apk branch:
+#   git push origin develop:test-apk --force
 on:
   workflow_dispatch:
+  push:
+    branches: [test-apk]
 
 jobs:
   apk:
