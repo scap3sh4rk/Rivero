@@ -51,6 +51,7 @@
 <tr><td>Autopay due</td><td>Active autopays dated from 5 days ago (overdue, not yet seen) to the end of the cycle. Weekly ones count once per remaining week. Variable ones reserve their cap. Autopays charged to a different bank account do not touch your spending account.</td></tr>
 <tr><td>Card bills</td><td>Outstanding balance on credit cards, if "keep money aside for card bills" is on.</td></tr>
 <tr><td>Money owed</td><td>What friends owe you, added only if you turned on "Count money owed to me".</td></tr>
+<tr><td>Money you owe</td><td>Borrowed money you promised to pay back <em>before payday</em> (it has a date) is subtracted: that cash is already spoken for. Undated debts are shown but not reserved.</td></tr>
 <tr><td>Days to payday</td><td>Days until the next pay day, minimum 1. Refreshes at midnight and when the app opens. A salary that arrived early starts the next cycle and counts to the pay day after it.</td></tr>
 </table>
 <h3>If no spending account is linked</h3>
@@ -89,7 +90,7 @@
 <h2 id="what-counts-as-spending">What counts as spending</h2>
 <table>
 <tr><th>Counts as spending</th><th>Never counts</th></tr>
-<tr><td>Expenses, cash spending, card purchases, rent/EMI/family paid through the plan (in totals), refunds (reduce spending)</td><td>Transfers between your accounts, card-bill payments, ATM withdrawals, loans you gave, repayments to you, balance updates, ignored or unconfirmed entries, shares of a split bill that others owe</td></tr>
+<tr><td>Expenses, cash spending, card purchases, rent/EMI/family paid through the plan (in totals), refunds (reduce spending)</td><td>Transfers between your accounts, card-bill payments, ATM withdrawals, loans you gave, repayments to you, balance updates, borrowing and repaying, ignored or unconfirmed entries, shares of a split bill that others owe</td></tr>
 </table>
 <p>Home's "Spent this cycle" leaves out rent and family paid through the plan, matching Safe to spend. Activity's Spends filter, Analytics and the totals all use the same rule.</p>
 
@@ -98,6 +99,8 @@
 <li><strong>Card purchase</strong>: raises the card's outstanding; reserved as a bill; does not touch the spending budget until paid.</li>
 <li><strong>Card bill from the bank</strong>: the bank debit and the card credit are linked as one transfer (in either arrival order); the card's outstanding falls once.</li>
 <li><strong>Split bill</strong>: others' shares stop being your spending at once; the money is credited back to the budget only when it arrives.</li>
+<li><strong>Credit card billing cycle</strong>: each card has a statement day and a due day. Rivero shows days left in the cycle, the next due date and compares what the card owes with what your bank and cash accounts hold ("You can pay this" or "Short by …"). Statement and due dates at a month end clamp to the last day.</li>
+<li><strong>Borrowing and repaying</strong>: borrowed money arrives in an account but is not income; paying it back leaves an account but is not spending (it was spent when borrowed).</li>
 <li><strong>Lending</strong>: the account balance drops, the budget does not. A repayment is tagged "Paid back", never income.</li>
 <li><strong>Self-transfers</strong> are paired only when they could really be one: compatible kinds, same bank reference (or none on either, within 2 minutes), never a salary without the same reference.</li>
 </ul>

@@ -24,21 +24,22 @@
 <div class="tools"><a class="gh" href="https://github.com/scap3sh4rk/Rivero">GitHub</a><button class="icon-btn" id="theme" type="button" aria-label="Switch theme">☀</button></div>
 </div></header>
 <main><div class="doc">
-<aside class="toc"><h4>On this page</h4><a href="#quick-start">Quick start</a><a href="#install-on-iphone-experimental">Install on iPhone (experimental)</a><a href="#the-five-tabs">The five tabs</a><a href="#home-your-daily-number">Home: your daily number</a><a href="#plan-where-the-salary-goes">Plan: where the salary goes</a><a href="#accounts">Accounts</a><a href="#log-a-payment">Log a payment</a><a href="#activity-and-analytics">Activity and analytics</a><a href="#owed-to-you">Owed to you</a><a href="#autopay-and-cards">Autopay and cards</a><a href="#capturing-payments-automatically">Capturing payments automatically</a><a href="#backup-restore-lock">Backup, restore, lock</a><a href="#settings-you-may-want">Settings you may want</a><a href="#faq">FAQ</a></aside>
+<aside class="toc"><h4>On this page</h4><a href="#quick-start">Quick start</a><a href="#install-on-iphone-experimental">Install on iPhone (experimental)</a><a href="#the-five-tabs">The five tabs</a><a href="#home-your-daily-number">Home: your daily number</a><a href="#plan-where-the-salary-goes">Plan: where the salary goes</a><a href="#accounts">Accounts</a><a href="#log-a-payment">Log a payment</a><a href="#activity-and-analytics">Activity and analytics</a><a href="#owed">Owed: money in both directions</a><a href="#autopay-and-cards">Autopay and cards</a><a href="#capturing-payments-automatically">Capturing payments automatically</a><a href="#backup-restore-lock">Backup, restore, lock</a><a href="#settings-you-may-want">Settings you may want</a><a href="#faq">FAQ</a></aside>
 <article>
 <span class="badge">User guide</span>
 <h1>Use Rivero, step by step</h1>
 <p class="lede">From first launch to a daily habit: set up your salary plan, capture payments automatically, and read your Safe to spend number with confidence.</p>
 
 <h2 id="quick-start">Quick start</h2>
+<p>There is no setup wizard. Rivero opens straight to Home and a short <strong>guided tour</strong> walks you through every tab the first time. You add things in place, in whatever order suits you.</p>
 <ol class="steps">
-<li><strong>Install and open Rivero</strong>Download the APK from the latest <a href="https://github.com/scap3sh4rk/Rivero/releases/latest">GitHub release</a> and install it (allow "install unknown apps" for your browser once).</li>
-<li><strong>Answer three short questions</strong>Your pay day and monthly salary, the account your salary lands in (and optionally a separate spending account), and what you set aside each month for investments or savings.</li>
-<li><strong>Enter today's balances</strong>Type what your accounts hold right now. Rivero treats these as true from this moment on.</li>
-<li><strong>Turn on capture (optional)</strong>Settings → Capture → Notification access. Rivero then records bank and UPI payments as they happen.</li>
+<li><strong>Install and open Rivero</strong>Download the APK from the latest <a href="https://github.com/scap3sh4rk/Rivero/releases/latest">GitHub release</a> and install it (allow "install unknown apps" for your browser once). A short intro plays, then the tour starts. Replay it any time from Settings → Take the tour.</li>
+<li><strong>Add your accounts</strong>Accounts tab → <em>Add account or card</em>. Enter every bank account, wallet, cash and credit card you use, with today's balance. Cards also take a limit and their statement and due days.</li>
+<li><strong>Set your salary plan</strong>Home → <em>Get started</em> → Set your salary plan (or the Plan tile). Enter your salary and how it splits. The two steps tick themselves off on Home, and the daily number appears.</li>
+<li><strong>Turn on capture (optional)</strong>Settings → Capture → Notification access, and choose your main UPI app. Rivero then records bank and UPI payments as they happen.</li>
 <li><strong>Glance at Home</strong>The big number is what you can safely spend per day until payday.</li>
 </ol>
-<div class="note"><p>Setting up in the middle of the month? In the last step Rivero asks whether this month's investments and savings are <strong>already done</strong>. Say yes if they are: they are counted as paid and nothing is moved or deducted again.</p></div>
+<div class="note"><p>Setting up in the middle of the month? The first time you apply a plan, Rivero asks <strong>"Has this month's money already moved?"</strong> Say yes if you already paid rent and invested: those categories are counted as paid and nothing is moved or deducted again.</p></div>
 
 <h2 id="install-on-iphone-experimental">Install on iPhone (experimental)</h2>
 <p>Rivero's main platform is Android. An <strong>experimental, unsigned iOS build</strong> is attached to each release as <code>rivero-…-ios-unsigned.ipa</code>. It is built and started in the iOS simulator by the project's CI, but it has <strong>not been tested on a real iPhone</strong>.</p>
@@ -47,14 +48,13 @@
 <li><strong>Sign it for your phone</strong>Apple only runs signed apps. With a free Apple ID, a sideloading tool such as AltStore or Sideloadly signs it for your own iPhone (it must be renewed every 7 days). With a paid Apple Developer account it can be signed for longer.</li>
 <li><strong>Trust and open</strong>Settings → General → VPN &amp; Device Management → trust your Apple ID, then open Rivero.</li>
 </ol>
-<p style="text-align:center"><img src="assets/ios-simulator.png" alt="Rivero first-run screen running in the iOS simulator" style="width:240px;border:1px solid var(--border-2);border-radius:24px"><br><small style="color:var(--muted)">Rivero running in the iOS simulator (CI screenshot)</small></p>
 <div class="warn"><p><strong>What is different on iPhone:</strong> iOS does not let apps read other apps' notifications, so there is <strong>no automatic payment capture</strong>. Log payments with the Log tab, scan bills, or import a CSV statement. The plan, Safe to spend, accounts, cards, owed money, autopay list, app lock (Face ID) and encrypted backups use the same code as Android. Google Drive backup on iPhone needs extra setup by the project; back up to a file for now.</p></div>
 
 <h2 id="the-five-tabs">The five tabs</h2>
 <p>Swipe left and right, or tap the bar at the bottom. Home is in the centre.</p>
 <table>
 <tr><th>Tab</th><th>What it is for</th></tr>
-<tr><td>Owed</td><td>Money friends owe you: split bills, loans, part-payments.</td></tr>
+<tr><td>Owed</td><td>Money in both directions: what people owe you, what you owe them, and every bill to pay (cards, loans, autopay).</td></tr>
 <tr><td>Accounts</td><td>Banks, cards, wallets, cash. Net worth, card usage, balances.</td></tr>
 <tr><td>Home</td><td>Safe to spend per day, items to review, shortcuts.</td></tr>
 <tr><td>Log</td><td>A keypad to record a payment in two taps.</td></tr>
@@ -101,7 +101,9 @@
 
 <h2 id="accounts">Accounts</h2>
 <ul>
-<li>Tap <strong>+</strong> to add an account: bank, wallet, cash, credit card, investment, or your own type. Cards take a credit limit; the usage pill shows the percentage used, with ticks at 10% and 30%.</li>
+<li>Tap <strong>Add account or card</strong> under the list: bank, wallet, cash, credit card, investment, or your own type. The <strong>eye</strong> icon at the top hides or shows every balance.</li>
+<li>Cards take a credit limit; the usage pill shows the percentage used, with ticks at 10% and 30%.</li>
+<li><strong>Billing cycle, per card:</strong> set the day the statement is generated and the day the bill is due. Each card then shows <em>days left in this billing cycle</em>, <em>Pay by &lt;date&gt;</em>, and whether the money in your bank and cash accounts covers the bill ("You can pay this" or "Short by …"). The Cards section totals what every card owes against what you hold.</li>
 <li>Tap an account to open it: balance, recent activity, autopay on that account. <strong>Update balance</strong> sets what it really holds, recorded as a visible "Balance update" entry.</li>
 <li>Long-press and drag to reorder. Give each account a picture and colour.</li>
 <li>Tap <strong>Net worth</strong> for the breakdown.</li>
@@ -109,7 +111,7 @@
 </ul>
 
 <h2 id="log-a-payment">Log a payment</h2>
-<p>The Log tab is a calculator-style keypad. Type an amount (the calculator key handles things like <code>120 + 80 × 2</code>), add a note, pick a category, choose the account, and Save. Long-press <kbd>0</kbd> for a decimal point. Use the Income switch for money in.</p>
+<p>The Log tab is a calculator-style keypad. Type an amount (the calculator key handles things like <code>120 + 80 × 2</code>), pick a category, optionally add a note in the small pill right under the amount, choose the account, and Save. The note pill never grows (its text scrolls as you type) and the keypad stays put when the keyboard opens. Long-press <kbd>0</kbd> for a decimal point. Use the Income switch for money in.</p>
 <ul>
 <li>If a spend is bigger than the account holds or than you have left to spend, Rivero asks <strong>Log this anyway?</strong></li>
 <li>Amounts above ₹100 crore are refused; zero and negative amounts are not accepted.</li>
@@ -123,13 +125,26 @@
 <li>The overview at the top shows what you spent this cycle (everyday spending, not rent paid through the plan) with a daily chart and top categories. <strong>Analytics</strong> shows month by month and per account.</li>
 </ul>
 
-<h2 id="owed-to-you">Owed to you</h2>
+<h2 id="owed">Owed: money in both directions</h2>
+<p>The Owed tab shows <strong>Owed to you</strong> and <strong>You owe people</strong> at the top, then three lists.</p>
+<h3>People who owe you</h3>
 <ul>
 <li><strong>Split this bill</strong> (from any payment): choose who owes what. Their share stops counting as your spending immediately.</li>
-<li><strong>Lend money</strong> records an outflow that is not spending.</li>
+<li><strong>I lent money</strong> (the + button) records an outflow that is not spending.</li>
 <li>Record a part-payment or full repayment. If it arrives in your bank, Rivero offers matching credits and tags the one you pick as "Paid back", never as income.</li>
 <li><strong>Write off</strong> gives up on what is left; for a loan, that remainder becomes spending.</li>
-<li>Settings → "Count money owed to me" optionally adds what is owed to Safe to spend before it arrives. Leave it off if friends repay into a different account than your spending account.</li>
+</ul>
+<h3>People you owe</h3>
+<ul>
+<li><strong>I borrowed money</strong> (the + button): who, how much, where it arrived (an account or cash) and, optionally, the date you will pay it back. Borrowing is not income.</li>
+<li>Tap an entry to record paying back some or all of it, from an account or in cash. Paying back is not spending (it was spent when you borrowed it).</li>
+<li>If a debt is dated before payday, that amount is held back from Safe to spend.</li>
+<li><strong>They forgave it</strong> closes a debt without any payment.</li>
+</ul>
+<h3>Bills &amp; commitments</h3>
+<p>Everything you have to pay, in one place: a total "to pay before payday" against what you hold, then each <strong>credit card</strong> (outstanding, due date, limit, available credit, can you pay it), each <strong>loan</strong>, and every <strong>autopay</strong> due before payday. Tap "All autopays" for the full list.</p>
+<ul>
+<li>Settings → "Count money owed to me" optionally adds what is owed to you to Safe to spend before it arrives. Leave it off if friends repay into a different account than your spending account.</li>
 </ul>
 
 <h2 id="autopay-and-cards">Autopay and cards</h2>
@@ -146,10 +161,13 @@
 <h2 id="capturing-payments-automatically">Capturing payments automatically</h2>
 <ol class="steps">
 <li><strong>Grant notification access</strong>Settings → Capture → Open settings → enable Rivero. Rivero does not request SMS permission.</li>
+<li><strong>Choose your main UPI app</strong>Settings → Capture → "My main UPI app": Google Pay, PhonePe, Paytm, BHIM and others. Its notifications are always read (even if it is an app Rivero does not know), and the amount is taken from the title when the body has none.</li>
 <li><strong>Send a test notification</strong>Settings → Capture → "Send a test notification". A ₹1 sample should appear in Activity.</li>
 <li><strong>Let it work</strong>Bank SMS (via your messaging app), bank apps and UPI apps are listened to. Only notifications that mention money are kept; chats and OTPs are not.</li>
 </ol>
 <div class="note"><p>Captured messages wait in an encrypted queue on the phone until Rivero opens, then are processed in order. Old raw message text is deleted after 90 days.</p></div>
+<h3>When a payment does not show up</h3>
+<p>Open Settings → Capture → <strong>Recent captures</strong>. It lists every notification Rivero received and what it did (recorded, ignored and why, or could not read), plus counters from the phone: how many notifications from your payment and bank apps had money in them, how many did not, and how many had <em>hidden text</em>. If text is hidden, set your phone's notifications to show content for your messages and UPI apps. Home also shows a card while notification access is off.</p>
 <h3>How Rivero decides</h3>
 <ul>
 <li>One-time passwords, pre-debit reminders, mandate notices and card statements are never recorded as payments.</li>
@@ -173,6 +191,8 @@
 <tr><th>Setting</th><th>Effect</th></tr>
 <tr><td>Pay day</td><td>Day of the month your cycle starts. Changing it keeps this month's plan.</td></tr>
 <tr><td>Theme and Font</td><td>Dark ("Ink &amp; Sky"), light, or follow the system; six bundled fonts.</td></tr>
+<tr><td>Take the tour</td><td>Replays the guided tour of every tab.</td></tr>
+<tr><td>My main UPI app</td><td>The UPI app whose notifications are always read.</td></tr>
 <tr><td>Open on quick log</td><td>Start on the Log keypad instead of Home.</td></tr>
 <tr><td>Categories</td><td>Your spending categories, colours and order.</td></tr>
 <tr><td>Account types</td><td>Add your own (for example "Chit fund").</td></tr>
@@ -188,6 +208,8 @@
 <p>Check notification access is on and run the test notification. Look for a "bank messages to check" card on Home. You can always add the payment on the Log tab.</p>
 <h3>The balance looks wrong.</h3>
 <p>Open the account and use <strong>Update balance</strong>. The difference is recorded as a "Balance update" so history stays explainable.</p>
+<h3>I skipped the tour. Where is it?</h3>
+<p>Settings → Take the tour. The Home "Get started" card also reminds you of the two steps the daily number needs: add your accounts and set your salary plan.</p>
 <h3>Does it work on iPhone?</h3>
 <p>There is an experimental unsigned iOS build (see "Install on iPhone"). It builds and starts in the iOS simulator, but it has not been tested on a real iPhone, and iOS cannot read notifications, so payments are logged by hand, scanned from bills or imported from a statement.</p>
 <h3>Is my data safe if I lose my phone?</h3>

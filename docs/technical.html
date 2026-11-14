@@ -24,7 +24,7 @@
 <div class="tools"><a class="gh" href="https://github.com/scap3sh4rk/Rivero">GitHub</a><button class="icon-btn" id="theme" type="button" aria-label="Switch theme">☀</button></div>
 </div></header>
 <main><div class="doc">
-<aside class="toc"><h4>On this page</h4><a href="#at-a-glance">At a glance</a><a href="#architecture">Architecture</a><a href="#data-model">Data model</a><a href="#the-ledger">The ledger</a><a href="#ingestion-pipeline">Ingestion pipeline</a><a href="#plan-engine">Plan engine</a><a href="#autopay-engine">Autopay engine</a><a href="#providers-and-refresh">Providers and refresh</a><a href="#platform-layer-android">Platform layer (Android)</a><a href="#backup-format">Backup format</a><a href="#testing">Testing</a><a href="#design-system">Design system</a></aside>
+<aside class="toc"><h4>On this page</h4><a href="#at-a-glance">At a glance</a><a href="#architecture">Architecture</a><a href="#data-model">Data model</a><a href="#the-ledger">The ledger</a><a href="#ingestion-pipeline">Ingestion pipeline</a><a href="#plan-engine">Plan engine</a><a href="#autopay-engine">Autopay engine</a><a href="#first-run-and-intro">First run, tour and intro</a><a href="#cards-and-owed">Card cycles and money owed</a><a href="#providers-and-refresh">Providers and refresh</a><a href="#platform-layer-android">Platform layer (Android)</a><a href="#backup-format">Backup format</a><a href="#testing">Testing</a><a href="#design-system">Design system</a></aside>
 <article>
 <span class="badge">Technical implementation</span>
 <h1>Under the hood</h1>
@@ -35,7 +35,7 @@
 <tr><th>Area</th><th>Choice</th></tr>
 <tr><td>Framework</td><td>Flutter 3.50 / Dart 3.14 (Android primary; iOS builds in CI, experimental)</td></tr>
 <tr><td>State</td><td>Riverpod (providers for streams, derived figures, settings)</td></tr>
-<tr><td>Storage</td><td>Drift over SQLite3 Multiple Ciphers (AES-256); schema version 10; key in Flutter Secure Storage</td></tr>
+<tr><td>Storage</td><td>Drift over SQLite3 Multiple Ciphers (AES-256); schema version 11; key in Flutter Secure Storage</td></tr>
 <tr><td>Money</td><td>Integer paise only; BigInt guards in the calculator</td></tr>
 <tr><td>Capture</td><td>Kotlin <code>NotificationListenerService</code> → Keystore-encrypted queue → Dart ingestion</td></tr>
 <tr><td>On-device ML</td><td>Google ML Kit text recognition (bill scan), no network</td></tr>
@@ -53,7 +53,7 @@
     ingestion/               parser, intent classifier, dedup, mandate tracker,
                              IngestionService, notification bridge (platform)
     reconciliation/          self-transfer & refund matchers, balance reconciler
-    plan/                    SalaryPlanService, PlanTransferService, onboarding
+    plan/                    SalaryPlanService, PlanTransferService, defaults
     engine/                  paycycle, safe-to-spend calculator, STS breakdown,
                              waterfall allocator, spending summary
     dues/                    owed money, splits, lending
@@ -73,13 +73,13 @@ android/.../kotlin/          RiveroNotificationListener, CaptureQueue, MainActiv
 <tr><td>allocation_buckets</td><td>Plan categories: role (expense, investment, savings, custom), allocated, carry-over, spent, target, linked destination account</td></tr>
 <tr><td>transactions</td><td>The ledger: signed amount, type, state, merchant, category, reference, timestamp, links to account/bucket/ingestion log, paired leg, attachment</td></tr>
 <tr><td>mandates</td><td>Autopay: payee, amount or cap, frequency, next date, status, account</td></tr>
-<tr><td>dues</td><td>Money owed: person, amount, received, kind (split, lent), source transaction</td></tr>
+<tr><td>dues</td><td>Money owed in both directions: person, amount, received/paid, kind (split, lent, borrowed), optional due date, source transaction</td></tr>
 <tr><td>raw_ingestion_logs</td><td>Capture audit trail (kept 90 days; excluded from backups)</td></tr>
 <tr><td>associated_titles</td><td>Remembered merchant → category hints</td></tr>
 <tr><td>app_settings</td><td>Key/value settings (pay day, salary, toggles, lock, categories)</td></tr>
 </table>
 <h3>Transaction type and state</h3>
-<p><strong>Types</strong>: expense, income, creditCardPurchase, creditCardSettlement, atmWithdrawal, cashExpenditure, internalTransfer, bucketFunding, investmentContribution, investmentRedemption, walletTopup, balanceAdjustment, refund, reversal, reimbursement, lending, planTransfer.</p>
+<p><strong>Types</strong>: expense, income, creditCardPurchase, creditCardSettlement, atmWithdrawal, cashExpenditure, internalTransfer, bucketFunding, investmentContribution, investmentRedemption, walletTopup, balanceAdjustment, refund, reversal, reimbursement, lending, borrowing, repayment, planTransfer.</p>
 <p><strong>States</strong>: <code>needsReview</code> (no effect yet) → <code>confirmed</code> (applied) → <code>reconciled</code> (matched with a partner or bank message); or <code>ignored</code>. Balances and budgets change exactly once, when an entry becomes applied.</p>
 <h3>Id conventions</h3>
 <table>
@@ -90,7 +90,7 @@ android/.../kotlin/          RiveroNotificationListener, CaptureQueue, MainActiv
 <tr><td><code>txn-manual-…</code></td><td>Entered by hand (eligible to absorb a later bank message)</td></tr>
 </table>
 <h3>Migrations</h3>
-<p>Versions 2–10 add columns and tables, repair data (v8 resets inflated carry-over, v9 clears obsolete bucket links) and add indexes on transaction time, account, state and amount (v10). Restoring an older backup applies the same repairs.</p>
+<p>Versions 2–11 add columns and tables, repair data (v8 resets inflated carry-over, v9 clears obsolete bucket links), add indexes on transaction time, account, state and amount (v10), and add card billing days (<code>statement_day</code>, <code>payment_due_day</code>) and a debt <code>due_date</code> (v11). Restoring an older backup applies the same repairs.</p>
 
 <h2 id="the-ledger">The ledger</h2>
 <p><code>LedgerService</code> is the single writer of balance and budget effects. Every path (capture, confirm, manual entry, plan, import) goes through it.</p>
@@ -146,12 +146,28 @@ android/.../kotlin/          RiveroNotificationListener, CaptureQueue, MainActiv
 <li><code>MandateTracker.onDebit</code> matches by whole-word payee and amount (or exact amount alone when only one fits); <code>rollOverdue</code> runs on start/resume and moves stale dates forward; <code>addMonths</code> clamps month ends.</li>
 </ul>
 
+<h2 id="first-run-and-intro">First run, tour and intro</h2>
+<ul>
+<li>There is no setup wizard. <code>ensureDefaults</code> creates the single everyday-spending category; accounts, salary and other categories are added in place. The first plan links an unlinked spending category to the salary account so Safe to spend follows a real balance.</li>
+<li><code>AppTour</code>: a dialog card over the live app that switches tabs behind it (<code>selectedNavIndexProvider</code>); shown once (<code>tour_done</code>), replayable from Settings. <code>GetStartedCard</code> on Home ticks off "add accounts" and "set a plan".</li>
+<li><code>LaunchOverlay</code>: a once-per-launch intro (logo swell and glow, wordmark sweep, tagline) over the app; disabled in tests.</li>
+</ul>
+
+<h2 id="cards-and-owed">Card cycles and money owed</h2>
+<ul>
+<li><code>CardCycle.of(statementDay, paymentDueDay, now)</code> gives the last and next statement dates (month ends clamped), days left in the cycle, the next due date and days to it; <code>CardAffordability</code> compares what a card owes with the bank and cash balances.</li>
+<li><code>DuesService</code> handles three kinds: <code>split</code> and <code>lent</code> (owed to you) and <code>borrowed</code> (you owe). <code>borrow</code> records an inflow typed <code>borrowing</code>; <code>repay</code> an outflow typed <code>repayment</code>. Neither is income or spending. <code>youOweDueBy(cycleEnd)</code> feeds Safe to spend (dated debts due before payday).</li>
+<li>Bills &amp; commitments (Owed tab) composes cards (cycle, limit, available, can-pay), loan accounts and autopays due before payday from the same providers as Safe to spend.</li>
+</ul>
+
 <h2 id="providers-and-refresh">Providers and refresh</h2>
 <p>Streams from Drift DAOs feed Riverpod providers. <code>stsBreakdownProvider</code> composes buckets, accounts, mandates, dues, the pay cycle and settings into one <code>StsBreakdown</code>; <code>liveSafeToSpendResultProvider</code> derives from it. <code>todayProvider</code> is refreshed at midnight and on resume; <code>currentPaycycleProvider</code> recomputes from it and from the last planned cycle (early salary).</p>
 
 <h2 id="platform-layer-android">Platform layer (Android)</h2>
 <ul>
 <li><code>RiveroNotificationListener</code>: filters sources and money-like text, writes to <code>CaptureQueue</code>, nudges the live app.</li>
+<li><code>Diagnostics</code>: counters only (heard, queued, no money, hidden text, last package and time; never message text) shown in Settings → Capture → Recent captures.</li>
+<li>The user's primary UPI app is stored natively (<code>setPrimaryApp</code>) so the listener reads its notifications even when it is not in the built-in allow-list; in Dart it becomes an extra trusted package for the parser, which also reads the amount from the notification <em>title</em> when the body has none.</li>
 <li><code>CaptureQueue</code>: AES-256-GCM with a non-exportable Keystore key; migrates an older plain queue; cleared by "Delete all data".</li>
 <li><code>MainActivity</code> (FlutterFragmentActivity for biometrics): channel methods <code>isEnabled</code>, <code>openSettings</code>, <code>drain</code>, <code>clearQueue</code>, <code>setSecure</code>, <code>postTest</code>.</li>
 <li>Manifest: no <code>READ_SMS</code>; <code>allowBackup="false"</code> so the database can never be copied without its key.</li>
@@ -171,10 +187,10 @@ json = { schema, createdAt, physicalAccounts, allocationBuckets, transactions,
 <tr><td>Engine</td><td>Safe to spend, pay cycle (leap years, 31st, early salary), waterfall invariants, spending summary</td></tr>
 <tr><td>Ledger</td><td>Effects and undo, double confirm, parallel balance writes, imports, set-balance</td></tr>
 <tr><td>Ingestion</td><td>Real-world SMS formats, intent classification, duplicates, card-bill pairing, account resolution, promotions</td></tr>
-<tr><td>Plan</td><td>Moves, plan-only, mid-month, shortfall refusal, pay-day change, early salary, onboarding</td></tr>
+<tr><td>Plan</td><td>Moves, plan-only, mid-month, shortfall refusal, pay-day change, early salary, first-run defaults</td></tr>
 <tr><td>Autopay</td><td>Roll-forward, overdue, weekly, month-end, matching</td></tr>
 <tr><td>Backup</td><td>Round trip, wrong passphrase, schema checks, photos, no raw messages</td></tr>
-<tr><td>Widgets</td><td>Home, Plan, Accounts, Log, review inbox, onboarding, contrast checks for both themes</td></tr>
+<tr><td>Widgets</td><td>Home, Plan, Accounts, Log, review inbox, guided tour, capture log, owed (both directions), contrast checks for both themes</td></tr>
 </table>
 <p>Regression tests for every issue found in the audits live in <code>test/core/audit/</code> and <code>test/core/ingestion/capture_audit_test.dart</code>.</p>
 
