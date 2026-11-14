@@ -103,10 +103,14 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         final index = ref.read(selectedNavIndexProvider);
         final query = ref.read(activityQueryProvider);
         final filter = ref.read(activityFilterProvider);
+        final range = ref.read(activityRangeProvider);
         if (index == activityIndex &&
-            (query.isNotEmpty || filter != ActivityFilter.all)) {
+            (query.isNotEmpty ||
+                filter != ActivityFilter.all ||
+                range != null)) {
           ref.read(activityQueryProvider.notifier).state = '';
           ref.read(activityFilterProvider.notifier).state = ActivityFilter.all;
+          ref.read(activityRangeProvider.notifier).state = null;
         } else if (index != homeIndex) {
           _goTo(homeIndex);
         } else {

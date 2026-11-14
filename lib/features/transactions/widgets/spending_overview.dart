@@ -13,9 +13,12 @@ import 'package:rivero/features/settings/screens/categories_screen.dart';
 /// "You've spent ₹X since payday": a day-by-day chart for this pay cycle and
 /// the categories it went to. Tapping a category filters the list below.
 class SpendingOverview extends ConsumerStatefulWidget {
-  const SpendingOverview({required this.onCategoryTap, super.key});
+  const SpendingOverview({required this.onCategoryTap, super.key, this.range});
 
   final ValueChanged<String> onCategoryTap;
+
+  /// Dates chosen in Activity's filter (inclusive); null = this pay cycle.
+  final DateTimeRange? range;
 
   @override
   ConsumerState<SpendingOverview> createState() => _SpendingOverviewState();
@@ -31,10 +34,17 @@ class _SpendingOverviewState extends ConsumerState<SpendingOverview> {
     final cycle = ref.watch(currentPaycycleProvider);
     final privacy = ref.watch(privacyModeProvider);
     final now = DateTime.now();
+    final r = widget.range;
+    final start = r?.start ?? cycle.cycleStartDate;
+    // The whole last day counts; never past now.
+    final rangeEnd = r == null
+        ? now
+        : DateTime(r.end.year, r.end.month, r.end.day, 23, 59, 59);
+    final end = rangeEnd.isAfter(now) ? now : rangeEnd;
     final s = SpendingSummary.of(
       txns,
-      start: cycle.cycleStartDate,
-      end: now,
+      start: start,
+      end: end,
       othersShare: DuesService.othersShareByTransaction(
         ref.watch(duesProvider).value ?? const [],
       ),
@@ -42,9 +52,23 @@ class _SpendingOverviewState extends ConsumerState<SpendingOverview> {
     String money(int v) => privacy ? '••••' : CurrencyFormatter.format(v);
     final daysSoFar = s.byDay.length;
 
+    final f = DateFormat('d MMM');
+    final title = r == null
+        ? 'Spent since ${f.format(cycle.cycleStartDate)}'
+        : r.start == r.end
+        ? 'Spent on ${f.format(r.start)}'
+        : 'Spent ${f.format(r.start)} – ${f.format(r.end)}';
+    final totalDays = r == null
+        ? cycle.totalDaysInCycle
+        : r.end.difference(r.start).inDays + 1;
+
+    // Compact: one line with the amount; details only when opened.
     return RiveroCard(
       isElevated: true,
-      padding: const EdgeInsets.all(RiveroSpacing.xl),
+      padding: const EdgeInsets.symmetric(
+        horizontal: RiveroSpacing.lg,
+        vertical: RiveroSpacing.md,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -58,16 +82,11 @@ class _SpendingOverviewState extends ConsumerState<SpendingOverview> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Spent since '
-                        '${DateFormat('d MMM').format(cycle.cycleStartDate)}',
-                        style: RiveroTypography.bodyMedium,
-                      ),
-                      const SizedBox(height: RiveroSpacing.xs),
+                      Text(title, style: RiveroTypography.bodySmall),
                       Text(
                         money(s.total),
                         key: const ValueKey('spent-total'),
-                        style: RiveroTypography.financialLarge,
+                        style: RiveroTypography.financialMedium,
                       ),
                     ],
                   ),
@@ -104,7 +123,7 @@ class _SpendingOverviewState extends ConsumerState<SpendingOverview> {
                         child: CustomPaint(
                           painter: _DailyBars(
                             s.byDay,
-                            totalDays: cycle.totalDaysInCycle,
+                            totalDays: totalDays,
                             bar: RiveroColors.textMuted,
                             today: RiveroColors.textPrimary,
                             empty: RiveroColors.surfaceInteractive,
