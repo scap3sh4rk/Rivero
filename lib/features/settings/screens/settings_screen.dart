@@ -17,6 +17,7 @@ import 'package:rivero/features/settings/screens/capture_log_screen.dart';
 import 'package:rivero/features/settings/screens/categories_screen.dart';
 import 'package:rivero/features/settings/screens/export_data.dart';
 import 'package:rivero/features/settings/screens/import_statement.dart';
+import 'package:rivero/features/settings/widgets/capture_disclosure.dart';
 import 'package:rivero/features/tour/app_tour.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -495,9 +496,17 @@ class _CaptureRowsState extends ConsumerState<_CaptureRows>
     if (state == AppLifecycleState.resumed) _refresh();
   }
 
+  bool _battery = true;
+
   Future<void> _refresh() async {
     final on = await NotificationBridge.isEnabled();
-    if (mounted) setState(() => _enabled = on);
+    final battery = await NotificationBridge.batteryUnrestricted();
+    if (mounted) {
+      setState(() {
+        _enabled = on;
+        _battery = battery;
+      });
+    }
   }
 
   Future<void> _pickUpi() async {
@@ -552,7 +561,7 @@ class _CaptureRowsState extends ConsumerState<_CaptureRows>
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(text)));
-    if (status == 'no_access') await NotificationBridge.openSettings();
+    if (status == 'no_access' && mounted) await openCaptureAccess(context);
   }
 
   @override
@@ -567,8 +576,18 @@ class _CaptureRowsState extends ConsumerState<_CaptureRows>
             true => 'On · spends log themselves',
             false => 'Off · tap to turn on',
           },
-          onTap: NotificationBridge.openSettings,
+          onTap: () => openCaptureAccess(context),
         ),
+        if (NotificationBridge.supported)
+          _Row(
+            key: const ValueKey('battery-row'),
+            icon: Icons.battery_charging_full_rounded,
+            title: 'Battery: keep capture running',
+            subtitle: _battery
+                ? 'Unrestricted · capture keeps working'
+                : 'Restricted · tap, then Battery > Unrestricted',
+            onTap: NotificationBridge.openBatterySettings,
+          ),
         _Row(
           key: const ValueKey('primary-upi'),
           icon: Icons.account_balance_wallet_outlined,

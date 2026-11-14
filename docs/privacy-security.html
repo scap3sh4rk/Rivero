@@ -25,7 +25,7 @@
 <div class="tools"><a class="gh" href="https://github.com/scap3sh4rk/Rivero">GitHub</a><button class="icon-btn" id="theme" type="button" aria-label="Switch theme">☀</button></div>
 </div></header>
 <main><div class="doc">
-<aside class="toc"><h4>On this page</h4><a href="#what-rivero-never-does">What Rivero never does</a><a href="#permissions">Permissions</a><a href="#how-data-is-protected">How data is protected</a><a href="#what-is-stored-and-for-how-long">What is stored, and for how long</a><a href="#system-level-protections">System-level protections</a><a href="#threat-model">Threat model</a><a href="#responsible-disclosure">Responsible disclosure</a></aside>
+<aside class="toc"><h4>On this page</h4><a href="#what-rivero-never-does">What Rivero never does</a><a href="#permissions">Permissions</a><a href="#how-data-is-protected">How data is protected</a><a href="#what-is-stored-and-for-how-long">What is stored, and for how long</a><a href="#system-level-protections">System-level protections</a><a href="#threat-model">Threat model</a><a href="#google-play-data-safety">Google Play: data safety</a><a href="#responsible-disclosure">Responsible disclosure</a></aside>
 <article>
 <span class="badge">Privacy &amp; security</span>
 <h1>Your money stays yours</h1>
@@ -85,6 +85,18 @@
 <tr><td>App data copied off the device</td><td>Backup disabled at the OS level; key bound to the keystore</td></tr>
 </table>
 <div class="warn"><p><strong>Your passphrase cannot be recovered.</strong> Rivero does not know it and has no server to reset it. Store it somewhere safe.</p></div>
+
+<h2 id="google-play-data-safety">Google Play: data safety</h2>
+<table>
+<tr><th>Question</th><th>Answer</th></tr>
+<tr><td>Data collected (sent off the device)</td><td>None. Rivero has no server.</td></tr>
+<tr><td>Data shared with third parties</td><td>None.</td></tr>
+<tr><td>Data processed on the device</td><td>Financial info (balances, transactions), notification text from bank, UPI and SMS apps (money messages only), photos the user attaches.</td></tr>
+<tr><td>Encrypted</td><td>Yes: database, capture queue and backups.</td></tr>
+<tr><td>Can users delete data</td><td>Yes: delete entries, or Settings → Delete all data.</td></tr>
+<tr><td>Optional transfer</td><td>Google Drive backup, started by the user, encrypted on the phone first.</td></tr>
+</table>
+<p>Before Android's notification-access page opens, Rivero shows a <strong>prominent disclosure</strong> explaining what is read and kept. Settings → Capture also checks that battery saving does not stop capture (Battery → Unrestricted).</p>
 
 <h2 id="responsible-disclosure">Responsible disclosure</h2>
 <p>Found a security issue? Please report it <strong>privately</strong> through the repository's <a href="https://github.com/scap3sh4rk/Rivero/security/advisories/new">Security tab</a> rather than a public issue. The full policy, scope and what to expect are in <a href="https://github.com/scap3sh4rk/Rivero/blob/main/SECURITY.md">SECURITY.md</a>.</p>

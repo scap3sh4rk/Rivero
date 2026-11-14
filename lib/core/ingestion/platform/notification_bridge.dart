@@ -170,6 +170,27 @@ class NotificationBridge {
     }
   }
 
+  /// Whether Android lets Rivero run without battery restrictions (capture
+  /// keeps working). True off-device.
+  static Future<bool> batteryUnrestricted() async {
+    if (!supported) return true;
+    try {
+      return await _channel.invokeMethod<bool>('batteryUnrestricted') ?? true;
+    } on MissingPluginException {
+      return true;
+    }
+  }
+
+  /// Opens Rivero's app page in Android settings (Battery > Unrestricted).
+  static Future<void> openBatterySettings() async {
+    if (!supported) return;
+    try {
+      await _channel.invokeMethod<void>('openBatterySettings');
+    } on MissingPluginException {
+      // Not running on a device (tests).
+    }
+  }
+
   /// Empties the phone's capture queue ("Delete all data").
   static Future<void> clearQueue() async {
     if (!supported) return;

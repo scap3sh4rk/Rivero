@@ -79,6 +79,20 @@ class MainActivity : FlutterFragmentActivity() {
                     result.success(null)
                 }
                 "diagnostics" -> result.success(Diagnostics.read(this))
+                // Battery savers stop notification listeners; capture needs
+                // Rivero to be "Unrestricted".
+                "batteryUnrestricted" -> {
+                    val pm = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+                    result.success(pm.isIgnoringBatteryOptimizations(packageName))
+                }
+                "openBatterySettings" -> {
+                    // The app's own page, where Battery > Unrestricted lives.
+                    startActivity(
+                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                            .setData(android.net.Uri.parse("package:$packageName")),
+                    )
+                    result.success(null)
+                }
                 // Choices made in the notification popup, and "Open Rivero" taps.
                 "takeDecisions" -> result.success(CaptureNotifier.takeDecisions(this))
                 "takeOpenRequest" -> result.success(CaptureNotifier.takeOpenRequest(this))
