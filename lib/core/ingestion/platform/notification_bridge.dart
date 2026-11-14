@@ -56,11 +56,29 @@ class NotificationBridge {
         'unsupported';
   }
 
+  Future<void> _running = Future.value();
+
   /// Pulls queued notifications and ingests them. Returns count processed.
-  Future<int> drain() async {
-    if (!supported) return 0;
-    final json = await _channel.invokeMethod<String>('drain');
-    return await ingestJson(json ?? '[]');
+  /// Runs one at a time, so a wake-up and an app resume cannot interleave.
+  Future<int> drain() {
+    if (!supported) return Future.value(0);
+    final run = _running.then((_) async {
+      final json = await _channel.invokeMethod<String>('drain');
+      return await ingestJson(json ?? '[]');
+    });
+    _running = run.then((_) {}, onError: (_) {});
+    return run;
+  }
+
+  /// Blocks screenshots and the recent-apps preview (Android), used while
+  /// app lock is on so amounts never show outside the app.
+  static Future<void> setSecure({required bool on}) async {
+    if (!supported) return;
+    try {
+      await _channel.invokeMethod<void>('setSecure', {'on': on});
+    } on MissingPluginException {
+      // Not running on a device (tests).
+    }
   }
 
   /// Parses the native queue payload; separated from [drain] for testing.

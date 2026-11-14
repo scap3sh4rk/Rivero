@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -16,8 +17,17 @@ import 'package:rivero/features/onboarding/onboarding_screen.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  final key = await DatabaseKeyManager().getOrCreateMasterKey();
-  final db = RiveroDatabase.encrypted(key);
+  final RiveroDatabase db;
+  try {
+    final key = await DatabaseKeyManager().getOrCreateMasterKey();
+    db = RiveroDatabase.encrypted(key);
+    // The connection is lazy: touch it now so a failure shows here, not as
+    // a blank screen later.
+    await db.customSelect('SELECT 1').get();
+  } on Object catch (e) {
+    runApp(StartupErrorApp(error: '$e'));
+    return;
+  }
 
   // Gracefully handle UI errors without displaying harsh full-screen red boxes
   ErrorWidget.builder = (details) {
@@ -114,7 +124,12 @@ class _RiveroAppState extends ConsumerState<RiveroApp>
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(themeModeProvider, (_, mode) => _saveTheme(mode));
+    ref
+      ..listen(themeModeProvider, (_, mode) => _saveTheme(mode))
+      ..listen(
+        appLockEnabledProvider,
+        (_, on) => NotificationBridge.setSecure(on: on),
+      );
     final mode = ref.watch(themeModeProvider);
     final font = ref.watch(fontFamilyProvider);
     final light =
@@ -134,6 +149,54 @@ class _RiveroAppState extends ConsumerState<RiveroApp>
           true => const AppLockGate(child: MainScreen()),
           false => const OnboardingScreen(),
         },
+      ),
+    );
+  }
+}
+
+/// Shown instead of a blank screen when the encrypted data cannot be opened
+/// (for example after the phone's keystore was reset). Nothing is deleted.
+class StartupErrorApp extends StatelessWidget {
+  const StartupErrorApp({required this.error, super.key});
+
+  final String error;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: RiveroTheme.build(light: false),
+      home: Scaffold(
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(RiveroSpacing.xl),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Rivero could not open your data',
+                  style: RiveroTypography.titleLarge,
+                ),
+                const SizedBox(height: RiveroSpacing.md),
+                Text(
+                  'Your data is stored encrypted on this phone and has not '
+                  'been changed. Close the app and try again. If this keeps '
+                  "happening, the phone's secure key may have been reset: "
+                  'reinstall and restore from your backup.',
+                  style: RiveroTypography.bodyMedium,
+                ),
+                const SizedBox(height: RiveroSpacing.lg),
+                Text(error, style: RiveroTypography.bodySmall, maxLines: 4),
+                const SizedBox(height: RiveroSpacing.xl),
+                const FilledButton(
+                  onPressed: SystemNavigator.pop,
+                  child: Text('Close'),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -11,6 +11,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.view.WindowManager
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -36,6 +37,13 @@ class MainActivity : FlutterFragmentActivity() {
                     val json = prefs.getString(RiveroNotificationListener.KEY, "[]")
                     prefs.edit().remove(RiveroNotificationListener.KEY).apply()
                     result.success(json)
+                }
+                // Blocks screenshots and blanks the recent-apps preview.
+                "setSecure" -> {
+                    val on = call.argument<Boolean>("on") == true
+                    if (on) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                    else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                    result.success(null)
                 }
                 "postTest" -> result.success(
                     postTestNotification(

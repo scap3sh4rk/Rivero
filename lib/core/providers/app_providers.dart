@@ -11,7 +11,6 @@ import 'package:rivero/core/dues/dues_service.dart';
 import 'package:rivero/core/engine/paycycle.dart';
 import 'package:rivero/core/engine/safe_to_spend_calculator.dart';
 import 'package:rivero/core/engine/sts_breakdown.dart';
-import 'package:rivero/core/engine/waterfall_allocator.dart';
 import 'package:rivero/core/ingestion/deduplication_engine.dart';
 import 'package:rivero/core/ingestion/ingestion_service.dart';
 import 'package:rivero/core/ingestion/parser/financial_parser.dart';
@@ -25,14 +24,6 @@ import 'package:rivero/core/reconciliation/refund_matcher.dart';
 import 'package:rivero/core/security/app_lock.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 
-/// Provider holding the current Safe-to-Spend amount in minor units (paise).
-final safeToSpendProvider = StateProvider<int>((ref) => 4825000); // ₹48,250.00
-
-/// Provider holding total salary credit in minor units (paise).
-final salaryRootBalanceProvider = StateProvider<int>(
-  (ref) => 15000000,
-); // ₹1,50,000.00
-
 /// Provider indicating whether the app is in privacy mode (hiding balances).
 final privacyModeProvider = StateProvider<bool>((ref) => false);
 
@@ -42,16 +33,6 @@ enum AppThemeMode { dark, light, system }
 final themeModeProvider = StateProvider<AppThemeMode>(
   (ref) => AppThemeMode.dark,
 );
-
-/// Waterfall allocator engine instance.
-final waterfallAllocatorProvider = Provider<WaterfallAllocator>((ref) {
-  return const WaterfallAllocator();
-});
-
-/// Safe-to-Spend calculator engine instance.
-final safeToSpendCalculatorProvider = Provider<SafeToSpendCalculator>((ref) {
-  return const SafeToSpendCalculator();
-});
 
 /// User's configured salary credit day of the month (1..31). Defaults to 1st.
 final userSalaryDayProvider = StateProvider<int>((ref) => 1);
@@ -317,14 +298,6 @@ final allAllocationBucketsProvider = StreamProvider<List<AllocationBucket>>((
   return db.accountsDao.watchAllBuckets();
 });
 
-/// Stream of recent transactions.
-final recentTransactionsProvider = StreamProvider<List<LedgerTransaction>>((
-  ref,
-) {
-  final db = ref.watch(databaseProvider);
-  return db.transactionsDao.watchRecentTransactions();
-});
-
 /// Stream of transactions needing user triage / review.
 final pendingReviewTransactionsProvider =
     StreamProvider<List<LedgerTransaction>>((ref) {
@@ -391,8 +364,7 @@ final liveSafeToSpendResultProvider = Provider<AsyncValue<SafeToSpendResult>>((
 /// Active tab: 0 Accounts, 1 Plan, 2 Home (centre, default), 3 Log, 4 Activity.
 final selectedNavIndexProvider = StateProvider<int>((ref) => 2);
 
-/// Last category / account used on the quick-log keypad (kept for the session).
-final lastLogCategoryProvider = StateProvider<String>((ref) => 'Food');
+/// Last account used on the quick-log keypad.
 final lastLogAccountProvider = StateProvider<String?>((ref) => null);
 
 /// The user's spending categories (with colours), in their order.
