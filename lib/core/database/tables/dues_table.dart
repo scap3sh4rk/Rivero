@@ -21,6 +21,9 @@ class Dues extends Table {
   TextColumn get status => textEnum<DueStatus>()();
   TextColumn get note => text().nullable()();
 
+  /// When money you owe is to be paid back (null = no date).
+  DateTimeColumn get dueDate => dateTime().nullable()();
+
   /// The bill that was split, or the lending outflow.
   TextColumn get sourceTransactionId => text().nullable().references(
     Transactions,

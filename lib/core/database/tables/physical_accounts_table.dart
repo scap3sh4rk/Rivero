@@ -22,6 +22,11 @@ class PhysicalAccounts extends Table {
   IntColumn get creditLimitMinorUnits =>
       integer().withDefault(const Constant(0))();
 
+  /// Credit cards: the day of the month the statement is generated (1-31),
+  /// and the day its payment is due. Null = not set.
+  IntColumn get statementDay => integer().nullable()();
+  IntColumn get paymentDueDay => integer().nullable()();
+
   /// Custom account type / category (e.g. "Salary", "Savings", "Credit Card", "Cash", or custom).
   TextColumn get accountType =>
       text().withLength(min: 1, max: 50).withDefault(const Constant('Bank'))();

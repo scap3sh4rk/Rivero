@@ -429,6 +429,8 @@ class FinancialParser {
       case TransactionType.walletTopup:
       case TransactionType.balanceAdjustment:
       case TransactionType.lending:
+      case TransactionType.borrowing:
+      case TransactionType.repayment:
       case TransactionType.planTransfer:
         return isDebit ? AccountRole.expense : AccountRole.savings;
     }

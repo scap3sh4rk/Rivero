@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:rivero/core/database/database.dart';
+import 'package:rivero/core/domain/card_cycle.dart';
 import 'package:rivero/core/domain/credit_utilization.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
@@ -73,7 +75,11 @@ class AccountsScreen extends ConsumerWidget {
               ReorderableDelayedDragStartListener(
                 key: ValueKey(group[i].id),
                 index: i,
-                child: _AccountRow(group[i], money: money),
+                child: _AccountRow(
+                  group[i],
+                  money: money,
+                  available: bankTotal < 0 ? 0 : bankTotal,
+                ),
               ),
           ],
         ),
@@ -140,6 +146,12 @@ class AccountsScreen extends ConsumerWidget {
             ),
           ),
           if (banks.isNotEmpty) section('Bank & cash', banks),
+          if (cards.isNotEmpty)
+            _CardsSummary(
+              owed: debt,
+              available: bankTotal < 0 ? 0 : bankTotal,
+              money: money,
+            ),
           if (cards.isNotEmpty) section('Cards', cards),
           const SizedBox(height: RiveroSpacing.lg),
           SizedBox(
@@ -170,10 +182,13 @@ class AccountsScreen extends ConsumerWidget {
 
 /// A bank/cash account or a credit card, with what matters for each.
 class _AccountRow extends StatelessWidget {
-  const _AccountRow(this.a, {required this.money});
+  const _AccountRow(this.a, {required this.money, required this.available});
 
   final PhysicalAccount a;
   final String Function(int) money;
+
+  /// What bank and cash accounts hold, for "can you pay this card".
+  final int available;
 
   @override
   Widget build(BuildContext context) {
@@ -225,6 +240,78 @@ class _AccountRow extends StatelessWidget {
       ),
     ],
   );
+
+  /// Billing cycle: days left until the statement, the due date, and whether
+  /// the money you hold covers the bill.
+  List<Widget> _cycleSection(int owed) {
+    final cycle = CardCycle.of(
+      statementDay: a.statementDay,
+      paymentDueDay: a.paymentDueDay,
+      now: DateTime.now(),
+    );
+    if (cycle == null) {
+      return [
+        Padding(
+          padding: const EdgeInsets.only(top: RiveroSpacing.sm),
+          child: Text(
+            'Add the statement and due days to track the billing cycle',
+            key: ValueKey('no-cycle-${a.id}'),
+            style: RiveroTypography.bodySmall,
+          ),
+        ),
+      ];
+    }
+    final afford = CardAffordability(owed: owed, available: available);
+    final due = DateFormat('d MMM').format(cycle.dueDate);
+    final color = owed == 0
+        ? RiveroColors.textSecondary
+        : afford.canPay
+        ? RiveroColors.success
+        : RiveroColors.danger;
+    return [
+      const SizedBox(height: RiveroSpacing.md),
+      ClipRRect(
+        borderRadius: RiveroRadii.borderFull,
+        child: LinearProgressIndicator(
+          key: ValueKey('cycle-${a.id}'),
+          value: cycle.progress,
+          minHeight: 4,
+          backgroundColor: RiveroColors.surfaceInteractive,
+          valueColor: AlwaysStoppedAnimation<Color>(RiveroColors.accent),
+        ),
+      ),
+      const SizedBox(height: RiveroSpacing.xs),
+      Row(
+        children: [
+          Expanded(
+            child: Text(
+              cycle.daysToStatement == 0
+                  ? 'Statement today'
+                  : '${cycle.daysToStatement} days left in this billing cycle',
+              key: ValueKey('cycle-days-${a.id}'),
+              style: RiveroTypography.bodySmall,
+            ),
+          ),
+          Text(
+            'Pay by $due · ${cycle.daysToDue == 0 ? 'today' : '${cycle.daysToDue} days'}',
+            key: ValueKey('due-${a.id}'),
+            style: RiveroTypography.bodySmall,
+          ),
+        ],
+      ),
+      if (owed > 0)
+        Padding(
+          padding: const EdgeInsets.only(top: RiveroSpacing.xs),
+          child: Text(
+            afford.canPay
+                ? 'You can pay this: ${money(afford.leftAfter)} left after'
+                : 'Short by ${money(afford.shortBy)} to pay this',
+            key: ValueKey('afford-${a.id}'),
+            style: RiveroTypography.labelLarge.copyWith(color: color),
+          ),
+        ),
+    ];
+  }
 
   Widget _cardBody(Color tint) {
     final u = CreditUtilization.fromBalance(
@@ -286,6 +373,7 @@ class _AccountRow extends StatelessWidget {
               ),
           ],
         ),
+        ..._cycleSection(u.usedMinorUnits),
         if (hasLimit) ...[
           const SizedBox(height: RiveroSpacing.md),
           _UsageBar(percent: u.utilizationPercent, color: u.statusColor),
@@ -341,6 +429,60 @@ class _UsageBar extends StatelessWidget {
                 bottom: 0,
                 child: Container(width: 2, color: RiveroColors.textMuted),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// All cards together: what they owe against what you hold.
+class _CardsSummary extends StatelessWidget {
+  const _CardsSummary({
+    required this.owed,
+    required this.available,
+    required this.money,
+  });
+
+  final int owed;
+  final int available;
+  final String Function(int) money;
+
+  @override
+  Widget build(BuildContext context) {
+    if (owed == 0) return const SizedBox.shrink();
+    final a = CardAffordability(owed: owed, available: available);
+    final color = a.canPay ? RiveroColors.success : RiveroColors.danger;
+    return Padding(
+      padding: const EdgeInsets.only(top: RiveroSpacing.lg),
+      child: RiveroCard(
+        key: const ValueKey('cards-summary'),
+        child: Row(
+          children: [
+            Icon(
+              a.canPay ? Icons.check_circle_rounded : Icons.warning_rounded,
+              color: color,
+            ),
+            const SizedBox(width: RiveroSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Cards owe ${money(owed)}',
+                    style: RiveroTypography.bodyLarge,
+                  ),
+                  Text(
+                    a.canPay
+                        ? 'Your accounts hold ${money(available)}: you can '
+                              'pay every card'
+                        : 'Your accounts hold ${money(available)}: short by '
+                              '${money(a.shortBy)}',
+                    style: RiveroTypography.bodySmall.copyWith(color: color),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),

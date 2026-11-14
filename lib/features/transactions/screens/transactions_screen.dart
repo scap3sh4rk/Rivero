@@ -54,6 +54,8 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     TransactionType.walletTopup,
     TransactionType.balanceAdjustment,
     TransactionType.lending,
+    TransactionType.borrowing,
+    TransactionType.repayment,
     TransactionType.reimbursement,
     TransactionType.atmWithdrawal,
   };

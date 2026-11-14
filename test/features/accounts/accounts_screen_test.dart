@@ -52,6 +52,11 @@ void main() {
       // Usage pill shows only the percentage: 14,250 of 1,50,000 = 10%.
       expect(find.text('10%'), findsOneWidget);
       expect(find.textContaining('Pay before'), findsNothing);
+      // Billing cycle: days left, due date, and whether you can pay it.
+      expect(find.byKey(const ValueKey('cycle-days-acc-cc')), findsOneWidget);
+      expect(find.byKey(const ValueKey('due-acc-cc')), findsOneWidget);
+      expect(find.byKey(const ValueKey('afford-acc-cc')), findsOneWidget);
+      expect(find.byKey(const ValueKey('cards-summary')), findsOneWidget);
       expect(find.textContaining('Limit'), findsOneWidget);
       // Which bank each account is with is shown.
       expect(find.textContaining('HDFC Bank ••4012'), findsOneWidget);
