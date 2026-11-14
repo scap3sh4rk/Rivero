@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -5,10 +7,12 @@ import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/dues/dues_service.dart';
 import 'package:rivero/core/providers/app_providers.dart';
+import 'package:rivero/core/storage/media_store.dart';
 import 'package:rivero/core/utils/amount_parser.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/bank_badge.dart';
+import 'package:rivero/design_system/widgets/photo_picker.dart';
 import 'package:rivero/design_system/widgets/picker.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
@@ -30,10 +34,44 @@ class OwedScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dues = ref.watch(duesProvider).value ?? const [];
+    final accounts =
+        ref.watch(activePhysicalAccountsProvider).value ?? const [];
+    final mandates = ref.watch(activeMandatesProvider).value ?? const [];
+    final cycle = ref.watch(currentPaycycleProvider);
     final privacy = ref.watch(privacyModeProvider);
     String money(int v) => privacy ? '••••' : CurrencyFormatter.format(v);
     final owedToYou = DuesService.totalOutstanding(dues);
     final youOwe = DuesService.totalYouOwe(dues);
+    final bills = CommitmentTotals.of(
+      accounts,
+      mandates,
+      cycle.cycleEndDate,
+      DateTime.now(),
+    );
+    final openToYou = dues
+        .where((d) => d.status == DueStatus.open && d.kind != DueKind.borrowed)
+        .toList();
+    final openByYou = dues
+        .where((d) => d.status == DueStatus.open && d.kind == DueKind.borrowed)
+        .toList();
+    final net = owedToYou - youOwe;
+
+    Widget stat(String label, String value) => Padding(
+      padding: const EdgeInsets.only(top: RiveroSpacing.xs),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: RiveroTypography.bodySmall)),
+          Text(value, style: RiveroTypography.bodyMedium),
+        ],
+      ),
+    );
+    String people(int n) => n == 1 ? '1 person' : '$n people';
+    Due? oldest(List<Due> l) => l.isEmpty
+        ? null
+        : (l.toList()..sort((a, b) => a.createdAt.compareTo(b.createdAt)))
+              .first;
+    final oldestToYou = oldest(openToYou);
+    final oldestByYou = oldest(openByYou);
 
     return Scaffold(
       backgroundColor: RiveroColors.background,
@@ -48,36 +86,113 @@ class OwedScreen extends ConsumerWidget {
         tooltip: 'Add',
         onPressed: () => _chooseKind(context),
       ),
-      body: ListView(
-        padding: EdgeInsets.fromLTRB(
+      // Everything fits on one screen: the two frames share the height
+      // above the net line and the + button; nothing to scroll.
+      body: Padding(
+        padding: const EdgeInsets.fromLTRB(
           RiveroSpacing.xl,
           RiveroSpacing.sm,
           RiveroSpacing.xl,
-          RiveroSpacing.huge + 72 + MediaQuery.paddingOf(context).bottom,
+          88,
         ),
-        children: [
-          _Total(
-            key: const ValueKey('owed-card-to-you'),
-            label: 'Owed to you',
-            value: money(owedToYou),
-            valueKey: const ValueKey('owed-total'),
-            color: RiveroColors.success,
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const OwedToYouScreen()),
+        child: Column(
+          children: [
+            Expanded(
+              child: _Total(
+                key: const ValueKey('owed-card-to-you'),
+                label: 'Owed to you',
+                value: money(owedToYou),
+                valueKey: const ValueKey('owed-total'),
+                color: RiveroColors.success,
+                details: [
+                  stat(
+                    'Owed by',
+                    openToYou.isEmpty ? 'Nobody' : people(openToYou.length),
+                  ),
+                  if (oldestToYou != null)
+                    stat(
+                      'Oldest',
+                      '${oldestToYou.person} · ${DateFormat('d MMM').format(oldestToYou.createdAt)}',
+                    ),
+                ],
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const OwedToYouScreen(),
+                  ),
+                ),
+              ),
             ),
-          ),
-          const SizedBox(height: RiveroSpacing.md),
-          _Total(
-            key: const ValueKey('owed-card-you-owe'),
-            label: 'You owe people',
-            value: money(youOwe),
-            valueKey: const ValueKey('owe-total'),
-            color: youOwe > 0 ? RiveroColors.warning : null,
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const YouOweScreen()),
+            const SizedBox(height: RiveroSpacing.md),
+            Expanded(
+              child: _Total(
+                key: const ValueKey('owed-card-you-owe'),
+                label: 'You owe people',
+                value: money(youOwe),
+                valueKey: const ValueKey('owe-total'),
+                color: youOwe > 0 ? RiveroColors.warning : null,
+                details: [
+                  stat(
+                    'Owed to',
+                    openByYou.isEmpty ? 'Nobody' : people(openByYou.length),
+                  ),
+                  if (oldestByYou != null)
+                    stat(
+                      'Oldest',
+                      '${oldestByYou.person} · ${DateFormat('d MMM').format(oldestByYou.createdAt)}',
+                    ),
+                  stat('Card bills', money(bills.cards + bills.loans)),
+                  stat('Autopay before payday', money(bills.autopay)),
+                ],
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => const YouOweScreen()),
+                ),
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: RiveroSpacing.md),
+            RiveroCard(
+              key: const ValueKey('owed-net'),
+              child: Row(
+                children: [
+                  Icon(
+                    net == 0
+                        ? Icons.balance_rounded
+                        : net > 0
+                        ? Icons.south_west_rounded
+                        : Icons.north_east_rounded,
+                    color: net == 0
+                        ? RiveroColors.textSecondary
+                        : net > 0
+                        ? RiveroColors.success
+                        : RiveroColors.warning,
+                  ),
+                  const SizedBox(width: RiveroSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          net == 0
+                              ? 'All square'
+                              : net > 0
+                              ? 'Net: you are owed ${money(net)}'
+                              : 'Net: you owe ${money(-net)}',
+                          key: const ValueKey('owed-net-text'),
+                          style: RiveroTypography.titleMedium,
+                        ),
+                        Text(
+                          net < 0
+                              ? 'to settle after what people owe you'
+                              : 'between people, before bills',
+                          style: RiveroTypography.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -240,6 +355,7 @@ class _Total extends StatelessWidget {
     required this.value,
     required this.valueKey,
     required this.onTap,
+    required this.details,
     super.key,
     this.color,
   });
@@ -249,34 +365,43 @@ class _Total extends StatelessWidget {
   final Key valueKey;
   final VoidCallback onTap;
   final Color? color;
+  final List<Widget> details;
 
   @override
   Widget build(BuildContext context) => RiveroCard(
     isElevated: true,
     onTap: onTap,
-    padding: const EdgeInsets.all(RiveroSpacing.xl),
-    child: Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    child: SizedBox.expand(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Text(label, style: RiveroTypography.bodyMedium),
-              const SizedBox(height: RiveroSpacing.xs),
-              FittedBox(
+              Expanded(child: Text(label, style: RiveroTypography.titleMedium)),
+              Icon(Icons.chevron_right_rounded, color: RiveroColors.textMuted),
+            ],
+          ),
+          // The amount takes the free space and shrinks only if it must.
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: FittedBox(
                 fit: BoxFit.scaleDown,
                 alignment: Alignment.centerLeft,
                 child: Text(
                   value,
                   key: valueKey,
-                  style: RiveroTypography.financialLarge.copyWith(color: color),
+                  style: RiveroTypography.financialLarge.copyWith(
+                    color: color,
+                    fontSize: 46,
+                  ),
                 ),
               ),
-            ],
+            ),
           ),
-        ),
-        Icon(Icons.chevron_right_rounded, color: RiveroColors.textMuted),
-      ],
+          ...details,
+        ],
+      ),
     ),
   );
 }
@@ -314,7 +439,8 @@ class _DueTile extends StatelessWidget {
                     Text(d.person, style: RiveroTypography.bodyLarge),
                     Text(
                       '$what · ${DateFormat('d MMM').format(d.createdAt)}'
-                      '${borrowed && d.dueDate != null && open ? ' · pay by ${DateFormat('d MMM').format(d.dueDate!)}' : ''}',
+                      '${borrowed && d.dueDate != null && open ? ' · pay by ${DateFormat('d MMM').format(d.dueDate!)}' : ''}'
+                      '${d.attachmentPath != null ? ' · photo' : ''}',
                       style: RiveroTypography.bodySmall,
                     ),
                     if (d.receivedMinorUnits > 0 && open)
@@ -403,6 +529,30 @@ class _DueSheetState extends ConsumerState<_DueSheet> {
     }
   }
 
+  /// The bill or proof photo, if one was attached; tap to view it.
+  Widget _proof() {
+    final path = widget.due.attachmentPath;
+    if (path == null || !File(path).existsSync()) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.only(bottom: RiveroSpacing.lg),
+      child: GestureDetector(
+        key: const ValueKey('due-proof'),
+        onTap: () => showPhoto(context, path),
+        child: ClipRRect(
+          borderRadius: RiveroRadii.borderLg,
+          child: Image.file(
+            File(path),
+            height: 120,
+            width: double.infinity,
+            fit: BoxFit.cover,
+          ),
+        ),
+      ),
+    );
+  }
+
   /// Money you owe: pay back some or all, from an account or in cash.
   Widget _borrowedBody(String Function(int) money) {
     final service = ref.read(duesServiceProvider);
@@ -425,6 +575,7 @@ class _DueSheetState extends ConsumerState<_DueSheet> {
             style: RiveroTypography.titleLarge,
           ),
           const SizedBox(height: RiveroSpacing.lg),
+          _proof(),
           TextField(
             key: const ValueKey('repay-amount'),
             controller: _amount,
@@ -494,6 +645,7 @@ class _DueSheetState extends ConsumerState<_DueSheet> {
             style: RiveroTypography.titleLarge,
           ),
           const SizedBox(height: RiveroSpacing.lg),
+          _proof(),
           TextField(
             key: const ValueKey('receive-amount'),
             controller: _amount,
@@ -586,6 +738,8 @@ class _MoneySheetState extends ConsumerState<_MoneySheet> {
   final _note = TextEditingController();
   String? _accountId;
   DateTime? _dueDate;
+  DateTime _on = DateTime.now(); // the day it really happened
+  String? _proof; // a photo of the bill or proof
 
   @override
   void dispose() {
@@ -600,6 +754,14 @@ class _MoneySheetState extends ConsumerState<_MoneySheet> {
     final minor = parseAmountMinorUnits(_amount.text.trim());
     final note = _note.text.trim().isEmpty ? null : _note.text;
     try {
+      // Keep the photo in app storage (it lives as long as the entry).
+      final proof = _proof == null
+          ? null
+          : await MediaStore.keep(
+              _proof!,
+              folder: MediaStore.bills,
+              name: 'due-${DateTime.now().microsecondsSinceEpoch}',
+            );
       if (widget.borrowing) {
         await service.borrow(
           person: _person.text,
@@ -607,6 +769,8 @@ class _MoneySheetState extends ConsumerState<_MoneySheet> {
           accountId: _accountId,
           dueDate: _dueDate,
           note: note,
+          on: _on,
+          attachmentPath: proof,
         );
       } else {
         await service.lend(
@@ -614,6 +778,8 @@ class _MoneySheetState extends ConsumerState<_MoneySheet> {
           amountMinorUnits: minor,
           accountId: _accountId,
           note: note,
+          on: _on,
+          attachmentPath: proof,
         );
       }
       if (mounted) Navigator.pop(context);
@@ -672,6 +838,46 @@ class _MoneySheetState extends ConsumerState<_MoneySheet> {
               for (final a in accounts) PickerOption(a.id, a.name),
             ],
             onChanged: (v) => setState(() => _accountId = v),
+          ),
+          const SizedBox(height: RiveroSpacing.md),
+          OutlinedButton.icon(
+            key: const ValueKey('happened-date-button'),
+            onPressed: () async {
+              final now = DateTime.now();
+              final d = await showDatePicker(
+                context: context,
+                initialDate: _on,
+                firstDate: DateTime(now.year - 5),
+                lastDate: now,
+              );
+              if (d != null) setState(() => _on = d);
+            },
+            style: OutlinedButton.styleFrom(shape: const StadiumBorder()),
+            icon: const Icon(Icons.today_rounded),
+            label: Text(
+              DateUtils.isSameDay(_on, DateTime.now())
+                  ? 'Date: today'
+                  : 'Date: ${DateFormat('d MMM yyyy').format(_on)}',
+            ),
+          ),
+          const SizedBox(height: RiveroSpacing.sm),
+          OutlinedButton.icon(
+            key: const ValueKey('proof-button'),
+            onPressed: () async {
+              final picked = await pickPhoto(context);
+              if (picked != null) setState(() => _proof = picked);
+            },
+            style: OutlinedButton.styleFrom(shape: const StadiumBorder()),
+            icon: Icon(
+              _proof == null
+                  ? Icons.add_a_photo_outlined
+                  : Icons.check_circle_rounded,
+            ),
+            label: Text(
+              _proof == null
+                  ? 'Add a bill or proof (optional)'
+                  : 'Photo attached',
+            ),
           ),
           if (borrowing) ...[
             const SizedBox(height: RiveroSpacing.md),

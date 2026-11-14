@@ -55,13 +55,13 @@ class BudgetsScreen extends ConsumerWidget {
         title: Text('Mark ${b.name} as paid'),
         content: Text(
           canPayNow
-              ? 'Already paid: $amount left ${salary.name} before the '
-                    'balance you see, so nothing changes.\n'
+              ? 'Already paid: pick the day you paid. It is added to '
+                    'Activity; your balance is not changed.\n'
                     'Paying now: $amount is taken out of ${salary.name}.'
               : '${salary.name} holds '
                     '${CurrencyFormatter.format(salary.balanceMinorUnits)}, '
-                    'less than $amount, so this was paid before. It is marked '
-                    'paid without touching the balance.',
+                    'less than $amount, so this was paid before. Pick the day '
+                    'you paid; the balance is not changed.',
         ),
         actions: [
           TextButton(
@@ -86,7 +86,24 @@ class BudgetsScreen extends ConsumerWidget {
       case null:
         return;
       case _Paid.before:
-        await ref.read(salaryPlanServiceProvider).markAlreadyPaid(b.id);
+        // When was it paid? That day's entry appears in Activity.
+        if (!context.mounted) return;
+        final now = DateTime.now();
+        final on = await showDatePicker(
+          context: context,
+          helpText: 'When did you pay ${b.name}?',
+          initialDate: now,
+          firstDate: DateTime(now.year - 1),
+          lastDate: now,
+        );
+        if (on == null) return;
+        await ref
+            .read(salaryPlanServiceProvider)
+            .recordPaidOn(
+              bucketId: b.id,
+              accountId: salary.id,
+              on: DateTime(on.year, on.month, on.day, 12),
+            );
       case _Paid.now:
         await ref
             .read(ledgerServiceProvider)

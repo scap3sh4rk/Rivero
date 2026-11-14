@@ -269,6 +269,39 @@ class SalaryPlanService {
     );
   }
 
+  /// A plan-only category (rent, family...) was paid on [on], before Rivero
+  /// recorded it: the payment appears in Activity on that day, and the
+  /// category counts as paid. The balance is not changed (it already shows
+  /// the payment). Deleting the entry makes the category unpaid again.
+  Future<void> recordPaidOn({
+    required String bucketId,
+    required String accountId,
+    required DateTime on,
+  }) => db.transaction(() async {
+    final b = await db.accountsDao.getBucketById(bucketId);
+    if (b == null || b.allocatedMinorUnits <= 0) return;
+    final now = DateTime.now();
+    if (on.isAfter(now)) {
+      throw const PlanValidationException('That date is in the future');
+    }
+    await db.transactionsDao.insertTransaction(
+      TransactionsCompanion(
+        // 'import-' = history only: deleting it never touches a balance.
+        id: Value('import-paid-${now.microsecondsSinceEpoch}'),
+        physicalAccountId: Value(accountId),
+        allocationBucketId: Value(bucketId),
+        amountMinorUnits: Value(-b.allocatedMinorUnits),
+        transactionType: const Value(TransactionType.planTransfer),
+        transactionState: const Value(TransactionState.reconciled),
+        merchant: Value('Plan: ${b.name}'),
+        category: Value(b.name),
+        transactionTimestamp: Value(on),
+        createdAt: Value(now),
+      ),
+    );
+    await markAlreadyPaid(bucketId);
+  });
+
   /// True when a new pay cycle has started but its salary was not split yet.
   Future<bool> awaitingSalary(DateTime cycleStart) async {
     final raw = await db.settingsDao.get(SettingKeys.lastPlannedCycleStart);

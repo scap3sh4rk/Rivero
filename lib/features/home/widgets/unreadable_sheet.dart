@@ -91,26 +91,41 @@ class UnreadableSheet extends ConsumerWidget {
                               style: OutlinedButton.styleFrom(
                                 shape: const StadiumBorder(),
                               ),
-                              child: const Text('Not a payment'),
-                            ),
-                          ),
-                          const SizedBox(width: RiveroSpacing.sm),
-                          Expanded(
-                            child: FilledButton(
-                              onPressed: () async {
-                                await dismiss(l.id);
-                                ref
-                                        .read(selectedNavIndexProvider.notifier)
-                                        .state =
-                                    logTab;
-                                if (context.mounted) Navigator.pop(context);
-                              },
-                              style: FilledButton.styleFrom(
-                                shape: const StadiumBorder(),
+                              child: Text(
+                                l.failureReason ==
+                                        IngestionLogsDao.autopayFailed
+                                    ? 'Got it'
+                                    : 'Not a payment',
                               ),
-                              child: const Text('Add it'),
                             ),
                           ),
+                          if (l.failureReason !=
+                              IngestionLogsDao.autopayFailed) ...[
+                            const SizedBox(width: RiveroSpacing.sm),
+                            Expanded(
+                              child: FilledButton(
+                                key: ValueKey('add-${l.id}'),
+                                onPressed: () async {
+                                  // Open Log with what Rivero could read of
+                                  // the message already filled in.
+                                  ref.read(logPrefillProvider.notifier).state =
+                                      LogPrefill.fromMessage(l.rawPayload);
+                                  await dismiss(l.id);
+                                  ref
+                                          .read(
+                                            selectedNavIndexProvider.notifier,
+                                          )
+                                          .state =
+                                      logTab;
+                                  if (context.mounted) Navigator.pop(context);
+                                },
+                                style: FilledButton.styleFrom(
+                                  shape: const StadiumBorder(),
+                                ),
+                                child: const Text('Add it'),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ],

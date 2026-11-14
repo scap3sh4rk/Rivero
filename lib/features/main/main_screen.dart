@@ -8,6 +8,7 @@ import 'package:rivero/design_system/eager_page_physics.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/features/accounts/screens/accounts_screen.dart';
 import 'package:rivero/features/home/screens/home_screen.dart';
+import 'package:rivero/features/home/widgets/quick_review_sheet.dart';
 import 'package:rivero/features/log/quick_log_screen.dart';
 import 'package:rivero/features/owed/owed_screen.dart';
 import 'package:rivero/features/tour/app_tour.dart';
@@ -89,6 +90,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   @override
   Widget build(BuildContext context) {
     final current = ref.watch(selectedNavIndexProvider);
+    // A capture notification's "Open Rivero": add that payment right here.
+    ref.listen(openCaptureProvider, (_, id) {
+      if (id == null) return;
+      ref.read(openCaptureProvider.notifier).state = null;
+      QuickReviewSheet.show(context, id);
+    });
     ref.listen(selectedNavIndexProvider, (_, i) {
       final page = _pager.hasClients ? _pager.page?.round() : null;
       if (page != null && page != i) _goTo(i);
@@ -103,10 +110,14 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         final index = ref.read(selectedNavIndexProvider);
         final query = ref.read(activityQueryProvider);
         final filter = ref.read(activityFilterProvider);
+        final range = ref.read(activityRangeProvider);
         if (index == activityIndex &&
-            (query.isNotEmpty || filter != ActivityFilter.all)) {
+            (query.isNotEmpty ||
+                filter != ActivityFilter.all ||
+                range != null)) {
           ref.read(activityQueryProvider.notifier).state = '';
           ref.read(activityFilterProvider.notifier).state = ActivityFilter.all;
+          ref.read(activityRangeProvider.notifier).state = null;
         } else if (index != homeIndex) {
           _goTo(homeIndex);
         } else {

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
+import 'package:rivero/core/ingestion/capture_decisions.dart';
 import 'package:rivero/core/ingestion/ingestion_service.dart';
 import 'package:rivero/core/ingestion/models/raw_notification.dart';
 
@@ -24,10 +25,13 @@ class NotificationBridge {
 
   /// Process captures the moment the native listener queues them (while the
   /// app is open); otherwise they are drained on the next app resume.
-  void listenForCaptures() {
+  void listenForCaptures({Future<void> Function()? afterDrain}) {
     if (!supported) return;
     _channel.setMethodCallHandler((call) async {
-      if (call.method == 'queued') await drain();
+      if (call.method == 'queued') {
+        await drain();
+        await afterDrain?.call();
+      }
     });
   }
 
@@ -56,6 +60,49 @@ class NotificationBridge {
         'unsupported';
   }
 
+  /// Choices made in capture-notification popups, removed once read.
+  static Future<Map<String, dynamic>> takeDecisions() async {
+    if (!supported) return const {};
+    try {
+      final json = await _channel.invokeMethod<String>('takeDecisions');
+      return json == null
+          ? const {}
+          : (jsonDecode(json) as Map).cast<String, dynamic>();
+    } on MissingPluginException {
+      return const {};
+    }
+  }
+
+  /// The capture whose notification's "Open Rivero" was tapped, if any.
+  static Future<String?> takeOpenRequest() async {
+    if (!supported) return null;
+    try {
+      return await _channel.invokeMethod<String>('takeOpenRequest');
+    } on MissingPluginException {
+      return null;
+    }
+  }
+
+  /// The category names the notification popup offers as chips.
+  static Future<void> setCategories(List<String> names) async {
+    if (!supported) return;
+    try {
+      await _channel.invokeMethod<void>('setCategories', {'names': names});
+    } on MissingPluginException {
+      // Not running on a device (tests).
+    }
+  }
+
+  /// Asks for permission to show capture notifications (Android 13+).
+  static Future<void> askNotifyPermission() async {
+    if (!supported) return;
+    try {
+      await _channel.invokeMethod<void>('askNotifyPermission');
+    } on MissingPluginException {
+      // Not running on a device (tests).
+    }
+  }
+
   Future<void> _running = Future.value();
 
   /// Pulls queued notifications and ingests them. Returns count processed.
@@ -64,7 +111,13 @@ class NotificationBridge {
     if (!supported) return Future.value(0);
     final run = _running.then((_) async {
       final json = await _channel.invokeMethod<String>('drain');
-      return await ingestJson(json ?? '[]');
+      final n = await ingestJson(json ?? '[]');
+      // Then what was decided in notification popups for those captures.
+      final decisions = await takeDecisions();
+      if (decisions.isNotEmpty) {
+        await CaptureDecisions(_ingestion.database).apply(decisions);
+      }
+      return n;
     });
     _running = run.then((_) {}, onError: (_) {});
     return run;

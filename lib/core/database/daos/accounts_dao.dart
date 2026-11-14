@@ -74,12 +74,18 @@ class AccountsDao extends DatabaseAccessor<RiveroDatabase>
     String accountId,
     int newBalanceMinorUnits,
   ) async {
+    // A bank, wallet or cash balance never goes below zero (cards and loans,
+    // which are debts, are stored as negative amounts owed).
+    final acc = await getPhysicalAccountById(accountId);
+    final floored = acc != null && !acc.isLiability && newBalanceMinorUnits < 0
+        ? 0
+        : newBalanceMinorUnits;
     final updatedRows =
         await (update(
           physicalAccounts,
         )..where((tbl) => tbl.id.equals(accountId))).write(
           PhysicalAccountsCompanion(
-            balanceMinorUnits: Value(newBalanceMinorUnits),
+            balanceMinorUnits: Value(floored),
             updatedAt: Value(DateTime.now()),
           ),
         );
@@ -92,10 +98,14 @@ class AccountsDao extends DatabaseAccessor<RiveroDatabase>
     int deltaMinorUnits,
   ) async {
     // One SQL statement, so two writers can never lose each other's change.
+    // One SQL statement, so two writers can never lose each other's change.
+    // Money accounts floor at zero; debts (cards, loans) may go negative.
     final rows = await customUpdate(
       'UPDATE physical_accounts SET balance_minor_units = '
-      'balance_minor_units + ?, updated_at = ? WHERE id = ?',
+      'CASE WHEN is_liability = 0 AND balance_minor_units + ? < 0 THEN 0 '
+      'ELSE balance_minor_units + ? END, updated_at = ? WHERE id = ?',
       variables: [
+        Variable.withInt(deltaMinorUnits),
         Variable.withInt(deltaMinorUnits),
         Variable.withDateTime(DateTime.now()),
         Variable.withString(accountId),

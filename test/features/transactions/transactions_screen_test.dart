@@ -172,4 +172,102 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 100));
   });
+
+  testWidgets('day headings, and filtering by a date or a range', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final db = RiveroDatabase.memory();
+    addTearDown(db.close);
+    await tester.runAsync(() => DatabaseSeeder(db).seedIfEmpty());
+    final ledger = LedgerService(db);
+    final now = DateTime.now();
+    final old = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).subtract(const Duration(days: 40));
+    await tester.runAsync(
+      () => ledger.recordManual(
+        accountId: 'acc-expense',
+        amountMinorUnits: -12300,
+        type: TransactionType.expense,
+        merchant: 'Old bookshop',
+        category: 'Shopping',
+        at: old.add(const Duration(hours: 12)),
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [databaseProvider.overrideWithValue(db)],
+        child: const MaterialApp(home: TransactionsScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    // A heading starts each day.
+    expect(find.byKey(ValueKey('day-$old')), findsOneWidget);
+    expect(find.text('Old bookshop'), findsOneWidget);
+
+    // Filter to that one day: only its entry is left, and the overview
+    // shows what was spent then.
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(TransactionsScreen)),
+    );
+    container.read(activityRangeProvider.notifier).state = DateTimeRange(
+      start: old,
+      end: old,
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byKey(const ValueKey('range-chip')), findsOneWidget);
+    expect(find.text('Old bookshop'), findsOneWidget);
+    expect(find.text('Zomato'), findsNothing);
+    expect(find.textContaining('Spent on'), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.byKey(const ValueKey('spent-total'))).data,
+      '₹123.00',
+    );
+
+    // Clearing the chip shows everything again.
+    await tester.tap(find.byKey(const ValueKey('range-clear')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(container.read(activityRangeProvider), isNull);
+    expect(find.text('Zomato'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 50));
+  });
+
+  test('quick date ranges', () {
+    final now = DateTime(2026, 11, 14, 15);
+    expect(ActivityRanges.month(now).start, DateTime(2026, 11));
+    expect(ActivityRanges.month(now).end, DateTime(2026, 11, 30));
+    expect(
+      ActivityRanges.label(ActivityRanges.month(now), now),
+      'November 2026',
+    );
+    expect(ActivityRanges.label(ActivityRanges.today(now), now), 'Today');
+    expect(ActivityRanges.heading(DateTime(2026, 11, 13), now), 'Yesterday');
+    expect(ActivityRanges.heading(DateTime(2026, 11, 10), now), 'Tue, 10 Nov');
+    expect(
+      ActivityRanges.contains(
+        ActivityRanges.today(now),
+        DateTime(2026, 11, 14, 23, 59),
+      ),
+      isTrue,
+    );
+    expect(
+      ActivityRanges.contains(
+        ActivityRanges.today(now),
+        DateTime(2026, 11, 15),
+      ),
+      isFalse,
+    );
+  });
 }

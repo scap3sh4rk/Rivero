@@ -20,6 +20,42 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterFragmentActivity() {
     private var channel: MethodChannel? = null
 
+    companion object {
+        /** True while Rivero is on screen (no capture notifications then). */
+        @Volatile
+        var isForeground = false
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        rememberOpenRequest(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        rememberOpenRequest(intent)
+        // Rivero was already running: process captures and open that one.
+        RiveroNotificationListener.onQueued?.invoke()
+    }
+
+    /** "Open Rivero" on a capture notification: show that payment once open. */
+    private fun rememberOpenRequest(intent: Intent?) {
+        val id = intent?.getStringExtra(CaptureNotifier.EXTRA_ID) ?: return
+        CaptureNotifier.setOpenRequest(this, id)
+        CaptureNotifier.cancel(this, id)
+        intent.removeExtra(CaptureNotifier.EXTRA_ID)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        isForeground = true
+    }
+
+    override fun onPause() {
+        isForeground = false
+        super.onPause()
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         val ch = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "rivero/notifications")
@@ -43,12 +79,30 @@ class MainActivity : FlutterFragmentActivity() {
                     result.success(null)
                 }
                 "diagnostics" -> result.success(Diagnostics.read(this))
+                // Choices made in the notification popup, and "Open Rivero" taps.
+                "takeDecisions" -> result.success(CaptureNotifier.takeDecisions(this))
+                "takeOpenRequest" -> result.success(CaptureNotifier.takeOpenRequest(this))
+                "setCategories" -> {
+                    CaptureNotifier.setCategories(this, call.argument<List<String>>("names") ?: emptyList())
+                    result.success(null)
+                }
+                // Capture notifications need this permission on Android 13+.
+                "askNotifyPermission" -> {
+                    if (Build.VERSION.SDK_INT >= 33 &&
+                        checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+                        PackageManager.PERMISSION_GRANTED
+                    ) {
+                        requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 42)
+                    }
+                    result.success(null)
+                }
                 // UPI apps installed on this phone: apps that can open upi://pay.
                 "upiApps" -> result.success(installedUpiApps())
                 // "Delete all data": nothing captured may survive it.
                 "clearQueue" -> synchronized(RiveroNotificationListener.LOCK) {
                     CaptureQueue.clear(this)
                     Diagnostics.clear(this)
+                    CaptureNotifier.clear(this)
                     result.success(null)
                 }
                 // Blocks screenshots and blanks the recent-apps preview.
@@ -75,8 +129,38 @@ class MainActivity : FlutterFragmentActivity() {
         super.onDestroy()
     }
 
-    /** [{package, label}] for every installed app that can handle a UPI payment request. */
+    /** UPI and wallet apps commonly used in India: found by package even when they
+     *  do not answer a plain upi://pay request. */
+    private val knownUpiPackages = listOf(
+        "com.google.android.apps.nbu.paisa.user",
+        "com.phonepe.app",
+        "net.one97.paytm",
+        "in.org.npci.upiapp",
+        "com.dreamplug.androidapp",
+        "in.amazon.mShop.android.shopping",
+        "com.sbi.lotusintouch",
+        "com.sbi.SBIFreedomPlus",
+        "indwin.c3.shareapp",
+        "com.samsung.android.spay",
+        "com.samsung.android.spaylite",
+        "com.csam.icici.bank.imobile",
+        "com.snapwork.hdfc",
+        "com.enstage.wibmo.hdfc",
+        "com.axis.mobile",
+        "com.msf.kopl",
+        "com.naviapp",
+        "com.mobikwik_new",
+        "com.freecharge.android",
+        "com.epifi.paisa",
+        "money.jupiter",
+        "com.myairtelapp",
+        "com.google.android.apps.walletnfcrel",
+    )
+
+    /** [{package, label}] for every installed UPI-capable app: apps that can open
+     *  upi://pay, plus well-known UPI and wallet apps that are installed. */
     private fun installedUpiApps(): List<Map<String, String>> {
+        val found = linkedMapOf<String, String>()
         val probe = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("upi://pay?pa=test@upi&pn=Test&cu=INR"))
         val infos = if (Build.VERSION.SDK_INT >= 33) {
             packageManager.queryIntentActivities(
@@ -87,12 +171,22 @@ class MainActivity : FlutterFragmentActivity() {
             @Suppress("DEPRECATION")
             packageManager.queryIntentActivities(probe, PackageManager.MATCH_ALL)
         }
-        return infos
-            .map { it.activityInfo.packageName to it.loadLabel(packageManager).toString() }
-            .distinctBy { it.first }
-            .filter { it.first != packageName }
-            .sortedBy { it.second.lowercase() }
-            .map { mapOf("package" to it.first, "label" to it.second) }
+        for (info in infos) {
+            found[info.activityInfo.packageName] = info.loadLabel(packageManager).toString()
+        }
+        for (pkg in knownUpiPackages) {
+            if (found.containsKey(pkg)) continue
+            try {
+                val app = packageManager.getApplicationInfo(pkg, 0)
+                found[pkg] = packageManager.getApplicationLabel(app).toString()
+            } catch (_: PackageManager.NameNotFoundException) {
+                // not installed
+            }
+        }
+        return found
+            .filterKeys { it != packageName }
+            .map { mapOf("package" to it.key, "label" to it.value) }
+            .sortedBy { (it["label"] ?: "").lowercase() }
     }
 
     private fun listenerEnabled(): Boolean {

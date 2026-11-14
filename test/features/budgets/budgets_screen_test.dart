@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/database/database_seeder.dart';
+import 'package:rivero/core/ledger/ledger_service.dart';
 import 'package:rivero/core/plan/salary_plan_service.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/features/budgets/screens/budgets_screen.dart';
@@ -73,6 +74,53 @@ void main() {
     expect(after, before);
     final bucket = (await db.accountsDao.getBucketById('bucket-savings'))!;
     expect(bucket.spentMinorUnits, bucket.allocatedMinorUnits);
+  });
+
+  test('already paid on a chosen day: in Activity, balance untouched; '
+      'deleting it makes the category unpaid again', () async {
+    final before = (await db.accountsDao.getPhysicalAccountById('acc-salary'))!
+        .balanceMinorUnits;
+    final day = DateTime(2026, 11, 3, 12);
+    await SalaryPlanService(db).recordPaidOn(
+      bucketId: 'bucket-savings',
+      accountId: 'acc-salary',
+      on: day,
+    );
+    final t = (await db.transactionsDao.getAllTransactions()).firstWhere(
+      (x) => x.allocationBucketId == 'bucket-savings',
+    );
+    expect(t.transactionTimestamp, day);
+    expect(t.amountMinorUnits, -3000000);
+    expect(
+      (await db.accountsDao.getPhysicalAccountById('acc-salary'))!
+          .balanceMinorUnits,
+      before,
+    );
+    expect(
+      (await db.accountsDao.getBucketById('bucket-savings'))!.spentMinorUnits,
+      3000000,
+    );
+    await LedgerService(db).remove(t.id);
+    expect(
+      (await db.accountsDao.getBucketById('bucket-savings'))!.spentMinorUnits,
+      0,
+    );
+    expect(
+      (await db.accountsDao.getPhysicalAccountById('acc-salary'))!
+          .balanceMinorUnits,
+      before,
+    );
+  });
+
+  test('a future date is refused', () async {
+    await expectLater(
+      SalaryPlanService(db).recordPaidOn(
+        bucketId: 'bucket-savings',
+        accountId: 'acc-salary',
+        on: DateTime.now().add(const Duration(days: 3)),
+      ),
+      throwsA(isA<PlanValidationException>()),
+    );
   });
 
   testWidgets(

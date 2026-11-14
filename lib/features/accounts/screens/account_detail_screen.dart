@@ -160,7 +160,11 @@ class AccountDetailScreen extends ConsumerWidget {
                         style: RiveroTypography.bodySmall,
                       ),
                       Text(
-                        money(account.balanceMinorUnits.abs()),
+                        money(
+                          account.isLiability
+                              ? account.balanceMinorUnits.abs()
+                              : account.balanceMinorUnits,
+                        ),
                         style: RiveroTypography.financialLarge,
                       ),
                       Text(

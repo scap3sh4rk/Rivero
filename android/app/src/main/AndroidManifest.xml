@@ -1,5 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Only for the in-app "test capture" notification. No SMS permissions. -->
+    <!-- For the "payment captured, add it" notifications and the capture
+         test. No SMS permissions. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
         android:label="Rivero"
@@ -28,6 +29,15 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- Add a captured payment straight from its notification, without
+             opening the app. -->
+        <activity
+            android:name=".QuickAddActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity="dev.scap3sh4rk.rivero.quickadd"
+            android:theme="@style/QuickAddTheme"
+            android:windowSoftInputMode="adjustResize"/>
         <service
             android:name=".RiveroNotificationListener"
             android:exported="true"
@@ -60,6 +70,31 @@
             <action android:name="android.intent.action.VIEW"/>
             <data android:scheme="upi"/>
         </intent>
+        <!-- Well-known UPI and wallet apps, so they can be found even when
+             they do not answer a plain upi://pay request. -->
+        <package android:name="com.google.android.apps.nbu.paisa.user"/>
+        <package android:name="com.phonepe.app"/>
+        <package android:name="net.one97.paytm"/>
+        <package android:name="in.org.npci.upiapp"/>
+        <package android:name="com.dreamplug.androidapp"/>
+        <package android:name="in.amazon.mShop.android.shopping"/>
+        <package android:name="com.sbi.lotusintouch"/>
+        <package android:name="com.sbi.SBIFreedomPlus"/>
+        <package android:name="indwin.c3.shareapp"/>
+        <package android:name="com.samsung.android.spay"/>
+        <package android:name="com.samsung.android.spaylite"/>
+        <package android:name="com.csam.icici.bank.imobile"/>
+        <package android:name="com.snapwork.hdfc"/>
+        <package android:name="com.enstage.wibmo.hdfc"/>
+        <package android:name="com.axis.mobile"/>
+        <package android:name="com.msf.kopl"/>
+        <package android:name="com.naviapp"/>
+        <package android:name="com.mobikwik_new"/>
+        <package android:name="com.freecharge.android"/>
+        <package android:name="com.epifi.paisa"/>
+        <package android:name="money.jupiter"/>
+        <package android:name="com.myairtelapp"/>
+        <package android:name="com.google.android.apps.walletnfcrel"/>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>

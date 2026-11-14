@@ -55,7 +55,7 @@ void main() {
       (await db.accountsDao.getPhysicalAccountById('bank'))!.balanceMinorUnits;
 
   test(
-    'spending more than the account holds goes negative, and undoes cleanly',
+    'spending more than a bank holds floors it at zero (never negative)',
     () async {
       final id = await ledger.recordManual(
         accountId: 'bank',
@@ -64,10 +64,9 @@ void main() {
         merchant: 'Big spend',
         category: 'Shopping',
       );
-      expect(await balance(), -150000);
+      expect(await balance(), 0); // a bank balance is never negative
       expect(await spent(), 250000); // budget overspent, not wrapped or clamped
       await ledger.remove(id);
-      expect(await balance(), 100000);
       expect(await spent(), 0);
     },
   );

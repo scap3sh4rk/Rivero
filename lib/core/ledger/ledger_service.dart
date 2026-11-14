@@ -121,6 +121,9 @@ class LedgerService {
         }
       }
       await _markCategoryPaid(t, sign: -1);
+    } else if (historyOnly(t)) {
+      // A plan payment recorded after the fact: the category is unpaid again.
+      await _markCategoryPaid(t, sign: -1);
     }
     final partner = t.linkedTransactionId;
     if (partner != null) {

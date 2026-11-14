@@ -104,4 +104,55 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 100));
   });
+
+  testWidgets(
+    'tapping a waiting payment opens quick add: category, note, Add',
+    (tester) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final db = RiveroDatabase.memory();
+      addTearDown(db.close);
+      await DatabaseSeeder(db).seedIfEmpty();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [databaseProvider.overrideWithValue(db)],
+          child: const MaterialApp(
+            home: Scaffold(body: SingleChildScrollView(child: ReviewInbox())),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+      final pending = (await tester.runAsync(
+        () => db.transactionsDao.watchPendingReviewTransactions().first,
+      ))!;
+      final first = pending.first;
+
+      await tester.tap(find.byKey(ValueKey(first.id)));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.byKey(const ValueKey('quick-amount')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('quick-cat-Food')));
+      await tester.enterText(find.byKey(const ValueKey('quick-note')), 'Lunch');
+      await tester.tap(find.byKey(const ValueKey('quick-add')));
+      for (var i = 0; i < 4; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 100)),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      final t = (await tester.runAsync(
+        () => db.transactionsDao.getTransactionById(first.id),
+      ))!;
+      expect(t.transactionState, TransactionState.confirmed);
+      expect(t.category, 'Food');
+      expect(t.userNotes, 'Lunch');
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(milliseconds: 100));
+    },
+  );
 }

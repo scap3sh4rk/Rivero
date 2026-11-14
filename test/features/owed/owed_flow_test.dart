@@ -127,6 +127,15 @@ void main() {
     expect(find.byKey(const ValueKey('owed-card-to-you')), findsOneWidget);
     expect(find.byKey(const ValueKey('owed-card-you-owe')), findsOneWidget);
     expect(find.text('Bills & commitments'), findsNothing);
+    // The frames share the screen height (no scrolling).
+    final h = tester
+        .getSize(find.byKey(const ValueKey('owed-card-to-you')))
+        .height;
+    expect(h, greaterThanOrEqualTo(3000 * 0.28));
+    // A small net line sits below them.
+    expect(find.byKey(const ValueKey('owed-net')), findsOneWidget);
+    expect(find.text('All square'), findsOneWidget);
+    expect(find.byType(Scrollable), findsNothing);
 
     // Borrow ₹5,000 from Meera into the salary account (the plus, bottom right).
     await tester.tap(find.byTooltip('Add'));
@@ -148,6 +157,11 @@ void main() {
       tester.widget<Text>(find.byKey(const ValueKey('owe-total'))).data,
       '₹5,000.00',
     );
+    // Owed nothing, owe ₹5,000: the net line says so.
+    expect(
+      tester.widget<Text>(find.byKey(const ValueKey('owed-net-text'))).data,
+      'Net: you owe ₹5,000.00',
+    );
 
     // "You owe people": the debt, and Bills & commitments (the demo card
     // with its due date, autopays due before payday).
@@ -168,6 +182,32 @@ void main() {
     final after = (await tester.runAsync(() => db.select(db.dues).get()))!;
     expect(after.single.status, DueStatus.settled);
 
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 100));
+  });
+
+  testWidgets('a small phone still shows everything without overflow', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(720, 1400);
+    tester.view.devicePixelRatio = 2.0; // 360 x 700, a small phone
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final db = RiveroDatabase.memory();
+    addTearDown(db.close);
+    await tester.runAsync(() => DatabaseSeeder(db).seedIfEmpty());
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [databaseProvider.overrideWithValue(db)],
+        child: const MaterialApp(home: OwedScreen()),
+      ),
+    );
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 200)),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(tester.takeException(), isNull); // no overflow
+    expect(find.byKey(const ValueKey('owed-net')), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 100));
   });

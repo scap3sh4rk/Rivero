@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:rivero/core/database/database.dart';
+import 'package:rivero/core/ingestion/capture_decisions.dart';
 import 'package:rivero/core/ingestion/mandate_tracker.dart';
 import 'package:rivero/core/ingestion/platform/notification_bridge.dart';
 import 'package:rivero/core/providers/app_providers.dart';
@@ -76,7 +77,7 @@ class _RiveroAppState extends ConsumerState<RiveroApp>
       _maintain();
       if (NotificationBridge.supported) {
         NotificationBridge(ref.read(ingestionServiceProvider))
-            .listenForCaptures();
+            .listenForCaptures(afterDrain: _openRequested);
       }
       _loadTheme();
     });
@@ -145,9 +146,26 @@ class _RiveroAppState extends ConsumerState<RiveroApp>
     }
   }
 
-  void _drain() {
+  Future<void> _drain() async {
     if (!NotificationBridge.supported) return;
-    NotificationBridge(ref.read(ingestionServiceProvider)).drain();
+    await NotificationBridge(ref.read(ingestionServiceProvider)).drain();
+    await _openRequested();
+    // Capture notifications need permission on Android 13+; ask once
+    // capture is on (Android does not ask again after a refusal).
+    if (await NotificationBridge.isEnabled()) {
+      await NotificationBridge.askNotifyPermission();
+    }
+  }
+
+  /// "Open Rivero" was tapped on a capture notification: show that payment
+  /// in the quick-add sheet (MainScreen opens it).
+  Future<void> _openRequested() async {
+    final id = await NotificationBridge.takeOpenRequest();
+    if (id == null) return;
+    final t = await CaptureDecisions(ref.read(databaseProvider)).entryFor(id);
+    if (t == null) return;
+    ref.read(selectedNavIndexProvider.notifier).state = 2; // Home
+    ref.read(openCaptureProvider.notifier).state = t.id;
   }
 
   @override

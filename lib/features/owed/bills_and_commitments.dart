@@ -12,6 +12,55 @@ import 'package:rivero/design_system/widgets/bank_badge.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
 import 'package:rivero/features/mandates/mandates_screen.dart';
 
+/// What cards, loans and autopays need before payday (paise).
+class CommitmentTotals {
+  const CommitmentTotals({
+    required this.cards,
+    required this.loans,
+    required this.autopay,
+    required this.available,
+  });
+
+  factory CommitmentTotals.of(
+    List<PhysicalAccount> accounts,
+    List<Mandate> mandates,
+    DateTime cycleEnd,
+    DateTime now,
+  ) {
+    int owedOn(PhysicalAccount a) =>
+        a.balanceMinorUnits < 0 ? -a.balanceMinorUnits : 0;
+    final liabilities = accounts.where((a) => a.isLiability);
+    final cards = liabilities
+        .where((a) => a.creditLimitMinorUnits > 0)
+        .fold<int>(0, (s, a) => s + owedOn(a));
+    final loans = liabilities
+        .where((a) => a.creditLimitMinorUnits <= 0)
+        .fold<int>(0, (s, a) => s + owedOn(a));
+    final ids = accounts.map((a) => a.id).toSet();
+    final autopay = upcomingMandates(mandates, now, cycleEnd)
+        .where((m) => ids.contains(m.physicalAccountId))
+        .fold<int>(0, (s, m) => s + reserveUntil(m, cycleEnd));
+    final bank = accounts
+        .where((a) => !a.isLiability)
+        .fold<int>(0, (s, a) => s + a.balanceMinorUnits);
+    return CommitmentTotals(
+      cards: cards,
+      loans: loans,
+      autopay: autopay,
+      available: bank < 0 ? 0 : bank,
+    );
+  }
+
+  final int cards;
+  final int loans;
+  final int autopay;
+
+  /// What your bank and cash accounts hold.
+  final int available;
+
+  int get total => cards + loans + autopay;
+}
+
 /// Everything you have to pay, in one place: credit card bills (with their
 /// own billing cycle and whether you can pay them), loans, and autopays due
 /// before payday.
