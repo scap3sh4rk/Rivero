@@ -7,6 +7,7 @@ import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/features/settings/screens/categories_screen.dart';
+import 'package:rivero/features/transactions/screens/analytics_screen.dart';
 import 'package:rivero/features/transactions/widgets/activity_row.dart';
 import 'package:rivero/features/transactions/widgets/spending_overview.dart';
 
@@ -98,7 +99,17 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
 
     return Scaffold(
       backgroundColor: RiveroColors.background,
-      appBar: const RiveroAppBar(title: 'Activity'),
+      appBar: RiveroAppBar(
+        title: 'Activity',
+        actions: [
+          IconButton(
+            key: const ValueKey('open-analytics'),
+            tooltip: 'Analytics',
+            onPressed: () => AnalyticsScreen.open(context),
+            icon: const Icon(Icons.insights_rounded),
+          ),
+        ],
+      ),
       body: Column(
         children: [
           Padding(

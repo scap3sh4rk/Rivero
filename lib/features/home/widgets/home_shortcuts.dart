@@ -60,7 +60,9 @@ class HomeShortcuts extends ConsumerWidget {
           BentoTile(
             key: const ValueKey('home-plan'),
             label: 'PLAN',
-            value: salary == 0 ? 'Set up' : '${money(setAside)} aside',
+            value: salary == 0
+                ? 'Set up'
+                : '${money((salary - setAside).clamp(0, salary))} to spend',
             onTap: () => BudgetsScreen.open(context),
           ),
           BentoTile(

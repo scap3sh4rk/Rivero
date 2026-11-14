@@ -9,6 +9,7 @@ import 'package:rivero/core/utils/amount_parser.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/bank_badge.dart';
 import 'package:rivero/design_system/widgets/photo_picker.dart';
+import 'package:rivero/design_system/widgets/picker.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
 
 /// Sheet to add, or edit when [existing] is given, a bank, cash or card account.
@@ -392,28 +393,21 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
                   ],
                 ),
                 const SizedBox(height: RiveroSpacing.xs),
-                DropdownButtonFormField<String>(
-                  isExpanded: true,
+                PickerField<String>(
+                  label: 'Account type',
                   value: _selectedAccountType,
-                  dropdownColor: RiveroColors.surfaceElevated,
-                  style: RiveroTypography.bodyLarge,
-                  decoration: const InputDecoration(),
-                  items: availableTypes.map((type) {
-                    return DropdownMenuItem<String>(
-                      value: type,
-                      child: Row(
-                        children: [
-                          Icon(
-                            StandardAccountTypes.getIcon(type),
-                            size: 18,
-                            color: RiveroColors.textSecondary,
-                          ),
-                          const SizedBox(width: RiveroSpacing.sm),
-                          Text(type),
-                        ],
+                  options: [
+                    for (final type in availableTypes)
+                      PickerOption(
+                        type,
+                        type,
+                        leading: Icon(
+                          StandardAccountTypes.getIcon(type),
+                          size: 18,
+                          color: RiveroColors.textSecondary,
+                        ),
                       ),
-                    );
-                  }).toList(),
+                  ],
                   onChanged: _onAccountTypeChanged,
                 ),
                 const SizedBox(height: RiveroSpacing.md),

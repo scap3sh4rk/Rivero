@@ -9,6 +9,7 @@ import 'package:rivero/core/utils/amount_parser.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/bank_badge.dart';
+import 'package:rivero/design_system/widgets/picker.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
 import 'package:uuid/uuid.dart';
@@ -307,14 +308,11 @@ class _AddMandateSheetState extends ConsumerState<_AddMandateSheet> {
             onChanged: (v) => setState(() => _variable = v),
           ),
           if (accounts.isNotEmpty)
-            DropdownButtonFormField<String>(
-              initialValue: _accountId ?? accounts.first.id,
-              decoration: const InputDecoration(labelText: 'Debited from'),
-              items: [
-                for (final a in accounts)
-                  DropdownMenuItem(value: a.id, child: Text(a.name)),
-              ],
-              onChanged: (v) => _accountId = v,
+            PickerField<String>(
+              label: 'Debited from',
+              value: _accountId ?? accounts.first.id,
+              options: [for (final a in accounts) PickerOption(a.id, a.name)],
+              onChanged: (v) => setState(() => _accountId = v),
             ),
           ListTile(
             contentPadding: EdgeInsets.zero,

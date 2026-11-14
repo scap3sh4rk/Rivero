@@ -6,6 +6,7 @@ import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/financial_amount_text.dart';
+import 'package:rivero/design_system/widgets/rivero_card.dart';
 
 /// The single hero of the app: one large Safe-to-Spend number with a pill
 /// showing how much of the expense budget is left. The pill shifts from
@@ -52,105 +53,83 @@ class SafeToSpendHeroCard extends ConsumerWidget {
         : (sts.isDeficit ? 0.0 : 1.0);
     final tone = toneFor(remaining, deficit: sts.isDeficit);
 
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              'SAFE TO SPEND PER DAY',
-              style: RiveroTypography.labelSmall.copyWith(
-                letterSpacing: 2,
-                color: RiveroColors.textMuted,
+    // Everything about today's number lives in one card: the figure, what is
+    // left, and a thin bar of how much of the month's spending is used.
+    return RiveroCard(
+      isElevated: true,
+      padding: const EdgeInsets.fromLTRB(
+        RiveroSpacing.xl,
+        RiveroSpacing.xl,
+        RiveroSpacing.xl,
+        RiveroSpacing.lg,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'SAFE TO SPEND PER DAY',
+                  style: RiveroTypography.labelSmall.copyWith(
+                    letterSpacing: 1.6,
+                    color: RiveroColors.textMuted,
+                  ),
+                ),
+              ),
+              _ReliabilityDot(reliability: sts.reliability),
+            ],
+          ),
+          const SizedBox(height: RiveroSpacing.sm),
+          if (isPrivacy)
+            Text('••••••••', style: RiveroTypography.financialHero)
+          else
+            FinancialAmountText(
+              minorUnits: sts.isDeficit ? 0 : sts.dailySpendingPace,
+              size: FinancialAmountSize.hero,
+              isAnimated: true,
+              includeDecimals: false,
+              customColor: sts.isDeficit ? RiveroColors.danger : null,
+            ),
+          const SizedBox(height: RiveroSpacing.xs),
+          Text(
+            sts.isDeficit
+                ? 'Bills due exceed what is left by '
+                      '${CurrencyFormatter.format(sts.deficitAmount)}'
+                : '${isPrivacy ? '••••' : CurrencyFormatter.format(sts.effectiveSafeToSpend)}'
+                      ' left · '
+                      '${awaiting ? 'waiting for salary' : '${paycycle.daysRemaining} days to payday'}',
+            style: RiveroTypography.bodyMedium,
+          ),
+          const SizedBox(height: RiveroSpacing.lg),
+          TweenAnimationBuilder<Color?>(
+            tween: ColorTween(end: tone),
+            duration: const Duration(milliseconds: 600),
+            builder: (context, color, _) => ClipRRect(
+              borderRadius: RiveroRadii.borderFull,
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(end: (1 - remaining).clamp(0.0, 1.0)),
+                duration: const Duration(milliseconds: 700),
+                curve: Curves.easeOutCubic,
+                builder: (context, used, _) => LinearProgressIndicator(
+                  key: const ValueKey('budget-bar'),
+                  value: used,
+                  minHeight: 6,
+                  backgroundColor: RiveroColors.surfaceInteractive,
+                  valueColor: AlwaysStoppedAnimation<Color>(color ?? tone),
+                ),
               ),
             ),
-            const SizedBox(width: RiveroSpacing.sm),
-            _ReliabilityDot(reliability: sts.reliability),
-          ],
-        ),
-        const SizedBox(height: RiveroSpacing.md),
-        if (isPrivacy)
-          Text('••••••••', style: RiveroTypography.financialHero)
-        else
-          FinancialAmountText(
-            minorUnits: sts.isDeficit ? 0 : sts.dailySpendingPace,
-            size: FinancialAmountSize.hero,
-            isAnimated: true,
-            includeDecimals: false,
-            customColor: sts.isDeficit ? RiveroColors.danger : null,
           ),
-        const SizedBox(height: RiveroSpacing.xs),
-        Text(
-          sts.isDeficit
-              ? 'Bills due exceed what is left by '
-                    '${CurrencyFormatter.format(sts.deficitAmount)}'
-              : '${isPrivacy ? '••••' : CurrencyFormatter.format(sts.effectiveSafeToSpend)}'
-                    ' left · '
-                    '${awaiting ? 'waiting for salary' : '${paycycle.daysRemaining} days to payday'}',
-          style: RiveroTypography.bodyMedium,
-        ),
-        const SizedBox(height: RiveroSpacing.xl),
-        TweenAnimationBuilder<Color?>(
-          tween: ColorTween(end: tone),
-          duration: const Duration(milliseconds: 600),
-          builder: (context, color, _) => _BudgetPill(
-            color: color ?? tone,
-            remaining: remaining.clamp(0.0, 1.0),
-            label: isPrivacy
-                ? '•••• of ••••'
+          const SizedBox(height: RiveroSpacing.sm),
+          Text(
+            isPrivacy
+                ? '•••• spent of ••••'
                 : limit > 0
                 ? '${CurrencyFormatter.format(spent)} spent of '
                       '${CurrencyFormatter.format(limit)}'
-                : 'No expense budget set',
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _BudgetPill extends StatelessWidget {
-  const _BudgetPill({
-    required this.color,
-    required this.remaining,
-    required this.label,
-  });
-
-  final Color color;
-  final double remaining;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: RiveroSpacing.lg,
-        vertical: RiveroSpacing.md,
-      ),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: RiveroRadii.borderFull,
-        border: Border.all(color: color.withValues(alpha: 0.35)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: RiveroTypography.labelSmall.copyWith(color: color),
-          ),
-          const SizedBox(height: RiveroSpacing.sm),
-          SizedBox(
-            width: 200,
-            child: ClipRRect(
-              borderRadius: RiveroRadii.borderFull,
-              child: LinearProgressIndicator(
-                value: remaining,
-                minHeight: 4,
-                backgroundColor: color.withValues(alpha: 0.15),
-                valueColor: AlwaysStoppedAnimation<Color>(color),
-              ),
-            ),
+                : 'No spending budget set',
+            style: RiveroTypography.bodySmall,
           ),
         ],
       ),

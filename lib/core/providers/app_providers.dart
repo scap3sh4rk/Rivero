@@ -77,6 +77,9 @@ class SettingsSync {
         await dao.getInt(SettingKeys.monthlySalary) ?? 0;
     ref.read(reserveCreditCardsProvider.notifier).state =
         (await dao.get(SettingKeys.reserveCreditCards)) != '0';
+    ref.read(lastLogAccountProvider.notifier).state = await dao.get(
+      SettingKeys.lastLogAccount,
+    );
     ref.read(appLockEnabledProvider.notifier).state =
         (await dao.get(SettingKeys.appLock)) == '1';
     final catsJson = await dao.get(SettingKeys.logCategories);
@@ -126,6 +129,9 @@ class SettingsSync {
         reserveCreditCardsProvider,
         (_, v) => save(SettingKeys.reserveCreditCards, v ? '1' : '0'),
       )
+      ..listen(lastLogAccountProvider, (_, v) {
+        if (v != null) save(SettingKeys.lastLogAccount, v);
+      })
       ..listen(
         appLockEnabledProvider,
         (_, v) => save(SettingKeys.appLock, v ? '1' : '0'),

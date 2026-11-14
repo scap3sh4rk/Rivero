@@ -13,63 +13,64 @@ abstract final class RiveroColors {
 
   // --- Core surfaces ---
   static Color get background =>
-      isLight ? const Color(0xFFF6F3EE) : const Color(0xFF0E1116);
+      isLight ? const Color(0xFFF6F3EE) : const Color(0xFF000000);
   static Color get surface =>
-      isLight ? const Color(0xFFFFFFFF) : const Color(0xFF161B22);
+      isLight ? const Color(0xFFFFFFFF) : const Color(0xFF0F0F11);
   static Color get surfaceElevated =>
-      isLight ? const Color(0xFFEFEBE4) : const Color(0xFF1D232C);
+      isLight ? const Color(0xFFEFEBE4) : const Color(0xFF18181B);
   static Color get surfaceInteractive =>
-      isLight ? const Color(0xFFE5E0D7) : const Color(0xFF262D38);
+      isLight ? const Color(0xFFE5E0D7) : const Color(0xFF232327);
 
   /// The one interactive accent (selection, primary buttons, active tab).
   static Color get accent =>
       isLight ? const Color(0xFF1A73D9) : const Color(0xFF4EA3F8);
 
   // --- Role accents (shared with the category palette) ---
-  static const Color salaryAccent = Color(0xFFF2B33D); // amber
+  static const Color salaryAccent = Color(0xFFF5B841); // amber
   static const Color expenseAccent = Color(0xFF4EA3F8); // blue
-  static const Color investmentAccent = Color(0xFF9A85F2); // violet
-  static const Color savingsAccent = Color(0xFF33B5A5); // teal
-  static const Color mandateWarning = Color(0xFFF0717A); // coral
-  static const Color customAccent = Color(0xFFE879A9); // pink
-  static const Color liabilityAccent = Color(0xFFD9A47A); // sand
-  static const Color walletAccent = Color(0xFF6CC4EE); // sky
+  static const Color investmentAccent = Color(0xFF8B6CF6); // violet
+  static const Color savingsAccent = Color(0xFF22B8B0); // teal
+  static const Color mandateWarning = Color(0xFFF2555A); // coral
+  static const Color customAccent = Color(0xFFFF8A3D); // orange
+  static const Color liabilityAccent = Color(0xFFFF8A3D); // orange
+  static const Color walletAccent = Color(0xFF5AC8FA); // sky
 
-  /// Distinct, calm colours for categories and accounts.
+  /// Distinct colours for categories and accounts (Slice-like, no pink):
+  /// saturated enough to tell apart on pure black, never neon.
   static const List<Color> categorical = [
     Color(0xFF4EA3F8), // blue
-    Color(0xFFF0717A), // coral
-    Color(0xFFF2B33D), // amber
-    Color(0xFF9A85F2), // violet
-    Color(0xFF33B5A5), // teal
-    Color(0xFFE879A9), // pink
-    Color(0xFF6CC4EE), // sky
-    Color(0xFFD9A47A), // sand
+    Color(0xFFFF8A3D), // orange
+    Color(0xFFF2555A), // coral
+    Color(0xFF8B6CF6), // violet
+    Color(0xFF2DBE6C), // green
+    Color(0xFFF5B841), // amber
+    Color(0xFF22B8B0), // teal
+    Color(0xFF5AC8FA), // sky
   ];
 
   // --- Semantic ---
-  static const Color success = Color(0xFF34C77B); // money in
+  static const Color success = Color(0xFF2DBE6C); // money in
   static const Color danger = Color(0xFFF0616D);
   static const Color info = Color(0xFF4EA3F8);
   static const Color warning = Color(0xFFF2A93B);
 
   // --- Text ---
   static Color get textPrimary =>
-      isLight ? const Color(0xFF14171C) : const Color(0xFFF2F4F7);
+      isLight ? const Color(0xFF14171C) : const Color(0xFFF5F5F7);
   static Color get textSecondary =>
-      isLight ? const Color(0xFF4E5562) : const Color(0xFFA6AFBD);
+      isLight ? const Color(0xFF4E5562) : const Color(0xFFA1A1AA);
   static Color get textMuted =>
-      isLight ? const Color(0xFF7A8190) : const Color(0xFF6E7787);
+      isLight ? const Color(0xFF7A8190) : const Color(0xFF71717A);
   static Color get textDisabled =>
-      isLight ? const Color(0xFFA9AEB8) : const Color(0xFF4B5260);
+      isLight ? const Color(0xFFA9AEB8) : const Color(0xFF52525B);
 
   // --- Borders ---
   static Color get borderSubtle =>
-      isLight ? const Color(0xFFE3DED5) : const Color(0xFF222831);
+      isLight ? const Color(0xFFE3DED5) : const Color(0xFF1C1C1F);
   static Color get borderMedium =>
-      isLight ? const Color(0xFFD4CEC3) : const Color(0xFF2C333D);
+      isLight ? const Color(0xFFD4CEC3) : const Color(0xFF27272B);
   static Color get borderHighlight =>
-      isLight ? const Color(0xFFBDB6A9) : const Color(0xFF3A424E);
+      isLight ? const Color(0xFFBDB6A9) : const Color(0xFF36363C);
 }
 
 /// Spacing scale based on an 8-point / 4-point harmonic grid.
@@ -224,7 +225,8 @@ abstract final class RiveroTheme {
             surface: RiveroColors.surface,
             onSurface: RiveroColors.textPrimary,
             primary: RiveroColors.accent,
-            secondary: RiveroColors.salaryAccent,
+            secondary: RiveroColors.accent,
+            secondaryContainer: RiveroColors.accent.withValues(alpha: 0.2),
             error: RiveroColors.danger,
           )
         : ColorScheme.dark(
@@ -232,7 +234,8 @@ abstract final class RiveroTheme {
             onSurface: RiveroColors.textPrimary,
             primary: RiveroColors.accent,
             onPrimary: const Color(0xFF0B1220),
-            secondary: RiveroColors.salaryAccent,
+            secondary: RiveroColors.accent,
+            secondaryContainer: RiveroColors.accent.withValues(alpha: 0.2),
             onSecondary: RiveroColors.background,
             error: RiveroColors.danger,
             onError: RiveroColors.textPrimary,
@@ -246,6 +249,14 @@ abstract final class RiveroTheme {
       // come from highlights clipped to the same shape (or the card's scale).
       splashFactory: NoSplash.splashFactory,
       highlightColor: RiveroColors.textPrimary.withValues(alpha: 0.06),
+      chipTheme: ChipThemeData(
+        backgroundColor: RiveroColors.surfaceElevated,
+        selectedColor: RiveroColors.accent.withValues(alpha: 0.2),
+        side: BorderSide(color: RiveroColors.borderMedium),
+        labelStyle: TextStyle(color: RiveroColors.textPrimary),
+        secondaryLabelStyle: TextStyle(color: RiveroColors.textPrimary),
+        checkmarkColor: RiveroColors.accent,
+      ),
       listTileTheme: const ListTileThemeData(
         shape: RoundedRectangleBorder(borderRadius: RiveroRadii.borderLg),
       ),

@@ -10,6 +10,7 @@ import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/calc.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/account_color.dart';
+import 'package:rivero/design_system/widgets/picker.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/features/log/scan_bill.dart';
 import 'package:rivero/features/settings/screens/categories_screen.dart';
@@ -145,7 +146,17 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
         .where((b) => b.role == AccountRole.expense)
         .firstOrNull
         ?.linkedPhysicalAccountId;
+    final expenseNamed = accounts
+        .where(
+          (a) =>
+              !a.isLiability &&
+              (a.accountType == 'Daily Expense' ||
+                  a.name.toLowerCase().contains('expen') ||
+                  a.name.toLowerCase().contains('spend')),
+        )
+        .firstOrNull;
     return byId(_accountId) ??
+        expenseNamed ??
         byId(spendingAccount) ??
         accounts.where((a) => !a.isLiability).firstOrNull ??
         accounts.firstOrNull;
@@ -234,6 +245,14 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
                   hintText: 'What was it for?',
                   prefixIcon: Icon(Icons.edit_note_rounded),
                   counterText: '',
+                  border: OutlineInputBorder(
+                    borderRadius: RiveroRadii.borderFull,
+                    borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: RiveroRadii.borderFull,
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
             ),
@@ -327,72 +346,84 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
             ),
             if (accounts.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.only(bottom: RiveroSpacing.sm),
-                child: Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: RiveroSpacing.sm,
-                  runSpacing: RiveroSpacing.xs,
+                padding: const EdgeInsets.fromLTRB(
+                  RiveroSpacing.lg,
+                  0,
+                  RiveroSpacing.lg,
+                  RiveroSpacing.sm,
+                ),
+                // Equal, fixed-width pills: a long account name is cut
+                // cleanly and never changes the row's layout.
+                child: Row(
                   children: [
-                    FilterChip(
-                      label: const Text('Income'),
-                      selected: _income,
-                      showCheckmark: false,
-                      shape: const StadiumBorder(),
-                      onSelected: (v) => setState(() => _income = v),
-                    ),
-                    PopupMenuButton<String>(
-                      key: const ValueKey('account-chip'),
-                      onSelected: (id) => setState(() => _accountId = id),
-                      itemBuilder: (_) => [
-                        for (final a in accounts)
-                          PopupMenuItem(
-                            value: a.id,
-                            child: Row(
-                              children: [
-                                ColorDot(accountColor(a)),
-                                const SizedBox(width: RiveroSpacing.sm),
-                                Text(a.name),
-                              ],
-                            ),
-                          ),
-                      ],
-                      // The account's own colour makes the choice obvious.
-                      child: Chip(
-                        avatar: accountTint == null
-                            ? null
-                            : ColorDot(accountTint),
-                        label: Text('${account?.name}'),
-                        side: accountTint == null
-                            ? null
-                            : BorderSide(
-                                color: accountTint.withValues(alpha: 0.7),
-                              ),
-                        backgroundColor: accountTint?.withValues(alpha: 0.14),
-                        shape: const StadiumBorder(),
+                    Expanded(
+                      child: _Pill(
+                        key: const ValueKey('income-pill'),
+                        icon: Icons.south_west_rounded,
+                        label: 'Income',
+                        active: _income,
+                        onTap: () => setState(() => _income = !_income),
                       ),
                     ),
-                    if (payFrom.isNotEmpty && !_income)
-                      PopupMenuButton<String>(
-                        key: const ValueKey('pay-from'),
-                        onSelected: (id) =>
-                            setState(() => _bucketId = id.isEmpty ? null : id),
-                        itemBuilder: (_) => [
-                          const PopupMenuItem(
-                            value: '',
-                            child: Text('Spending'),
-                          ),
-                          for (final b in payFrom)
-                            PopupMenuItem(value: b.id, child: Text(b.name)),
-                        ],
-                        child: Chip(
-                          avatar: const Icon(
-                            Icons.call_split_rounded,
-                            size: 16,
-                          ),
-                          label: Text(payFromName ?? 'Spending'),
-                          shape: const StadiumBorder(),
+                    const SizedBox(width: RiveroSpacing.sm),
+                    Expanded(
+                      flex: 2,
+                      child: _Pill(
+                        key: const ValueKey('account-chip'),
+                        dot: accountTint,
+                        label: account?.name ?? 'Account',
+                        active: true,
+                        tint: accountTint,
+                        onTap: () async {
+                          final picked = await showPicker<String>(
+                            context,
+                            title: _income ? 'Received in' : 'Paid from',
+                            selected: account?.id,
+                            options: [
+                              for (final a in accounts)
+                                PickerOption(
+                                  a.id,
+                                  a.name,
+                                  leading: ColorDot(accountColor(a)),
+                                ),
+                            ],
+                          );
+                          if (picked != null) {
+                            setState(() => _accountId = picked.value);
+                          }
+                        },
+                      ),
+                    ),
+                    if (payFrom.isNotEmpty && !_income) ...[
+                      const SizedBox(width: RiveroSpacing.sm),
+                      Expanded(
+                        child: _Pill(
+                          key: const ValueKey('pay-from'),
+                          icon: Icons.call_split_rounded,
+                          label: payFromName ?? 'Spending',
+                          active: _bucketId != null,
+                          onTap: () async {
+                            final picked = await showPicker<String>(
+                              context,
+                              title: 'Comes out of',
+                              selected: _bucketId ?? '',
+                              options: [
+                                const PickerOption('', 'Spending'),
+                                for (final b in payFrom)
+                                  PickerOption(b.id, b.name),
+                              ],
+                            );
+                            if (picked != null) {
+                              setState(
+                                () => _bucketId = picked.value.isEmpty
+                                    ? null
+                                    : picked.value,
+                              );
+                            }
+                          },
                         ),
                       ),
+                    ],
                   ],
                 ),
               ),
@@ -536,4 +567,70 @@ String _formatPaise(int v) {
   return a % 100 == 0
       ? '$sign${a ~/ 100}'
       : '$sign${a ~/ 100}.${(a % 100).toString().padLeft(2, '0')}';
+}
+
+/// Fixed-height pill used in the Log bottom row.
+class _Pill extends StatelessWidget {
+  const _Pill({
+    required this.label,
+    required this.active,
+    required this.onTap,
+    super.key,
+    this.icon,
+    this.dot,
+    this.tint,
+  });
+
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+  final IconData? icon;
+  final Color? dot;
+  final Color? tint;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = tint ?? RiveroColors.accent;
+    return Material(
+      color: active
+          ? color.withValues(alpha: 0.14)
+          : RiveroColors.surfaceElevated,
+      shape: StadiumBorder(
+        side: BorderSide(
+          color: active ? color.withValues(alpha: 0.6) : Colors.transparent,
+        ),
+      ),
+      child: InkWell(
+        customBorder: const StadiumBorder(),
+        onTap: onTap,
+        child: SizedBox(
+          height: 40,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: RiveroSpacing.md),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (dot != null) ColorDot(dot!),
+                if (icon != null)
+                  Icon(
+                    icon,
+                    size: 16,
+                    color: active ? color : RiveroColors.textSecondary,
+                  ),
+                const SizedBox(width: RiveroSpacing.xs),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: RiveroTypography.labelLarge,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

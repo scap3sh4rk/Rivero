@@ -9,6 +9,7 @@ import 'package:rivero/core/storage/media_store.dart';
 import 'package:rivero/core/utils/amount_parser.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/photo_picker.dart';
+import 'package:rivero/design_system/widgets/picker.dart';
 
 /// Reads the text on a photo. On-device (ML Kit); nothing is uploaded.
 typedef BillTextReader = Future<String> Function(String imagePath);
@@ -193,13 +194,10 @@ class _BillConfirmSheetState extends ConsumerState<BillConfirmSheet> {
             ),
             if (accounts.isNotEmpty) ...[
               const SizedBox(height: RiveroSpacing.md),
-              DropdownButtonFormField<String>(
-                initialValue: account?.id,
-                decoration: const InputDecoration(labelText: 'Paid from'),
-                items: [
-                  for (final a in accounts)
-                    DropdownMenuItem(value: a.id, child: Text(a.name)),
-                ],
+              PickerField<String>(
+                label: 'Paid from',
+                value: account?.id,
+                options: [for (final a in accounts) PickerOption(a.id, a.name)],
                 onChanged: (v) => setState(() => _accountId = v),
               ),
             ],

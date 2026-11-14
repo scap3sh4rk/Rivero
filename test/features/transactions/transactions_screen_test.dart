@@ -158,6 +158,11 @@ void main() {
     );
     expect(total.data, contains('240'));
 
+    // Collapsed until asked; expanding shows categories.
+    expect(find.text('Shopping'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('overview-toggle')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
     await tester.tap(find.text('Shopping').first);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));

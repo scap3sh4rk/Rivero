@@ -12,13 +12,21 @@ import 'package:rivero/features/settings/screens/categories_screen.dart';
 
 /// "You've spent ₹X since payday": a day-by-day chart for this pay cycle and
 /// the categories it went to. Tapping a category filters the list below.
-class SpendingOverview extends ConsumerWidget {
+class SpendingOverview extends ConsumerStatefulWidget {
   const SpendingOverview({required this.onCategoryTap, super.key});
 
   final ValueChanged<String> onCategoryTap;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SpendingOverview> createState() => _SpendingOverviewState();
+}
+
+class _SpendingOverviewState extends ConsumerState<SpendingOverview> {
+  // Collapsed by default: just the month's total until asked for more.
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
     final txns = ref.watch(allTransactionsStreamProvider).value ?? const [];
     final cycle = ref.watch(currentPaycycleProvider);
     final privacy = ref.watch(privacyModeProvider);
@@ -40,51 +48,91 @@ class SpendingOverview extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Spent since ${DateFormat('d MMM').format(cycle.cycleStartDate)}',
-            style: RiveroTypography.bodyMedium,
-          ),
-          const SizedBox(height: RiveroSpacing.xs),
-          Text(
-            money(s.total),
-            key: const ValueKey('spent-total'),
-            style: RiveroTypography.financialLarge,
-          ),
-          if (s.total > 0)
-            Text(
-              '${money(s.total ~/ daysSoFar)} a day on average',
-              style: RiveroTypography.bodySmall,
+          InkWell(
+            key: const ValueKey('overview-toggle'),
+            borderRadius: RiveroRadii.borderMd,
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Spent since '
+                        '${DateFormat('d MMM').format(cycle.cycleStartDate)}',
+                        style: RiveroTypography.bodyMedium,
+                      ),
+                      const SizedBox(height: RiveroSpacing.xs),
+                      Text(
+                        money(s.total),
+                        key: const ValueKey('spent-total'),
+                        style: RiveroTypography.financialLarge,
+                      ),
+                    ],
+                  ),
+                ),
+                AnimatedRotation(
+                  turns: _expanded ? 0.5 : 0,
+                  duration: const Duration(milliseconds: 250),
+                  child: Icon(
+                    Icons.expand_more_rounded,
+                    color: RiveroColors.textSecondary,
+                  ),
+                ),
+              ],
             ),
-          const SizedBox(height: RiveroSpacing.lg),
-          SizedBox(
-            height: 64,
-            width: double.infinity,
-            child: CustomPaint(
-              painter: _DailyBars(
-                s.byDay,
-                totalDays: cycle.totalDaysInCycle,
-                bar: RiveroColors.textMuted,
-                today: RiveroColors.textPrimary,
-                empty: RiveroColors.surfaceInteractive,
-              ),
-            ),
           ),
-          if (s.byCategory.isNotEmpty) ...[
-            const SizedBox(height: RiveroSpacing.lg),
-            for (final e in s.byCategory.take(5))
-              _CategoryBar(
-                color: categoryColor(e.key, ref.watch(logCategoriesProvider)),
-                name: e.key,
-                amount: money(e.value),
-                share: e.value / s.total,
-                onTap: () => onCategoryTap(e.key),
-              ),
-            if (s.byCategory.length > 5)
-              Text(
-                '+ ${s.byCategory.length - 5} more categories',
-                style: RiveroTypography.bodySmall,
-              ),
-          ],
+          AnimatedSize(
+            duration: const Duration(milliseconds: 280),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: !_expanded
+                ? const SizedBox(width: double.infinity)
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (s.total > 0)
+                        Text(
+                          '${money(s.total ~/ daysSoFar)} a day on average',
+                          style: RiveroTypography.bodySmall,
+                        ),
+                      const SizedBox(height: RiveroSpacing.lg),
+                      SizedBox(
+                        height: 64,
+                        width: double.infinity,
+                        child: CustomPaint(
+                          painter: _DailyBars(
+                            s.byDay,
+                            totalDays: cycle.totalDaysInCycle,
+                            bar: RiveroColors.textMuted,
+                            today: RiveroColors.textPrimary,
+                            empty: RiveroColors.surfaceInteractive,
+                          ),
+                        ),
+                      ),
+                      if (s.byCategory.isNotEmpty) ...[
+                        const SizedBox(height: RiveroSpacing.lg),
+                        for (final e in s.byCategory.take(5))
+                          _CategoryBar(
+                            color: categoryColor(
+                              e.key,
+                              ref.watch(logCategoriesProvider),
+                            ),
+                            name: e.key,
+                            amount: money(e.value),
+                            share: e.value / s.total,
+                            onTap: () => widget.onCategoryTap(e.key),
+                          ),
+                        if (s.byCategory.length > 5)
+                          Text(
+                            '+ ${s.byCategory.length - 5} more categories',
+                            style: RiveroTypography.bodySmall,
+                          ),
+                      ],
+                    ],
+                  ),
+          ),
         ],
       ),
     );

@@ -9,6 +9,7 @@ import 'package:rivero/core/utils/amount_parser.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/bank_badge.dart';
+import 'package:rivero/design_system/widgets/picker.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
 
@@ -352,13 +353,12 @@ class _LendSheetState extends ConsumerState<_LendSheet> {
             ),
           ),
           const SizedBox(height: RiveroSpacing.md),
-          DropdownButtonFormField<String?>(
-            initialValue: _accountId,
-            decoration: const InputDecoration(labelText: 'From'),
-            items: [
-              const DropdownMenuItem(child: Text('Cash')),
-              for (final a in accounts)
-                DropdownMenuItem(value: a.id, child: Text(a.name)),
+          PickerField<String?>(
+            label: 'From',
+            value: _accountId,
+            options: [
+              const PickerOption(null, 'Cash'),
+              for (final a in accounts) PickerOption(a.id, a.name),
             ],
             onChanged: (v) => setState(() => _accountId = v),
           ),
