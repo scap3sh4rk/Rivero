@@ -7,6 +7,7 @@ import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/account_color.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
+import 'package:rivero/design_system/widgets/rivero_fab.dart';
 
 /// Colour of a category: the user's choice, else a stable palette colour.
 Color categoryColor(String name, List<LogCategory> categories) {
@@ -74,13 +75,10 @@ class CategoriesScreen extends ConsumerWidget {
         title: 'Categories',
         showProfile: false,
         leading: BackButton(onPressed: () => Navigator.of(context).pop()),
-        actions: [
-          IconButton(
-            tooltip: 'Add category',
-            onPressed: () => promptNewCategory(context, ref),
-            icon: const Icon(Icons.add_rounded),
-          ),
-        ],
+      ),
+      floatingActionButton: RiveroFab(
+        tooltip: 'Add category',
+        onPressed: () => promptNewCategory(context, ref),
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: RiveroSpacing.sm),

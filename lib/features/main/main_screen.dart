@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +10,7 @@ import 'package:rivero/features/accounts/screens/accounts_screen.dart';
 import 'package:rivero/features/home/screens/home_screen.dart';
 import 'package:rivero/features/log/quick_log_screen.dart';
 import 'package:rivero/features/owed/owed_screen.dart';
+import 'package:rivero/features/tour/app_tour.dart';
 import 'package:rivero/features/transactions/screens/transactions_screen.dart';
 
 /// App shell: swipeable pages with a Slice-style row of round icon buttons.
@@ -52,12 +55,22 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) ref.read(selectedNavIndexProvider.notifier).state = _initial;
+      if (!mounted) return;
+      ref.read(selectedNavIndexProvider.notifier).state = _initial;
+      // First run: a guided tour, once Home has appeared.
+      if (ref.read(tourPendingProvider)) {
+        _tourTimer = Timer(const Duration(milliseconds: 900), () {
+          if (mounted && ref.read(tourPendingProvider)) AppTour.show(context);
+        });
+      }
     });
   }
 
+  Timer? _tourTimer;
+
   @override
   void dispose() {
+    _tourTimer?.cancel();
     _pager.dispose();
     super.dispose();
   }

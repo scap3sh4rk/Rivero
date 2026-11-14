@@ -76,6 +76,8 @@ class DatabaseSeeder {
         ), // ₹1,50,000 limit (~9.5% safe usage)
         isActive: const Value(true),
         isLiability: const Value(true),
+        statementDay: const Value(15),
+        paymentDueDay: const Value(5),
         createdAt: Value(now),
         updatedAt: Value(now),
       ),

@@ -12,6 +12,7 @@ import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/picker.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
+import 'package:rivero/design_system/widgets/rivero_fab.dart';
 
 /// Split a month's salary. Fixed categories (investments, savings, rent, ...)
 /// come first; spending gets the rest, so the plan can never exceed salary.
@@ -362,6 +363,10 @@ class _SalaryPlanScreenState extends ConsumerState<SalaryPlanScreen> {
         showProfile: false,
         leading: BackButton(onPressed: () => Navigator.of(context).pop()),
       ),
+      floatingActionButton: RiveroFab(
+        tooltip: 'Add category',
+        onPressed: _addCategory,
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(
           RiveroSpacing.xl,
@@ -457,14 +462,6 @@ class _SalaryPlanScreenState extends ConsumerState<SalaryPlanScreen> {
                 }
               },
             ),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: _addCategory,
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Add category'),
-            ),
-          ),
           const SizedBox(height: RiveroSpacing.md),
           RiveroCard(
             borderColor: over ? RiveroColors.danger : null,

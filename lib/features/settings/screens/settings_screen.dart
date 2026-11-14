@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivero/core/ingestion/platform/notification_bridge.dart';
+import 'package:rivero/core/ingestion/upi_apps.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/security/app_lock.dart';
 import 'package:rivero/core/storage/media_store.dart';
@@ -12,8 +13,10 @@ import 'package:rivero/design_system/widgets/rivero_card.dart';
 import 'package:rivero/features/backup/backup_screen.dart';
 import 'package:rivero/features/mandates/mandates_screen.dart';
 import 'package:rivero/features/settings/screens/account_types_screen.dart';
+import 'package:rivero/features/settings/screens/capture_log_screen.dart';
 import 'package:rivero/features/settings/screens/categories_screen.dart';
 import 'package:rivero/features/settings/screens/import_statement.dart';
+import 'package:rivero/features/tour/app_tour.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Settings as short rows: one line each, details one tap deeper.
@@ -186,11 +189,21 @@ class SettingsScreen extends ConsumerWidget {
             subtitle: 'Adds past transactions to an account',
             onTap: () => importStatement(context, ref),
           ),
+          const _Header('Help'),
+          _Row(
+            icon: Icons.tour_outlined,
+            title: 'Take the tour',
+            subtitle: 'A quick walk through every part of Rivero',
+            onTap: () {
+              final nav = Navigator.of(context)..pop();
+              AppTour.show(nav.context);
+            },
+          ),
           const _Header('Data'),
           _Row(
             icon: Icons.delete_forever_outlined,
             title: 'Delete all data',
-            subtitle: 'Erases everything and starts setup again',
+            subtitle: 'Erases everything and shows the tour again',
             onTap: () => _confirmWipe(context, ref),
           ),
           if (kDebugMode) ...[
@@ -393,6 +406,7 @@ class _Header extends StatelessWidget {
 /// Slice-style settings row: round outlined icon, title, optional subtitle.
 class _Row extends StatelessWidget {
   const _Row({
+    super.key,
     required this.icon,
     required this.title,
     this.subtitle,
@@ -479,6 +493,36 @@ class _CaptureRowsState extends ConsumerState<_CaptureRows>
     if (mounted) setState(() => _enabled = on);
   }
 
+  Future<void> _pickUpi() async {
+    final current = ref.read(primaryUpiProvider);
+    // Only the UPI apps actually installed on this phone.
+    final installed = await NotificationBridge.installedUpiApps();
+    if (!mounted) return;
+    if (installed.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No UPI app found on this phone.')),
+      );
+      return;
+    }
+    final picked = await showPicker<String>(
+      context,
+      title: 'Your main UPI app',
+      selected: current ?? '',
+      options: [
+        for (final a in installed) PickerOption(a.package, a.name),
+        const PickerOption('', 'I do not use one'),
+      ],
+    );
+    if (picked != null) {
+      ref.read(primaryUpiProvider.notifier).state = picked.value;
+      final name = installed
+          .where((a) => a.package == picked.value)
+          .map((a) => a.name)
+          .firstOrNull;
+      ref.read(primaryUpiNameProvider.notifier).state = name ?? '';
+    }
+  }
+
   Future<void> _sendTest() async {
     final accounts = ref.read(activePhysicalAccountsProvider).value ?? const [];
     final mask = accounts.where((a) => !a.isLiability).firstOrNull?.accountMask;
@@ -491,8 +535,9 @@ class _CaptureRowsState extends ConsumerState<_CaptureRows>
     if (!mounted) return;
     final text = switch (status) {
       'posted' =>
-        'Test sent. A ₹1 "rivero.test" entry should appear in Activity '
-            'within a few seconds. You can delete it there.',
+        'Test sent. A ₹1 "rivero.test" payment should appear under To '
+            'review on Home within a few seconds. Ignore it, or Accept and '
+            'delete it in Activity.',
       'no_access' => 'Turn on notification access first.',
       'no_permission' => 'Allow Rivero to show notifications, then try again.',
       _ => 'Not available on this device.',
@@ -516,6 +561,37 @@ class _CaptureRowsState extends ConsumerState<_CaptureRows>
             false => 'Off · tap to turn on',
           },
           onTap: NotificationBridge.openSettings,
+        ),
+        _Row(
+          key: const ValueKey('primary-upi'),
+          icon: Icons.account_balance_wallet_outlined,
+          title: 'My main UPI app',
+          subtitle:
+              ref.watch(primaryUpiNameProvider)?.nonEmpty ??
+              UpiApp.byPackage(ref.watch(primaryUpiProvider))?.name ??
+              (ref.watch(primaryUpiProvider)?.isEmpty ?? false
+                  ? 'None'
+                  : 'Not chosen · pick the one you pay with'),
+          onTap: _pickUpi,
+        ),
+        _Row(
+          icon: Icons.fact_check_outlined,
+          title: 'Accept payments automatically',
+          subtitle: ref.watch(captureAutoAcceptProvider)
+              ? 'On · confident captures count straight away'
+              : 'Off · each captured payment waits for your Accept',
+          trailing: Switch(
+            key: const ValueKey('auto-accept-switch'),
+            value: ref.watch(captureAutoAcceptProvider),
+            onChanged: (v) =>
+                ref.read(captureAutoAcceptProvider.notifier).state = v,
+          ),
+        ),
+        _Row(
+          icon: Icons.history_rounded,
+          title: 'Recent captures',
+          subtitle: 'See what Rivero did with each notification',
+          onTap: () => CaptureLogScreen.open(context),
         ),
         _Row(
           icon: Icons.send_outlined,
@@ -604,4 +680,9 @@ class _DeveloperCard extends StatelessWidget {
       ),
     );
   }
+}
+
+extension on String {
+  /// This text, or null when it is empty.
+  String? get nonEmpty => isEmpty ? null : this;
 }

@@ -127,7 +127,15 @@ class FinancialParser {
   ///
   /// Returns `null` if the message is deemed non-financial.
   ParsedTransaction? parse(RawNotification notification) {
-    final text = notification.body;
+    var text = notification.body;
+    // Payment apps often put the amount in the notification title ("Paid
+    // ₹500 to Rahul") and only the app name in the body.
+    final title = notification.title;
+    if (_extractAmount(text) == null &&
+        title != null &&
+        _extractAmount(title) != null) {
+      text = '$title . $text'; // the lone dot ends the merchant name
+    }
 
     // Reminders, OTPs, mandate lifecycle and statement notices are not money
     // movements; the ingestion service handles them separately.
@@ -429,6 +437,8 @@ class FinancialParser {
       case TransactionType.walletTopup:
       case TransactionType.balanceAdjustment:
       case TransactionType.lending:
+      case TransactionType.borrowing:
+      case TransactionType.repayment:
       case TransactionType.planTransfer:
         return isDebit ? AccountRole.expense : AccountRole.savings;
     }

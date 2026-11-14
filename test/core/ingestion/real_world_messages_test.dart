@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rivero/core/ingestion/models/raw_notification.dart';
 import 'package:rivero/core/ingestion/parser/financial_parser.dart';
+import 'package:rivero/core/ingestion/trai_dlt_validator.dart';
 
 /// Messages as banks really send them, arriving through the phone's SMS app
 /// (so no bank package, and the bank's name is the notification title).
@@ -71,5 +72,57 @@ void main() {
       parser.parse(sms('See you at 7:30, bring 2 bags', title: 'Mom')),
       isNull,
     );
+  });
+
+  group('UPI app notifications (the amount is often in the title)', () {
+    RawNotification upi(
+      String title,
+      String body, {
+      String pkg = 'com.phonepe.app',
+    }) => RawNotification(
+      id: 'u',
+      title: title,
+      body: body,
+      packageName: pkg,
+      receivedAt: at,
+    );
+
+    test('"Paid ₹500 to Rahul" in the title, app name in the body', () {
+      final p = parser.parse(upi('Paid ₹500 to Rahul Kumar', 'PhonePe'));
+      expect(p, isNotNull);
+      expect(p!.amountMinorUnits, 50000);
+      expect(p.isDebit, isTrue);
+      expect(p.merchant, 'Rahul Kumar');
+    });
+
+    test('an app the user chose as primary is trusted even if unknown', () {
+      const other = 'com.example.newupi';
+      final msg = upi(
+        'Payment successful',
+        'Paid ₹250 to Chai Point',
+        pkg: other,
+      );
+      // Unknown app, no bank sender: a plain parser is unsure.
+      final plain = parser.parse(msg);
+      final trusted = const FinancialParser(
+        dltValidator: TraiDltValidator(extraPackages: {other}),
+      ).parse(msg);
+      expect(trusted, isNotNull);
+      expect(trusted!.amountMinorUnits, 25000);
+      expect(trusted.confidenceScore, greaterThan(plain?.confidenceScore ?? 0));
+    });
+
+    test('money received shows as income', () {
+      final p = parser.parse(
+        upi(
+          '₹1,200 received from Meera',
+          'Google Pay',
+          pkg: 'com.google.android.apps.nbu.paisa.user',
+        ),
+      );
+      expect(p, isNotNull);
+      expect(p!.amountMinorUnits, 120000);
+      expect(p.isDebit, isFalse);
+    });
   });
 }

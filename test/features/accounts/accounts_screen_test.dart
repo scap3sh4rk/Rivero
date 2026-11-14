@@ -52,6 +52,11 @@ void main() {
       // Usage pill shows only the percentage: 14,250 of 1,50,000 = 10%.
       expect(find.text('10%'), findsOneWidget);
       expect(find.textContaining('Pay before'), findsNothing);
+      // Billing cycle: days left, due date, and whether you can pay it.
+      expect(find.byKey(const ValueKey('cycle-days-acc-cc')), findsOneWidget);
+      expect(find.byKey(const ValueKey('due-acc-cc')), findsOneWidget);
+      expect(find.byKey(const ValueKey('afford-acc-cc')), findsOneWidget);
+      expect(find.byKey(const ValueKey('cards-summary')), findsOneWidget);
       expect(find.textContaining('Limit'), findsOneWidget);
       // Which bank each account is with is shown.
       expect(find.textContaining('HDFC Bank ••4012'), findsOneWidget);
@@ -60,10 +65,18 @@ void main() {
       expect(find.text('Primary HDFC Salary'), findsOneWidget);
       expect(find.text('ICICI Daily Expenses'), findsOneWidget);
 
-      // Tap New Account FAB
-      final newAccountFab = find.byTooltip('Add Account');
-      expect(newAccountFab, findsOneWidget);
-      await tester.tap(newAccountFab);
+      // The eye in the top bar hides and shows every balance.
+      await tester.tap(find.byKey(const ValueKey('toggle-balances')));
+      await tester.pump();
+      expect(find.text('••••'), findsWidgets);
+      await tester.tap(find.byKey(const ValueKey('toggle-balances')));
+      await tester.pump();
+      expect(find.text('Primary HDFC Salary'), findsOneWidget);
+
+      // Adding an account is the plus at the bottom right.
+      final addAccount = find.byTooltip('Add account or card');
+      expect(addAccount, findsOneWidget);
+      await tester.tap(addAccount);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 

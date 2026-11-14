@@ -19,6 +19,13 @@ enum TransactionType {
   /// Money lent to someone: leaves the account, is not spending.
   lending,
 
+  /// Money borrowed from someone: arrives in the account, is not income.
+  borrowing,
+
+  /// Paying back money you borrowed: leaves the account, is not spending
+  /// (it was spent when you borrowed it).
+  repayment,
+
   /// A payment the salary plan makes out of the salary account for a
   /// category such as Rent or Family. Real spending for reports, but it never
   /// touches the everyday spending budget.
@@ -69,6 +76,9 @@ enum DueKind {
 
   /// Cash or a transfer the user lent them.
   lent,
+
+  /// Money the user borrowed and has to pay back (they owe the other person).
+  borrowed,
 }
 
 /// Lifecycle of money owed to the user.

@@ -2,7 +2,10 @@
 /// Distributed Ledger Technology (DLT) commercial SMS regulations, as well as recognized
 /// Indian banking and payment application package identifiers.
 class TraiDltValidator {
-  const TraiDltValidator();
+  const TraiDltValidator({this.extraPackages = const {}});
+
+  /// Apps the user told Rivero to trust (their primary UPI app).
+  final Set<String> extraPackages;
 
   /// Regex pattern matching standard 2-character circle prefix + dash + 3..6 character entity code,
   /// or 2-character circle prefix + exactly 6-character entity code without dash.
@@ -82,7 +85,9 @@ class TraiDltValidator {
 
   /// Checks if either the [senderHeader] or [packageName] belongs to a recognized financial source.
   bool isFinancialSender({String? senderHeader, String? packageName}) {
-    if (packageName != null && knownPaymentPackages.containsKey(packageName)) {
+    if (packageName != null &&
+        (knownPaymentPackages.containsKey(packageName) ||
+            extraPackages.contains(packageName))) {
       return true;
     }
 

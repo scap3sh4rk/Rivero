@@ -92,6 +92,26 @@ void main() {
     await finish(tester);
   });
 
+  testWidgets('typing a note folds the keypad away; it returns after', (
+    tester,
+  ) async {
+    await pumpLog(tester);
+    expect(find.byKey(const ValueKey('key-5')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('log-note')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byKey(const ValueKey('key-5')), findsNothing);
+    // The note pill is still there, and Save stays reachable.
+    expect(find.byKey(const ValueKey('log-note')), findsOneWidget);
+    expect(find.text('Save'), findsOneWidget);
+
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byKey(const ValueKey('key-5')), findsOneWidget);
+    await finish(tester);
+  });
+
   testWidgets('long-press 0 types a decimal point', (tester) async {
     await pumpLog(tester);
     await press(tester, 'key-1');

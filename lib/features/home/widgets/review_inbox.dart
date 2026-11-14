@@ -75,7 +75,7 @@ class ReviewInbox extends ConsumerWidget {
         ),
         const SizedBox(height: RiveroSpacing.xs),
         Text(
-          'Captured automatically. Keep what is right.',
+          'Captured from your notifications. Accept what is right.',
           style: RiveroTypography.bodySmall,
         ),
         const SizedBox(height: RiveroSpacing.md),
@@ -133,7 +133,7 @@ class ReviewInbox extends ConsumerWidget {
                           style: FilledButton.styleFrom(
                             shape: const StadiumBorder(),
                           ),
-                          child: const Text('Confirm'),
+                          child: const Text('Accept'),
                         ),
                       ),
                     ],

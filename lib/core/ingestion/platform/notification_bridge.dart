@@ -70,6 +70,53 @@ class NotificationBridge {
     return run;
   }
 
+  /// UPI apps installed on this phone (name and package), sorted by name.
+  /// Empty off-device or when none is installed.
+  static Future<List<({String name, String package})>>
+  installedUpiApps() async {
+    if (!supported) return const [];
+    try {
+      final list = await _channel.invokeListMethod<Map<Object?, Object?>>(
+        'upiApps',
+      );
+      return [
+        for (final m in list ?? const <Map<Object?, Object?>>[])
+          (
+            name: (m['label'] ?? m['package'] ?? '').toString(),
+            package: (m['package'] ?? '').toString(),
+          ),
+      ];
+    } on MissingPluginException {
+      return const [];
+    }
+  }
+
+  /// Tells the Android listener which UPI app is the user's main one (an
+  /// empty or null package clears it).
+  static Future<void> setPrimaryApp(String? package) async {
+    if (!supported) return;
+    try {
+      await _channel.invokeMethod<void>('setPrimaryApp', {'package': package});
+    } on MissingPluginException {
+      // Not running on a device (tests).
+    }
+  }
+
+  /// What the listener has seen since install: how many notifications it
+  /// queued, skipped as not about money, or found without readable text,
+  /// and the last app it heard from. Empty off-device.
+  static Future<Map<String, dynamic>> diagnostics() async {
+    if (!supported) return const {};
+    try {
+      final json = await _channel.invokeMethod<String>('diagnostics');
+      return json == null
+          ? const {}
+          : (jsonDecode(json) as Map).cast<String, dynamic>();
+    } on MissingPluginException {
+      return const {};
+    }
+  }
+
   /// Empties the phone's capture queue ("Delete all data").
   static Future<void> clearQueue() async {
     if (!supported) return;

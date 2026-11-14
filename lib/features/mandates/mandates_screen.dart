@@ -13,6 +13,7 @@ import 'package:rivero/design_system/widgets/bank_badge.dart';
 import 'package:rivero/design_system/widgets/picker.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
+import 'package:rivero/design_system/widgets/rivero_fab.dart';
 import 'package:uuid/uuid.dart';
 
 /// One place for every autopay / e-NACH commitment, across all banks.
@@ -39,16 +40,13 @@ class MandatesScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: RiveroColors.background,
-      appBar: RiveroAppBar(
+      appBar: const RiveroAppBar(
         title: 'Autopay',
         subtitle: 'Every recurring debit, one place',
-        actions: [
-          IconButton(
-            tooltip: 'Add Mandate',
-            icon: const Icon(Icons.add_rounded),
-            onPressed: () => _AddMandateSheet.show(context),
-          ),
-        ],
+      ),
+      floatingActionButton: RiveroFab(
+        tooltip: 'Add autopay',
+        onPressed: () => _AddMandateSheet.show(context),
       ),
       body: ListView(
         physics: const BouncingScrollPhysics(),

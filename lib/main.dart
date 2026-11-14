@@ -14,7 +14,6 @@ import 'package:rivero/core/security/app_lock.dart';
 import 'package:rivero/core/security/database_key_manager.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/features/main/main_screen.dart';
-import 'package:rivero/features/onboarding/onboarding_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -175,8 +174,7 @@ class _RiveroAppState extends ConsumerState<RiveroApp>
         theme: RiveroTheme.build(light: light, font: font),
         home: switch (ref.watch(onboardedProvider)) {
           null => Scaffold(backgroundColor: RiveroColors.background),
-          true => const AppLockGate(child: MainScreen()),
-          false => const OnboardingScreen(),
+          _ => const AppLockGate(child: MainScreen()),
         },
       ),
     );

@@ -37,9 +37,18 @@ class MainActivity : FlutterFragmentActivity() {
                     CaptureQueue.clear(this)
                     result.success(json)
                 }
+                // The UPI app the user pays with most: its notifications are always read.
+                "setPrimaryApp" -> {
+                    RiveroNotificationListener.setPrimaryApp(this, call.argument<String>("package"))
+                    result.success(null)
+                }
+                "diagnostics" -> result.success(Diagnostics.read(this))
+                // UPI apps installed on this phone: apps that can open upi://pay.
+                "upiApps" -> result.success(installedUpiApps())
                 // "Delete all data": nothing captured may survive it.
                 "clearQueue" -> synchronized(RiveroNotificationListener.LOCK) {
                     CaptureQueue.clear(this)
+                    Diagnostics.clear(this)
                     result.success(null)
                 }
                 // Blocks screenshots and blanks the recent-apps preview.
@@ -64,6 +73,26 @@ class MainActivity : FlutterFragmentActivity() {
         RiveroNotificationListener.onQueued = null
         channel = null
         super.onDestroy()
+    }
+
+    /** [{package, label}] for every installed app that can handle a UPI payment request. */
+    private fun installedUpiApps(): List<Map<String, String>> {
+        val probe = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("upi://pay?pa=test@upi&pn=Test&cu=INR"))
+        val infos = if (Build.VERSION.SDK_INT >= 33) {
+            packageManager.queryIntentActivities(
+                probe,
+                PackageManager.ResolveInfoFlags.of(PackageManager.MATCH_ALL.toLong()),
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            packageManager.queryIntentActivities(probe, PackageManager.MATCH_ALL)
+        }
+        return infos
+            .map { it.activityInfo.packageName to it.loadLabel(packageManager).toString() }
+            .distinctBy { it.first }
+            .filter { it.first != packageName }
+            .sortedBy { it.second.lowercase() }
+            .map { mapOf("package" to it.first, "label" to it.second) }
     }
 
     private fun listenerEnabled(): Boolean {

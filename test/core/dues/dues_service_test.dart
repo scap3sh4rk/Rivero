@@ -160,4 +160,85 @@ void main() {
     expect(await spent(), 50000);
     expect((await all()).single.status, DueStatus.writtenOff);
   });
+
+  group('money you owe', () {
+    Future<int> balance() async =>
+        (await db.accountsDao.getPhysicalAccountById('bank'))!
+            .balanceMinorUnits;
+
+    test(
+      'borrowing adds to the account but is not income or spending',
+      () async {
+        await db.accountsDao.updateAccountBalance('bank', 100000);
+        await dues.borrow(
+          person: 'Ravi',
+          amountMinorUnits: 500000,
+          accountId: 'bank',
+          dueDate: DateTime(2026, 12, 5),
+        );
+        expect(await balance(), 600000);
+        final d = (await all()).single;
+        expect(d.kind, DueKind.borrowed);
+        expect(DuesService.totalYouOwe(await all()), 500000);
+        // Not "owed to you", not spending, no budget used.
+        expect(DuesService.totalOutstanding(await all()), 0);
+        expect(await spent(), 0);
+        final t = (await db.transactionsDao.getAllTransactions()).single;
+        expect(t.transactionType, TransactionType.borrowing);
+        expect(SpendingSummary.isSpending(t), isFalse);
+      },
+    );
+
+    test('repaying leaves the account, is not spending, and settles', () async {
+      await db.accountsDao.updateAccountBalance('bank', 100000);
+      await dues.borrow(person: 'Ravi', amountMinorUnits: 300000);
+      final d = (await all()).single;
+      await dues.repay(d.id, 100000, accountId: 'bank');
+      expect(await balance(), 0);
+      expect(DuesService.totalYouOwe(await all()), 200000);
+      expect(await spent(), 0);
+      await dues.repay(d.id, 200000); // in cash
+      expect((await all()).single.status, DueStatus.settled);
+      expect(await balance(), 0);
+    });
+
+    test('guards: too much, wrong kind, receiving what you owe', () async {
+      await dues.borrow(person: 'Ravi', amountMinorUnits: 100000);
+      final d = (await all()).single;
+      await expectLater(
+        dues.repay(d.id, 200000),
+        throwsA(isA<DueValidationException>()),
+      );
+      await expectLater(
+        dues.receive(d.id, 1000),
+        throwsA(isA<DueValidationException>()),
+      );
+      await dues.lend(person: 'Mina', amountMinorUnits: 50000);
+      final lent = (await all()).firstWhere((x) => x.kind == DueKind.lent);
+      await expectLater(
+        dues.repay(lent.id, 1000),
+        throwsA(isA<DueValidationException>()),
+      );
+      await expectLater(
+        dues.borrow(person: ' ', amountMinorUnits: 100),
+        throwsA(isA<DueValidationException>()),
+      );
+    });
+
+    test('dated debts due before payday are reserved', () async {
+      await dues.borrow(
+        person: 'Ravi',
+        amountMinorUnits: 400000,
+        dueDate: DateTime(2026, 11, 20),
+      );
+      await dues.borrow(
+        person: 'Mina',
+        amountMinorUnits: 900000,
+        dueDate: DateTime(2026, 12, 20),
+      );
+      final list = await all();
+      expect(DuesService.youOweDueBy(list, DateTime(2026, 11, 30)), 400000);
+      expect(DuesService.youOweDueBy(list, DateTime(2026, 12, 31)), 1300000);
+    });
+  });
 }

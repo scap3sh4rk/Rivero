@@ -42,9 +42,10 @@ per day         = safe to payday ÷ days to payday
 |---|---|
 | **One number, fully explained** | Safe to spend per day, with freshness (Verified, Estimated, Stale) and a line-by-line breakdown. |
 | **A salary plan that moves money** | Split salary into spending, investments, savings, rent, family and your own categories. Apply it and balances follow between your own accounts, never below zero. Set up mid-month? Say the money already moved and it is never touched twice. |
-| **Payments captured for you** | Reads bank and UPI notifications (notification access, never SMS permission). Merges duplicates, ignores OTPs and promotions, and asks only when unsure. |
-| **Cards, autopay, EMIs** | Card usage at a glance, upcoming and overdue autopay held back, weekly and month-end schedules handled, card bills recognised as transfers. |
-| **Owed to you** | Split bills, loans, part-payments, write-offs. Kept out of your spending. |
+| **Payments captured for you** | Reads bank and UPI notifications (notification access, never SMS permission). Pick your main UPI app (from those installed), merge duplicates, ignore OTPs and promotions, see what happened to every notification, and Accept or Ignore each payment before it counts. |
+| **Cards with their own billing cycle** | Days left in each card's cycle, its due date, and whether your accounts can pay the bill. Autopay (including overdue and weekly) held back; card bills recognised as transfers. |
+| **Owed, both ways** | Two frames: Owed to you and You owe people (with every bill to pay: cards, loans, autopay). Split bills, loans, borrowing, part-payments, all kept out of your spending. |
+| **No setup wizard** | Opens straight to Home with a guided tour of every tab; add accounts and your plan in your own order. |
 | **Private by design** | AES-256 encrypted database, biometric lock, hide-amounts mode, encrypted backups to your own Google Drive or a file. |
 | **Scan and import** | On-device bill scanning (ML Kit) and CSV statement import (experimental). |
 | **Yours to style** | "Ink & Sky" dark and paper-light themes, six bundled fonts, your own categories and account types. |
@@ -69,7 +70,7 @@ Details: [Privacy & security](https://scap3sh4rk.github.io/Rivero/privacy-securi
 
 ## Install
 
-Grab the signed APK from the [latest release](https://github.com/scap3sh4rk/Rivero/releases/latest), open it (allow *install unknown apps* once), answer three setup questions, enter today's balances, and optionally turn on capture under *Settings → Capture*.
+Grab the signed APK from the [latest release](https://github.com/scap3sh4rk/Rivero/releases/latest) and open it (allow *install unknown apps* once). A short tour walks you through the app. Add your accounts, set your salary plan, and optionally turn on capture and pick your main UPI app under *Settings → Capture*.
 
 ## Build from source
 

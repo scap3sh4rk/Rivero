@@ -45,6 +45,8 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
   int? _color; // null = automatic colour from the bank name
   String? _imagePath; // stored picture, or a freshly picked temp file
   bool _imageChanged = false;
+  int? _statementDay; // cards: day the statement is generated
+  int? _dueDay; // cards: day the bill is due
 
   static String _rupees(int minor) {
     final v = minor.abs();
@@ -67,6 +69,8 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
       _isLiability = a.isLiability;
       _color = a.colorValue;
       _imagePath = a.imagePath;
+      _statementDay = a.statementDay;
+      _dueDay = a.paymentDueDay;
       final types = ref.read(customAccountTypesProvider);
       if (!types.contains(a.accountType)) {
         ref.read(customAccountTypesProvider.notifier).state = [
@@ -230,6 +234,8 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
         isActive: const drift.Value(true),
         isLiability: drift.Value(_isLiability),
         colorValue: drift.Value(_color),
+        statementDay: drift.Value(_isLiability ? _statementDay : null),
+        paymentDueDay: drift.Value(_isLiability ? _dueDay : null),
         imagePath: drift.Value(await _storedImage(accountId)),
         createdAt: drift.Value(widget.existing?.createdAt ?? now),
         updatedAt: drift.Value(now),
@@ -375,24 +381,21 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
                 ),
                 const SizedBox(height: RiveroSpacing.md),
 
-                // Account Type Selector + Add Custom Type button
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Account Type', style: RiveroTypography.labelSmall),
-                    GestureDetector(
-                      onTap: _promptNewCustomType,
-                      child: Text(
-                        '+ Custom Type',
-                        style: RiveroTypography.labelSmall.copyWith(
-                          color: RiveroColors.salaryAccent,
-                          fontWeight: FontWeight.w600,
-                        ),
+                // Account type picker, with a small link to add your own type.
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: GestureDetector(
+                    onTap: _promptNewCustomType,
+                    child: Text(
+                      '+ Custom type',
+                      style: RiveroTypography.labelSmall.copyWith(
+                        color: RiveroColors.salaryAccent,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ],
+                  ),
                 ),
-                const SizedBox(height: RiveroSpacing.xs),
+                const SizedBox(height: RiveroSpacing.sm),
                 PickerField<String>(
                   label: 'Account type',
                   value: _selectedAccountType,
@@ -482,6 +485,41 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
                       }
                       return null;
                     },
+                  ),
+                  const SizedBox(height: RiveroSpacing.md),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: PickerField<int>(
+                          key: const ValueKey('statement-day'),
+                          label: 'Statement on',
+                          value: _statementDay,
+                          options: [
+                            for (var d = 1; d <= 31; d++)
+                              PickerOption(d, 'Day $d'),
+                          ],
+                          onChanged: (v) => setState(() => _statementDay = v),
+                        ),
+                      ),
+                      const SizedBox(width: RiveroSpacing.md),
+                      Expanded(
+                        child: PickerField<int>(
+                          key: const ValueKey('due-day'),
+                          label: 'Payment due on',
+                          value: _dueDay,
+                          options: [
+                            for (var d = 1; d <= 31; d++)
+                              PickerOption(d, 'Day $d'),
+                          ],
+                          onChanged: (v) => setState(() => _dueDay = v),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: RiveroSpacing.xs),
+                  Text(
+                    'Each card has its own billing cycle',
+                    style: RiveroTypography.bodySmall,
                   ),
                   const SizedBox(height: RiveroSpacing.md),
                   Text(

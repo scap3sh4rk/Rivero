@@ -15,6 +15,49 @@ class BackupException implements Exception {
   String toString() => message;
 }
 
+/// Turns a raw error from Google sign-in or the Drive API into something a
+/// person can act on. Unknown errors keep their text, shortened.
+String friendlyBackupError(Object error) {
+  final t = error.toString();
+  final lower = t.toLowerCase();
+  if (lower.contains('apiexception: 10') ||
+      lower.contains('unknownerror') ||
+      lower.contains('unknown error') ||
+      lower.contains('internal error') ||
+      lower.contains('exception: 8') ||
+      lower.contains('[8]') ||
+      lower.contains('developer_error') ||
+      lower.contains('apiexception: 12500') ||
+      lower.contains('clientconfigurationerror') ||
+      lower.contains('serverclientid')) {
+    return 'Google sign-in is not set up for this version of Rivero yet '
+        '(the signing key of this build must be registered with Google). '
+        'Back up to a file instead: Save a backup file.';
+  }
+  if (lower.contains('apiexception: 12501') ||
+      lower.contains('canceled') ||
+      lower.contains('cancelled')) {
+    return 'Sign-in was cancelled.';
+  }
+  if (lower.contains('apiexception: 7') ||
+      lower.contains('socketexception') ||
+      lower.contains('failed host lookup') ||
+      lower.contains('network')) {
+    return 'No internet connection. Try again when you are online, or save a '
+        'backup file.';
+  }
+  if (lower.contains('403') ||
+      lower.contains('accessnotconfigured') ||
+      lower.contains('drive api has not been used')) {
+    return 'Google Drive access is not enabled for Rivero yet. Back up to a '
+        'file instead.';
+  }
+  if (lower.contains('401') || lower.contains('invalid_token')) {
+    return 'Google sign-in expired. Sign in again.';
+  }
+  return 'Something went wrong: ${t.length > 120 ? '${t.substring(0, 120)}…' : t}';
+}
+
 /// Backups: every table as JSON, plus bill photos and account pictures,
 /// encrypted with a passphrase-derived key (PBKDF2-HMAC-SHA256 ->
 /// AES-256-GCM) before it ever leaves the phone.
