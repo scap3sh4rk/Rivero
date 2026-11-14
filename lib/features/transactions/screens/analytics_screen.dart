@@ -6,25 +6,13 @@ import 'package:rivero/core/dues/dues_service.dart';
 import 'package:rivero/core/engine/spending_summary.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
+import 'package:rivero/design_system/category_icons.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/account_color.dart';
 import 'package:rivero/design_system/widgets/picker.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/features/settings/screens/categories_screen.dart';
 import 'package:rivero/features/transactions/widgets/activity_row.dart';
-
-/// Icon for a category name (falls back to a tag).
-IconData categoryIcon(String name) => switch (name.toLowerCase()) {
-  'food' => Icons.restaurant_rounded,
-  'transport' => Icons.directions_car_rounded,
-  'shopping' => Icons.shopping_bag_rounded,
-  'bills' => Icons.receipt_long_rounded,
-  'health' => Icons.favorite_rounded,
-  'fun' => Icons.celebration_rounded,
-  'rent' => Icons.home_rounded,
-  'imported' => Icons.download_rounded,
-  _ => Icons.sell_rounded,
-};
 
 /// Month-by-month spending: a trend line, then categories or top spends.
 class AnalyticsScreen extends ConsumerStatefulWidget {
@@ -264,7 +252,7 @@ class _CategoryLine extends StatelessWidget {
               color: RiveroColors.surfaceElevated,
               shape: BoxShape.circle,
             ),
-            child: Icon(categoryIcon(name), color: color, size: 20),
+            child: Icon(iconForLabel(name), color: color, size: 20),
           ),
           const SizedBox(width: RiveroSpacing.md),
           Expanded(

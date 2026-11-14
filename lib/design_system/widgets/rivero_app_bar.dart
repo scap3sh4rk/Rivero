@@ -8,6 +8,7 @@ class RiveroAppBar extends StatelessWidget implements PreferredSizeWidget {
   const RiveroAppBar({
     required this.title,
     super.key,
+    this.titleWidget,
     this.subtitle,
     this.leading,
     this.actions,
@@ -16,6 +17,9 @@ class RiveroAppBar extends StatelessWidget implements PreferredSizeWidget {
   });
 
   final String title;
+
+  /// Replaces the plain title text (e.g. the animated wordmark).
+  final Widget? titleWidget;
   final String? subtitle;
   final Widget? leading;
   final List<Widget>? actions;

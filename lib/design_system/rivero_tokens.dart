@@ -20,6 +20,10 @@ abstract final class RiveroColors {
   static Color get surfaceInteractive =>
       isLight ? const Color(0xFFE5E0D7) : const Color(0xFF232327);
 
+  /// Text/icon colour that sits on [accent].
+  static Color get onAccent =>
+      isLight ? const Color(0xFFFFFFFF) : const Color(0xFF04101F);
+
   /// The one interactive accent (selection, primary buttons, active tab).
   static Color get accent =>
       isLight ? const Color(0xFF1A73D9) : const Color(0xFF4EA3F8);
@@ -285,12 +289,37 @@ abstract final class RiveroTheme {
       // come from highlights clipped to the same shape (or the card's scale).
       splashFactory: NoSplash.splashFactory,
       highlightColor: RiveroColors.textPrimary.withValues(alpha: 0.06),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          backgroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? RiveroColors.accent
+                : RiveroColors.surfaceElevated,
+          ),
+          foregroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? (RiveroColors.isLight
+                      ? Colors.white
+                      : const Color(0xFF04101F))
+                : RiveroColors.textSecondary,
+          ),
+          side: WidgetStateProperty.all(BorderSide.none),
+        ),
+      ),
       chipTheme: ChipThemeData(
         backgroundColor: RiveroColors.surfaceElevated,
-        selectedColor: RiveroColors.accent.withValues(alpha: 0.2),
+        selectedColor: RiveroColors.accent,
         side: BorderSide(color: RiveroColors.borderMedium),
-        labelStyle: TextStyle(color: RiveroColors.textPrimary),
-        secondaryLabelStyle: TextStyle(color: RiveroColors.textPrimary),
+        // Selected chips are solid accent; their text flips to a dark/white
+        // colour that stays readable on it.
+        labelStyle: TextStyle(
+          color: WidgetStateColor.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? RiveroColors.onAccent
+                : RiveroColors.textPrimary,
+          ),
+          fontWeight: FontWeight.w600,
+        ),
         checkmarkColor: RiveroColors.accent,
       ),
       listTileTheme: const ListTileThemeData(

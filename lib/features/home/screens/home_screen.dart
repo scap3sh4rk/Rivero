@@ -4,6 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
+import 'package:rivero/design_system/widgets/brand_wordmark.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/features/home/widgets/home_shortcuts.dart';
 import 'package:rivero/features/home/widgets/review_inbox.dart';
@@ -25,6 +26,7 @@ class HomeScreen extends ConsumerWidget {
       backgroundColor: RiveroColors.background,
       appBar: RiveroAppBar(
         title: 'Rivero',
+        titleWidget: const BrandWordmark(),
         subtitle: 'Paycycle · ${paycycle.daysRemaining} days left',
         actions: [
           if (kDebugMode)

@@ -49,8 +49,9 @@ void main() {
 
       // Verify credit card utilization card
       expect(find.text('ICICI Sapphiro Card'), findsOneWidget);
-      // Usage pill: 14,250 of 1,50,000 = 10% (rounded), still safe.
-      expect(find.textContaining('% · '), findsOneWidget);
+      // Usage pill shows only the percentage: 14,250 of 1,50,000 = 10%.
+      expect(find.text('10%'), findsOneWidget);
+      expect(find.textContaining('Pay before'), findsNothing);
       expect(find.textContaining('Limit'), findsOneWidget);
       // Which bank each account is with is shown.
       expect(find.textContaining('HDFC Bank ••4012'), findsOneWidget);

@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
+import 'package:rivero/design_system/category_icons.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/bank_badge.dart';
 import 'package:rivero/features/transactions/widgets/transaction_detail_sheet.dart';
@@ -38,7 +39,12 @@ class ActivityRow extends StatelessWidget {
         ),
         child: Row(
           children: [
-            BankBadge(name: t.merchant, size: 48, circle: true, color: tint),
+            _RowIcon(
+              icon: iconForLabel(t.merchant, category: t.category),
+              specific: hasSpecificIcon(t.merchant, category: t.category),
+              name: t.merchant,
+              tint: tint,
+            ),
             const SizedBox(width: RiveroSpacing.md),
             Expanded(
               child: Column(
@@ -82,6 +88,38 @@ class ActivityRow extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Round tinted icon for the row; falls back to initials when nothing
+/// specific matches (for example a person's name).
+class _RowIcon extends StatelessWidget {
+  const _RowIcon({
+    required this.icon,
+    required this.specific,
+    required this.name,
+    required this.tint,
+  });
+
+  final IconData icon;
+  final bool specific;
+  final String name;
+  final Color tint;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!specific) {
+      return BankBadge(name: name, size: 48, circle: true, color: tint);
+    }
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        color: tint.withValues(alpha: 0.16),
+        shape: BoxShape.circle,
+      ),
+      child: Icon(icon, color: tint, size: 22),
     );
   }
 }

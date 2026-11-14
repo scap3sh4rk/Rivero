@@ -98,15 +98,8 @@ class CreditUtilization {
   }
 
   /// Informative advisory text for the user.
-  /// Short pill text: under 10% is fine to leave until the statement;
-  /// above it, paying before the statement keeps the reported usage low.
-  String get pillLabel => switch (tier) {
-    CreditUtilizationTier.safe => '${utilizationPercent.round()}% · Safe',
-    CreditUtilizationTier.moderate =>
-      '${utilizationPercent.round()}% · Pay before statement',
-    CreditUtilizationTier.risky =>
-      '${utilizationPercent.round()}% · Hurts score',
-  };
+  /// Pill text: just the percentage; the colour carries the meaning.
+  String get pillLabel => '${utilizationPercent.round()}%';
 
   String get adviceMessage {
     switch (tier) {

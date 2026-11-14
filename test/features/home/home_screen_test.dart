@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/database/database_seeder.dart';
 import 'package:rivero/core/providers/app_providers.dart';
+import 'package:rivero/design_system/widgets/brand_wordmark.dart';
 import 'package:rivero/features/home/screens/home_screen.dart';
 import 'package:rivero/features/home/widgets/simulate_sms_sheet.dart';
 
@@ -64,4 +65,26 @@ void main() {
       await tester.pump(const Duration(milliseconds: 50));
     },
   );
+
+  testWidgets('the wordmark animates in once, then stays', (tester) async {
+    BrandWordmark.played = false;
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: BrandWordmark())),
+    );
+    final w0 = tester.getSize(find.byType(ClipRect).last).width;
+    await tester.pump(const Duration(milliseconds: 300));
+    final clip = tester.widget<ClipRect>(find.byType(ClipRect).last);
+    expect(clip.clipper, isNotNull);
+    await tester.pump(const Duration(milliseconds: 1500));
+    expect(find.text('Rivero'), findsOneWidget);
+    expect(w0, greaterThan(0));
+
+    // A second visit shows it fully, without replaying.
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: BrandWordmark())),
+    );
+    expect(find.text('Rivero'), findsOneWidget);
+    expect(BrandWordmark.played, isTrue);
+  });
 }
