@@ -1,10 +1,12 @@
 import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rivero/core/database/daos/settings_dao.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/ingestion/ingestion_service.dart';
 import 'package:rivero/core/ingestion/models/raw_notification.dart';
 import 'package:rivero/core/ledger/ledger_service.dart';
+import 'package:rivero/core/plan/defaults.dart';
 
 import '../../test_helper.dart';
 
@@ -232,5 +234,41 @@ void main() {
     final shown = await db.ingestionLogsDao.watchUnreadable().first;
     expect(shown.single.id, 'fail');
     expect(await all(), isEmpty); // not a transaction
+  });
+
+  group('review first', () {
+    const body =
+        'Rs 450.00 debited from A/c XX4012 to VPA swiggy@hdfcbank '
+        '(UPI Ref No 431712345678). Avl bal: Rs 45,000.00';
+
+    test(
+      'with the app default, even a confident capture waits for Accept',
+      () async {
+        await account('bank', 5000000, mask: '4012');
+        await ensureDefaults(db); // sets review-first
+        await capture.processNotification(await sms(body));
+        final t = (await all()).single;
+        expect(t.transactionState, TransactionState.needsReview);
+        expect(await bal('bank'), 5000000); // nothing moved yet
+        // Accept applies it once and adopts the bank's balance.
+        await LedgerService(db).confirm(t.id);
+        expect(await bal('bank'), 4500000);
+      },
+    );
+
+    test(
+      'automatic acceptance lets confident captures straight through',
+      () async {
+        await account('bank', 5000000, mask: '4012');
+        await ensureDefaults(db);
+        await db.settingsDao.set(SettingKeys.captureAutoAccept, '1');
+        await capture.processNotification(await sms(body));
+        expect(
+          (await all()).single.transactionState,
+          TransactionState.confirmed,
+        );
+        expect(await bal('bank'), 4500000);
+      },
+    );
   });
 }

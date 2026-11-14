@@ -49,11 +49,18 @@ final reserveCreditCardsProvider = StateProvider<bool>((ref) => true);
 /// null = still loading, true = ready (there is no setup wizard).
 final onboardedProvider = StateProvider<bool?>((ref) => null);
 
+/// Confident captures count straight away (otherwise each waits for Accept).
+final captureAutoAcceptProvider = StateProvider<bool>((ref) => false);
+
 /// The first-run tour has not been completed yet.
 final tourPendingProvider = StateProvider<bool>((ref) => false);
 
-/// Package name of the UPI app the user pays with most (null = not chosen).
+/// Package name of the UPI app the user pays with most (null = not chosen,
+/// empty = none).
 final primaryUpiProvider = StateProvider<String?>((ref) => null);
+
+/// Its display name (remembered so the row shows it without a lookup).
+final primaryUpiNameProvider = StateProvider<String?>((ref) => null);
 
 /// Loads persisted settings into providers and saves later changes back.
 class SettingsSync {
@@ -102,6 +109,11 @@ class SettingsSync {
     await dao.set(SettingKeys.onboarded, '1');
     ref.read(tourPendingProvider.notifier).state =
         (await dao.get(SettingKeys.tourDone)) != '1';
+    ref.read(captureAutoAcceptProvider.notifier).state =
+        (await dao.get(SettingKeys.captureAutoAccept)) == '1';
+    ref.read(primaryUpiNameProvider.notifier).state = await dao.get(
+      SettingKeys.primaryUpiName,
+    );
     final upi = await dao.get(SettingKeys.primaryUpi);
     ref.read(primaryUpiProvider.notifier).state = upi;
     await NotificationBridge.setPrimaryApp(upi);
@@ -170,6 +182,13 @@ class SettingsSync {
         openOnLogProvider,
         (_, v) => save(SettingKeys.openOnLog, v ? '1' : '0'),
       )
+      ..listen(
+        captureAutoAcceptProvider,
+        (_, v) => save(SettingKeys.captureAutoAccept, v ? '1' : '0'),
+      )
+      ..listen(primaryUpiNameProvider, (_, v) {
+        if (v != null) save(SettingKeys.primaryUpiName, v);
+      })
       ..listen(primaryUpiProvider, (_, v) {
         if (v == null) return;
         save(SettingKeys.primaryUpi, v);

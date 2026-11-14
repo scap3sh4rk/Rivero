@@ -195,7 +195,13 @@ class IngestionService {
     // Exact planned amount, out of the salary account, category still unpaid.
     final category = await _matchPlanCategory(accountId, signedAmount);
 
-    final state = category == null && parsed.isHighConfidence && resolved.sure
+    // By default (set when the app starts) every capture waits on Home for
+    // Accept or Ignore, so nothing counts, or counts twice, unseen. Turning
+    // "accept automatically" on lets confident, certain ones through.
+    final auto =
+        await database.settingsDao.get(SettingKeys.captureAutoAccept) != '0';
+    final state =
+        auto && category == null && parsed.isHighConfidence && resolved.sure
         ? TransactionState.confirmed
         // A guess about WHICH category is always the user's call to confirm.
         : TransactionState.needsReview;

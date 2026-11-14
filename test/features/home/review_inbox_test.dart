@@ -44,7 +44,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 200));
     }
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Confirm').first);
+    await tester.tap(find.widgetWithText(FilledButton, 'Accept').first);
     await settle();
     await tester.tap(find.widgetWithText(OutlinedButton, 'Ignore').first);
     await settle();

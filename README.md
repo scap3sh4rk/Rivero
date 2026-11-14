@@ -42,9 +42,9 @@ per day         = safe to payday ÷ days to payday
 |---|---|
 | **One number, fully explained** | Safe to spend per day, with freshness (Verified, Estimated, Stale) and a line-by-line breakdown. |
 | **A salary plan that moves money** | Split salary into spending, investments, savings, rent, family and your own categories. Apply it and balances follow between your own accounts, never below zero. Set up mid-month? Say the money already moved and it is never touched twice. |
-| **Payments captured for you** | Reads bank and UPI notifications (notification access, never SMS permission). Pick your main UPI app, merge duplicates, ignore OTPs and promotions, and see what happened to every notification. Asks only when unsure. |
+| **Payments captured for you** | Reads bank and UPI notifications (notification access, never SMS permission). Pick your main UPI app (from those installed), merge duplicates, ignore OTPs and promotions, see what happened to every notification, and Accept or Ignore each payment before it counts. |
 | **Cards with their own billing cycle** | Days left in each card's cycle, its due date, and whether your accounts can pay the bill. Autopay (including overdue and weekly) held back; card bills recognised as transfers. |
-| **Owed, both ways** | Split bills, money you lent and money you borrowed, part-payments, and one list of every bill to pay (cards, loans, autopay). Kept out of your spending. |
+| **Owed, both ways** | Two frames: Owed to you and You owe people (with every bill to pay: cards, loans, autopay). Split bills, loans, borrowing, part-payments, all kept out of your spending. |
 | **No setup wizard** | Opens straight to Home with a guided tour of every tab; add accounts and your plan in your own order. |
 | **Private by design** | AES-256 encrypted database, biometric lock, hide-amounts mode, encrypted backups to your own Google Drive or a file. |
 | **Scan and import** | On-device bill scanning (ML Kit) and CSV statement import (experimental). |

@@ -126,6 +126,13 @@ void main() {
       ),
       contains('not set up'),
     );
+    expect(
+      friendlyBackupError(
+        'GoogleSignInException(code GoogleSignInExceptionCode.unknownError, '
+        'SDK reported an exception: 8: [8] Unknown error)',
+      ),
+      contains('not set up'),
+    );
     expect(friendlyBackupError('ApiException: 12501'), contains('cancelled'));
     expect(
       friendlyBackupError('SocketException: Failed host lookup'),

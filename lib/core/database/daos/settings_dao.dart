@@ -21,7 +21,12 @@ abstract final class SettingKeys {
   static const font = 'font_family';
   static const salaryAccount = 'salary_account_id';
   static const tourDone = 'tour_done';
+
+  /// '1' = confident captures count straight away; '0' (the app default) =
+  /// every capture waits on Home for Accept or Ignore.
+  static const captureAutoAccept = 'capture_auto_accept';
   static const primaryUpi = 'primary_upi_package';
+  static const primaryUpiName = 'primary_upi_name';
 
   /// Cycle (yyyy-mm-dd of its start) whose plan money already moved before
   /// Rivero was set up: Apply never moves it again.

@@ -21,6 +21,11 @@ String friendlyBackupError(Object error) {
   final t = error.toString();
   final lower = t.toLowerCase();
   if (lower.contains('apiexception: 10') ||
+      lower.contains('unknownerror') ||
+      lower.contains('unknown error') ||
+      lower.contains('internal error') ||
+      lower.contains('exception: 8') ||
+      lower.contains('[8]') ||
       lower.contains('developer_error') ||
       lower.contains('apiexception: 12500') ||
       lower.contains('clientconfigurationerror') ||

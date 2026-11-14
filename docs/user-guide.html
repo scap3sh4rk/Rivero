@@ -33,7 +33,7 @@
 <h2 id="quick-start">Quick start</h2>
 <p>There is no setup wizard. Rivero opens straight to Home and a short <strong>guided tour</strong> walks you through every tab the first time. You add things in place, in whatever order suits you.</p>
 <ol class="steps">
-<li><strong>Install and open Rivero</strong>Download the APK from the latest <a href="https://github.com/scap3sh4rk/Rivero/releases/latest">GitHub release</a> and install it (allow "install unknown apps" for your browser once). A short intro plays, then the tour starts. Replay it any time from Settings → Take the tour.</li>
+<li><strong>Install and open Rivero</strong>Download the APK from the latest <a href="https://github.com/scap3sh4rk/Rivero/releases/latest">GitHub release</a> and install it (allow "install unknown apps" for your browser once). The tour starts right away. Replay it any time from Settings → Take the tour.</li>
 <li><strong>Add your accounts</strong>Accounts tab → <em>Add account or card</em>. Enter every bank account, wallet, cash and credit card you use, with today's balance. Cards also take a limit and their statement and due days.</li>
 <li><strong>Set your salary plan</strong>Home → <em>Get started</em> → Set your salary plan (or the Plan tile). Enter your salary and how it splits. The two steps tick themselves off on Home, and the daily number appears.</li>
 <li><strong>Turn on capture (optional)</strong>Settings → Capture → Notification access, and choose your main UPI app. Rivero then records bank and UPI payments as they happen.</li>
@@ -69,7 +69,7 @@
 <li>If the number shows "Short by", you have less spending money than you owe in bills before payday. Spending is not blocked; it is a warning.</li>
 </ul>
 <h3>To review</h3>
-<p>When Rivero captures a payment it is not sure about, it appears here. <strong>Confirm</strong> to count it, <strong>Ignore</strong> if it is not a payment. Captures are held back for review when Rivero had to guess which account was meant, or the message was unclear.</p>
+<p>Every captured payment appears here first. <strong>Accept</strong> to count it, <strong>Ignore</strong> if it is not a payment. (You can switch to automatic acceptance in Settings → Capture; even then, Rivero still asks when it had to guess which account was meant, or the message was unclear.)</p>
 <h3>Bank messages to check</h3>
 <p>If a money message could not be read, or a bank reports a <strong>failed autopay</strong>, a card appears with the message text. Choose <strong>Add it</strong> to record it by hand on the Log tab, or <strong>Not a payment</strong> to dismiss it.</p>
 
@@ -101,7 +101,8 @@
 
 <h2 id="accounts">Accounts</h2>
 <ul>
-<li>Tap <strong>Add account or card</strong> under the list: bank, wallet, cash, credit card, investment, or your own type. The <strong>eye</strong> icon at the top hides or shows every balance.</li>
+<li>Tap the <strong>+</strong> at the bottom right to add an account or card: bank, wallet, cash, credit card, investment, or your own type. (Every page that adds something uses this same + in the same place.)</li>
+<li>The <strong>eye</strong> icon at the top of every page hides or shows all amounts.</li>
 <li>Cards take a credit limit; the usage pill shows the percentage used, with ticks at 10% and 30%.</li>
 <li><strong>Billing cycle, per card:</strong> set the day the statement is generated and the day the bill is due. Each card then shows <em>days left in this billing cycle</em>, <em>Pay by &lt;date&gt;</em>, and whether the money in your bank and cash accounts covers the bill ("You can pay this" or "Short by …"). The Cards section totals what every card owes against what you hold.</li>
 <li>Tap an account to open it: balance, recent activity, autopay on that account. <strong>Update balance</strong> sets what it really holds, recorded as a visible "Balance update" entry.</li>
@@ -126,24 +127,18 @@
 </ul>
 
 <h2 id="owed">Owed: money in both directions</h2>
-<p>The Owed tab shows <strong>Owed to you</strong> and <strong>You owe people</strong> at the top, then three lists.</p>
-<h3>People who owe you</h3>
+<p>The Owed tab is two frames, one below the other: <strong>Owed to you</strong> and <strong>You owe people</strong>. Tap a frame to open it. The <strong>+</strong> at the bottom right adds an entry (I lent money, or I borrowed money).</p>
+<h3>Owed to you</h3>
 <ul>
-<li><strong>Split this bill</strong> (from any payment): choose who owes what. Their share stops counting as your spending immediately.</li>
-<li><strong>I lent money</strong> (the + button) records an outflow that is not spending.</li>
-<li>Record a part-payment or full repayment. If it arrives in your bank, Rivero offers matching credits and tags the one you pick as "Paid back", never as income.</li>
+<li>Everyone who owes you: split bills and loans. Tap a person to record a part-payment or full repayment; if it arrives in your bank, Rivero offers matching credits and tags the one you pick as "Paid back", never as income.</li>
+<li><strong>Split this bill</strong> (from any payment in Activity): their share stops counting as your spending immediately.</li>
 <li><strong>Write off</strong> gives up on what is left; for a loan, that remainder becomes spending.</li>
 </ul>
-<h3>People you owe</h3>
+<h3>You owe people</h3>
 <ul>
-<li><strong>I borrowed money</strong> (the + button): who, how much, where it arrived (an account or cash) and, optionally, the date you will pay it back. Borrowing is not income.</li>
-<li>Tap an entry to record paying back some or all of it, from an account or in cash. Paying back is not spending (it was spent when you borrowed it).</li>
-<li>If a debt is dated before payday, that amount is held back from Safe to spend.</li>
-<li><strong>They forgave it</strong> closes a debt without any payment.</li>
-</ul>
-<h3>Bills &amp; commitments</h3>
-<p>Everything you have to pay, in one place: a total "to pay before payday" against what you hold, then each <strong>credit card</strong> (outstanding, due date, limit, available credit, can you pay it), each <strong>loan</strong>, and every <strong>autopay</strong> due before payday. Tap "All autopays" for the full list.</p>
-<ul>
+<li><strong>People you borrowed from</strong>, with who, how much, where it arrived and, optionally, the date you will pay it back. Borrowing is not income. Tap one to record paying back some or all of it, from an account or in cash (paying back is not spending). <strong>They forgave it</strong> closes a debt.</li>
+<li>A debt dated before payday is held back from Safe to spend.</li>
+<li><strong>Bills &amp; commitments</strong> is on the same page: a total "to pay before payday" against what you hold, then each <strong>credit card</strong> (outstanding, due date, limit, available credit, can you pay it), each <strong>loan</strong>, and every <strong>autopay</strong> due before payday.</li>
 <li>Settings → "Count money owed to me" optionally adds what is owed to you to Safe to spend before it arrives. Leave it off if friends repay into a different account than your spending account.</li>
 </ul>
 
@@ -161,11 +156,13 @@
 <h2 id="capturing-payments-automatically">Capturing payments automatically</h2>
 <ol class="steps">
 <li><strong>Grant notification access</strong>Settings → Capture → Open settings → enable Rivero. Rivero does not request SMS permission.</li>
-<li><strong>Choose your main UPI app</strong>Settings → Capture → "My main UPI app": Google Pay, PhonePe, Paytm, BHIM and others. Its notifications are always read (even if it is an app Rivero does not know), and the amount is taken from the title when the body has none.</li>
-<li><strong>Send a test notification</strong>Settings → Capture → "Send a test notification". A ₹1 sample should appear in Activity.</li>
+<li><strong>Choose your main UPI app</strong>Settings → Capture → "My main UPI app" lists only the UPI apps installed on your phone. Its notifications are always read (even if it is an app Rivero does not know), and the amount is taken from the title when the body has none.</li>
+<li><strong>Send a test notification</strong>Settings → Capture → "Send a test notification". A ₹1 sample appears under <em>To review</em> on Home: Accept or Ignore it, exactly like a real payment.</li>
 <li><strong>Let it work</strong>Bank SMS (via your messaging app), bank apps and UPI apps are listened to. Only notifications that mention money are kept; chats and OTPs are not.</li>
 </ol>
 <div class="note"><p>Captured messages wait in an encrypted queue on the phone until Rivero opens, then are processed in order. Old raw message text is deleted after 90 days.</p></div>
+<h3>Accept or ignore each payment</h3>
+<p>By default every captured payment waits on Home under <strong>To review</strong> for your <strong>Accept</strong> or <strong>Ignore</strong>. Nothing counts, or counts twice, until you say so, and duplicates are easy to spot. If you prefer, turn on Settings → Capture → <em>Accept payments automatically</em>; then only confident, certain captures go straight through.</p>
 <h3>When a payment does not show up</h3>
 <p>Open Settings → Capture → <strong>Recent captures</strong>. It lists every notification Rivero received and what it did (recorded, ignored and why, or could not read), plus counters from the phone: how many notifications from your payment and bank apps had money in them, how many did not, and how many had <em>hidden text</em>. If text is hidden, set your phone's notifications to show content for your messages and UPI apps. Home also shows a card while notification access is off.</p>
 <h3>How Rivero decides</h3>
@@ -192,7 +189,8 @@
 <tr><td>Pay day</td><td>Day of the month your cycle starts. Changing it keeps this month's plan.</td></tr>
 <tr><td>Theme and Font</td><td>Dark ("Ink &amp; Sky"), light, or follow the system; six bundled fonts.</td></tr>
 <tr><td>Take the tour</td><td>Replays the guided tour of every tab.</td></tr>
-<tr><td>My main UPI app</td><td>The UPI app whose notifications are always read.</td></tr>
+<tr><td>My main UPI app</td><td>The UPI app (from those installed) whose notifications are always read.</td></tr>
+<tr><td>Accept payments automatically</td><td>Off by default: each capture waits for Accept or Ignore.</td></tr>
 <tr><td>Open on quick log</td><td>Start on the Log keypad instead of Home.</td></tr>
 <tr><td>Categories</td><td>Your spending categories, colours and order.</td></tr>
 <tr><td>Account types</td><td>Add your own (for example "Chit fund").</td></tr>

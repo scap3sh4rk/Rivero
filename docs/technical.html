@@ -120,7 +120,9 @@ android/.../kotlin/          RiveroNotificationListener, CaptureQueue, MainActiv
        5  match plan entry         bank message for a plan move → attach, don't double count
        6  duplicate check          reference-first, else amount+time+merchant; manual entries ±6h
        7  card bill pairing        link bank leg and card leg, either order
-       8  insert                   confirmed if high confidence and sure, else needsReview
+       8  insert                   needsReview by default (Accept/Ignore on Home); confirmed only
+                                    when 'accept automatically' is on, confidence is high and the
+                                    account is certain
        9  apply effects, adopt "Avl bal", reconcile</code></pre>
 <h3>Parser notes</h3>
 <ul>
@@ -150,7 +152,8 @@ android/.../kotlin/          RiveroNotificationListener, CaptureQueue, MainActiv
 <ul>
 <li>There is no setup wizard. <code>ensureDefaults</code> creates the single everyday-spending category; accounts, salary and other categories are added in place. The first plan links an unlinked spending category to the salary account so Safe to spend follows a real balance.</li>
 <li><code>AppTour</code>: a dialog card over the live app that switches tabs behind it (<code>selectedNavIndexProvider</code>); shown once (<code>tour_done</code>), replayable from Settings. <code>GetStartedCard</code> on Home ticks off "add accounts" and "set a plan".</li>
-<li><code>LaunchOverlay</code>: a once-per-launch intro (logo swell and glow, wordmark sweep, tagline) over the app; disabled in tests.</li>
+<li>Home's header shows the logo and <code>BrandWordmark</code>, "Rivero" revealed left to right with a blue light sweep once per launch.</li>
+<li><code>RiveroFab</code> is the single "add" button (bottom right, same size and colour) used by every page that adds something; <code>RiveroAppBar</code> carries the eye (hide amounts) on every page.</li>
 </ul>
 
 <h2 id="cards-and-owed">Card cycles and money owed</h2>
@@ -167,7 +170,7 @@ android/.../kotlin/          RiveroNotificationListener, CaptureQueue, MainActiv
 <ul>
 <li><code>RiveroNotificationListener</code>: filters sources and money-like text, writes to <code>CaptureQueue</code>, nudges the live app.</li>
 <li><code>Diagnostics</code>: counters only (heard, queued, no money, hidden text, last package and time; never message text) shown in Settings → Capture → Recent captures.</li>
-<li>The user's primary UPI app is stored natively (<code>setPrimaryApp</code>) so the listener reads its notifications even when it is not in the built-in allow-list; in Dart it becomes an extra trusted package for the parser, which also reads the amount from the notification <em>title</em> when the body has none.</li>
+<li>The user's primary UPI app is stored natively (<code>setPrimaryApp</code>; the picker lists only installed apps that can open <code>upi://pay</code>, via <code>upiApps</code>) so the listener reads its notifications even when it is not in the built-in allow-list; in Dart it becomes an extra trusted package for the parser, which also reads the amount from the notification <em>title</em> when the body has none.</li>
 <li><code>CaptureQueue</code>: AES-256-GCM with a non-exportable Keystore key; migrates an older plain queue; cleared by "Delete all data".</li>
 <li><code>MainActivity</code> (FlutterFragmentActivity for biometrics): channel methods <code>isEnabled</code>, <code>openSettings</code>, <code>drain</code>, <code>clearQueue</code>, <code>setSecure</code>, <code>postTest</code>.</li>
 <li>Manifest: no <code>READ_SMS</code>; <code>allowBackup="false"</code> so the database can never be copied without its key.</li>
