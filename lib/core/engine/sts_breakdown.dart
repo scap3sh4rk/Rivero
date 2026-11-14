@@ -24,6 +24,7 @@ class StsBreakdown {
     required this.mandates,
     required this.mandatesTotal,
     required this.cardBills,
+    required this.cardBillsTotal,
     required this.owedToYou,
     required this.debtsDue,
     required this.owedIncluded,
@@ -56,11 +57,6 @@ class StsBreakdown {
         .where((b) => b.role != AccountRole.expense)
         .fold<int>(0, (s, b) => s + b.allocatedMinorUnits);
 
-    final cards = reserveCards
-        ? accounts
-              .where((a) => a.isLiability && a.balanceMinorUnits < 0)
-              .fold<int>(0, (s, a) => s - a.balanceMinorUnits)
-        : 0;
     final owed = DuesService.totalOutstanding(dues);
     // Money you promised to pay back before payday is already spoken for.
     final debtsDue = DuesService.youOweDueBy(dues, cycle.cycleEndDate);
@@ -75,6 +71,35 @@ class StsBreakdown {
     final accountBalance = linkedAccounts.isEmpty
         ? null
         : linkedAccounts.fold<int>(0, (s, a) => s + a.balanceMinorUnits);
+
+    // Card bills. A card can be paid from its own account (the user moves
+    // each card spend there, e.g. a Slice savings account): what that
+    // account already holds is set aside, so only the rest comes out of
+    // spending money. Cards paid from the same account share its balance.
+    final owing = reserveCards
+        ? accounts.where((a) => a.isLiability && a.balanceMinorUnits < 0)
+        : const <PhysicalAccount>[];
+    final cardsTotal = owing.fold<int>(0, (s, a) => s - a.balanceMinorUnits);
+    final byPayer = <String, int>{};
+    for (final c in owing) {
+      final payer = accounts
+          .where(
+            (a) =>
+                a.id == c.billsPaidFromAccountId &&
+                !a.isLiability &&
+                !linked.contains(a.id), // paid from spending: nothing apart
+          )
+          .firstOrNull;
+      if (payer != null) {
+        byPayer[payer.id] = (byPayer[payer.id] ?? 0) - c.balanceMinorUnits;
+      }
+    }
+    var cardsCovered = 0;
+    byPayer.forEach((id, owed) {
+      final held = accounts.firstWhere((a) => a.id == id).balanceMinorUnits;
+      cardsCovered += owed < held ? owed : (held > 0 ? held : 0);
+    });
+    final cards = cardsTotal - cardsCovered;
 
     // Autopay taken from another bank account (a SIP from the salary
     // account) does not touch spending money; from the spending account or
@@ -145,6 +170,7 @@ class StsBreakdown {
       mandates: due,
       mandatesTotal: dueTotal,
       cardBills: cards,
+      cardBillsTotal: cardsTotal,
       owedToYou: owed,
       debtsDue: debtsDue,
       owedIncluded: includeOwed,
@@ -166,8 +192,15 @@ class StsBreakdown {
   final List<Mandate> mandates;
   final int mandatesTotal;
 
-  /// Unpaid card spend reserved (0 when the card toggle is off).
+  /// Unpaid card spend taken from spending money (0 when the card toggle
+  /// is off): the total minus what the cards' own accounts already hold.
   final int cardBills;
+
+  /// Everything owed on cards (before money set aside for them).
+  final int cardBillsTotal;
+
+  /// Card bills already covered by money kept in the cards' own accounts.
+  int get cardBillsSetAside => cardBillsTotal - cardBills;
   final int owedToYou;
 
   /// Money you borrowed that you promised to repay before payday.

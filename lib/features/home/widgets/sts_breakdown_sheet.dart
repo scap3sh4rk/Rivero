@@ -116,6 +116,13 @@ class StsBreakdownSheet extends ConsumerWidget {
                 'Credit card bills to pay',
                 b.cardBills == 0 ? '₹0' : '− ${money(b.cardBills)}',
               ),
+              if (b.cardBillsSetAside > 0)
+                _sub(
+                  'Already set aside in card accounts: '
+                      '${money(b.cardBillsSetAside)} of '
+                      '${money(b.cardBillsTotal)}',
+                  '',
+                ),
               if (b.owedIncluded && b.owedToYou > 0)
                 _line('Owed to you (counted)', '+ ${money(b.owedToYou)}')
               else if (b.owedToYou > 0)

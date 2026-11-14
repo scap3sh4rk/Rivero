@@ -27,6 +27,12 @@ class PhysicalAccounts extends Table {
   IntColumn get statementDay => integer().nullable()();
   IntColumn get paymentDueDay => integer().nullable()();
 
+  /// Credit cards: the account their bills are paid from, when the user
+  /// keeps card money apart (e.g. moves each card spend to a separate
+  /// account). Money already there is not taken from spending money again.
+  /// Null = paid from spending money.
+  TextColumn get billsPaidFromAccountId => text().nullable()();
+
   /// Custom account type / category (e.g. "Salary", "Savings", "Credit Card", "Cash", or custom).
   TextColumn get accountType =>
       text().withLength(min: 1, max: 50).withDefault(const Constant('Bank'))();

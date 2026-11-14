@@ -48,6 +48,7 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
   bool _imageChanged = false;
   int? _statementDay; // cards: day the statement is generated
   int? _dueDay; // cards: day the bill is due
+  String? _billsFrom; // cards: account the bills are paid from
   String _currency = homeCurrency; // bank/cash accounts only
 
   static String _rupees(int minor) {
@@ -73,6 +74,7 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
       _imagePath = a.imagePath;
       _statementDay = a.statementDay;
       _dueDay = a.paymentDueDay;
+      _billsFrom = a.billsPaidFromAccountId;
       _currency = a.currencyCode;
       final types = ref.read(customAccountTypesProvider);
       if (!types.contains(a.accountType)) {
@@ -239,6 +241,7 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
         colorValue: drift.Value(_color),
         statementDay: drift.Value(_isLiability ? _statementDay : null),
         paymentDueDay: drift.Value(_isLiability ? _dueDay : null),
+        billsPaidFromAccountId: drift.Value(_isLiability ? _billsFrom : null),
         // Cards stay in rupees, so a bill is always compared like for like.
         currencyCode: drift.Value(_isLiability ? homeCurrency : _currency),
         imagePath: drift.Value(await _storedImage(accountId)),
@@ -524,6 +527,29 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
                   const SizedBox(height: RiveroSpacing.xs),
                   Text(
                     'Each card has its own billing cycle',
+                    style: RiveroTypography.bodySmall,
+                  ),
+                  const SizedBox(height: RiveroSpacing.md),
+                  PickerField<String>(
+                    key: const ValueKey('bills-paid-from'),
+                    label: 'Bills paid from',
+                    value: _billsFrom ?? '',
+                    options: [
+                      const PickerOption('', 'My spending money'),
+                      for (final a
+                          in ref.watch(activePhysicalAccountsProvider).value ??
+                              const <PhysicalAccount>[])
+                        if (!a.isLiability && a.id != widget.existing?.id)
+                          PickerOption(a.id, a.name),
+                    ],
+                    onChanged: (v) =>
+                        setState(() => _billsFrom = v.isEmpty ? null : v),
+                  ),
+                  const SizedBox(height: RiveroSpacing.xs),
+                  Text(
+                    'Keep card money in its own account? Pick it: what it '
+                    'holds is set aside for the bill, so Safe to spend only '
+                    'counts the rest.',
                     style: RiveroTypography.bodySmall,
                   ),
                   const SizedBox(height: RiveroSpacing.md),

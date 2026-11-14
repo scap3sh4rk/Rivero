@@ -80,10 +80,12 @@ class AccountDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final account =
-        (ref.watch(activePhysicalAccountsProvider).value ?? const [])
-            .where((a) => a.id == accountId)
-            .firstOrNull;
+    final all = ref.watch(activePhysicalAccountsProvider).value ?? const [];
+    final account = all.where((a) => a.id == accountId).firstOrNull;
+    // A card's bills-paid-from account (see CreateAccountSheet).
+    final payer = account?.isLiability ?? false
+        ? all.where((a) => a.id == account!.billsPaidFromAccountId).firstOrNull
+        : null;
     if (account == null) {
       // Removed (or still loading): nothing to show.
       return Scaffold(
@@ -181,6 +183,23 @@ class AccountDetailScreen extends ConsumerWidget {
                           '${money(account.creditLimitMinorUnits)} limit',
                           style: RiveroTypography.bodySmall,
                         ),
+                      if (payer != null) ...[
+                        const SizedBox(height: RiveroSpacing.xs),
+                        Text(
+                          // Is the money kept for this card's bill enough?
+                          'Paid from ${payer.name}, which holds '
+                          '${money(payer.balanceMinorUnits)}'
+                          '${payer.balanceMinorUnits >= -account.balanceMinorUnits ? ' · enough for the bill' : ' · ${money(-account.balanceMinorUnits - payer.balanceMinorUnits)} short'}',
+                          key: const ValueKey('card-payer'),
+                          style: RiveroTypography.bodySmall.copyWith(
+                            color:
+                                payer.balanceMinorUnits >=
+                                    -account.balanceMinorUnits
+                                ? RiveroColors.success
+                                : RiveroColors.warning,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

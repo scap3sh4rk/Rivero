@@ -84,7 +84,7 @@ class RiveroDatabase extends _$RiveroDatabase {
   }
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   @override
   MigrationStrategy get migration {
@@ -151,6 +151,12 @@ class RiveroDatabase extends _$RiveroDatabase {
           await m.addColumn(physicalAccounts, physicalAccounts.statementDay);
           await m.addColumn(physicalAccounts, physicalAccounts.paymentDueDay);
           await m.addColumn(dues, dues.dueDate);
+        }
+        if (from < 13) {
+          await m.addColumn(
+            physicalAccounts,
+            physicalAccounts.billsPaidFromAccountId,
+          );
         }
       },
       beforeOpen: (details) async {
