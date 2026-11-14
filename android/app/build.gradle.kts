@@ -76,3 +76,8 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // Reads PDF bank statements on the phone (statement import).
+    implementation("com.tom-roush:pdfbox-android:2.0.27.0")
+}

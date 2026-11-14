@@ -79,6 +79,15 @@ class MainActivity : FlutterFragmentActivity() {
                     result.success(null)
                 }
                 "diagnostics" -> result.success(Diagnostics.read(this))
+                // A PDF statement's text, read off the main thread.
+                "pdfText" -> {
+                    val path = call.argument<String>("path") ?: ""
+                    val password = call.argument<String>("password")
+                    Thread {
+                        val out = PdfText.extract(this, path, password)
+                        runOnUiThread { result.success(out) }
+                    }.start()
+                }
                 "scheduleReminders" -> {
                     Reminders.schedule(this, call.argument<String>("json") ?: "[]")
                     result.success(null)

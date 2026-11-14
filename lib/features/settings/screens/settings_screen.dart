@@ -198,7 +198,9 @@ class SettingsScreen extends ConsumerWidget {
           const _Header('Experimental'),
           _Row(
             icon: Icons.upload_file_outlined,
-            title: 'Import bank statement (CSV)',
+            title: NotificationBridge.supported
+                ? 'Import bank statement (PDF or CSV)'
+                : 'Import bank statement (CSV)',
             subtitle: 'Adds past transactions to an account',
             onTap: () => importStatement(context, ref),
           ),

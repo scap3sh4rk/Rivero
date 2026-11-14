@@ -182,6 +182,25 @@ class NotificationBridge {
   }
 
   /// Opens Rivero's app page in Android settings (Battery > Unrestricted).
+  /// The text of a PDF statement, read on the phone. [password] opens a
+  /// protected file and is not kept. Returns (text, null) or (null, error)
+  /// where error is 'password' (needs one, or wrong) or 'unreadable'.
+  static Future<({String? text, String? error})> pdfText(
+    String path, {
+    String? password,
+  }) async {
+    if (!supported) return (text: null, error: 'unsupported');
+    try {
+      final r = await _channel.invokeMapMethod<String, String>('pdfText', {
+        'path': path,
+        'password': password,
+      });
+      return (text: r?['text'], error: r?['error']);
+    } on MissingPluginException {
+      return (text: null, error: 'unsupported');
+    }
+  }
+
   static Future<void> openBatterySettings() async {
     if (!supported) return;
     try {
