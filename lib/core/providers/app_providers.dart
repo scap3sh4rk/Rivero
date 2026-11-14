@@ -94,6 +94,10 @@ class SettingsSync {
           LogCategory.fromJson(j as Map<String, dynamic>),
       ];
     }
+    // The notification popup offers the same categories as Log.
+    await NotificationBridge.setCategories([
+      for (final c in ref.read(logCategoriesProvider)) c.name,
+    ]);
     final typesJson = await dao.get(SettingKeys.accountTypes);
     if (typesJson != null) {
       ref.read(customAccountTypesProvider.notifier).state =
@@ -163,13 +167,13 @@ class SettingsSync {
         appLockEnabledProvider,
         (_, v) => save(SettingKeys.appLock, v ? '1' : '0'),
       )
-      ..listen(
-        logCategoriesProvider,
-        (_, v) => save(
+      ..listen(logCategoriesProvider, (_, v) {
+        save(
           SettingKeys.logCategories,
           jsonEncode([for (final c in v) c.toJson()]),
-        ),
-      )
+        );
+        NotificationBridge.setCategories([for (final c in v) c.name]);
+      })
       ..listen(
         customAccountTypesProvider,
         (_, v) => save(SettingKeys.accountTypes, jsonEncode(v)),
@@ -510,6 +514,10 @@ class LogPrefill {
 /// Set by "Add it" on a message Rivero could not read; the Log screen takes
 /// it (and clears it) when it opens.
 final logPrefillProvider = StateProvider<LogPrefill?>((ref) => null);
+
+/// A captured payment to open in the quick-add sheet (from "Open Rivero"
+/// on its notification). MainScreen shows it and clears this.
+final openCaptureProvider = StateProvider<String?>((ref) => null);
 
 /// Last account used on the quick-log keypad.
 final lastLogAccountProvider = StateProvider<String?>((ref) => null);

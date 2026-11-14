@@ -7,6 +7,7 @@ import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/bank_badge.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
+import 'package:rivero/features/home/widgets/quick_review_sheet.dart';
 import 'package:rivero/features/home/widgets/unreadable_sheet.dart';
 
 /// Captured transactions the app was not sure about. Buttons, not swipes, so
@@ -85,6 +86,7 @@ class ReviewInbox extends ConsumerWidget {
             key: ValueKey(t.id),
             padding: const EdgeInsets.only(bottom: RiveroSpacing.sm),
             child: RiveroCard(
+              onTap: () => QuickReviewSheet.show(context, t.id),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

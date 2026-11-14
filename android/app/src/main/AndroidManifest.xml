@@ -1,5 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Only for the in-app "test capture" notification. No SMS permissions. -->
+    <!-- For the "payment captured, add it" notifications and the capture
+         test. No SMS permissions. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
         android:label="Rivero"
@@ -28,6 +29,15 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- Add a captured payment straight from its notification, without
+             opening the app. -->
+        <activity
+            android:name=".QuickAddActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity="dev.scap3sh4rk.rivero.quickadd"
+            android:theme="@style/QuickAddTheme"
+            android:windowSoftInputMode="adjustResize"/>
         <service
             android:name=".RiveroNotificationListener"
             android:exported="true"

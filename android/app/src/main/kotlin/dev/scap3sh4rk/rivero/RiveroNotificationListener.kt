@@ -30,10 +30,11 @@ class RiveroNotificationListener : NotificationListenerService() {
         }
         Diagnostics.note(this, sbn.packageName, "queued")
 
+        val captureId = "${sbn.packageName}:${sbn.key}:${sbn.postTime}"
         synchronized(LOCK) {
             val queue = CaptureQueue.read(this)
             queue.put(JSONObject().apply {
-                put("id", "${sbn.packageName}:${sbn.key}:${sbn.postTime}")
+                put("id", captureId)
                 put("package", sbn.packageName)
                 put("title", title)
                 put("body", body)
@@ -44,6 +45,11 @@ class RiveroNotificationListener : NotificationListenerService() {
         }
         // If the app is open, tell it to process the queue now.
         Handler(Looper.getMainLooper()).post { onQueued?.invoke() }
+        // Not looking at Rivero right now: a notification to add it in two
+        // taps (the test notification included, so it shows the same flow).
+        if (!MainActivity.isForeground) {
+            CaptureNotifier.notify(this, captureId, title, body)
+        }
     }
 
     companion object {

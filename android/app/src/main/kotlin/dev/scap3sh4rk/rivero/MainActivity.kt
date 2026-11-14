@@ -20,6 +20,42 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterFragmentActivity() {
     private var channel: MethodChannel? = null
 
+    companion object {
+        /** True while Rivero is on screen (no capture notifications then). */
+        @Volatile
+        var isForeground = false
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        rememberOpenRequest(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        rememberOpenRequest(intent)
+        // Rivero was already running: process captures and open that one.
+        RiveroNotificationListener.onQueued?.invoke()
+    }
+
+    /** "Open Rivero" on a capture notification: show that payment once open. */
+    private fun rememberOpenRequest(intent: Intent?) {
+        val id = intent?.getStringExtra(CaptureNotifier.EXTRA_ID) ?: return
+        CaptureNotifier.setOpenRequest(this, id)
+        CaptureNotifier.cancel(this, id)
+        intent.removeExtra(CaptureNotifier.EXTRA_ID)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        isForeground = true
+    }
+
+    override fun onPause() {
+        isForeground = false
+        super.onPause()
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         val ch = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "rivero/notifications")
@@ -43,12 +79,30 @@ class MainActivity : FlutterFragmentActivity() {
                     result.success(null)
                 }
                 "diagnostics" -> result.success(Diagnostics.read(this))
+                // Choices made in the notification popup, and "Open Rivero" taps.
+                "takeDecisions" -> result.success(CaptureNotifier.takeDecisions(this))
+                "takeOpenRequest" -> result.success(CaptureNotifier.takeOpenRequest(this))
+                "setCategories" -> {
+                    CaptureNotifier.setCategories(this, call.argument<List<String>>("names") ?: emptyList())
+                    result.success(null)
+                }
+                // Capture notifications need this permission on Android 13+.
+                "askNotifyPermission" -> {
+                    if (Build.VERSION.SDK_INT >= 33 &&
+                        checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+                        PackageManager.PERMISSION_GRANTED
+                    ) {
+                        requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 42)
+                    }
+                    result.success(null)
+                }
                 // UPI apps installed on this phone: apps that can open upi://pay.
                 "upiApps" -> result.success(installedUpiApps())
                 // "Delete all data": nothing captured may survive it.
                 "clearQueue" -> synchronized(RiveroNotificationListener.LOCK) {
                     CaptureQueue.clear(this)
                     Diagnostics.clear(this)
+                    CaptureNotifier.clear(this)
                     result.success(null)
                 }
                 // Blocks screenshots and blanks the recent-apps preview.
