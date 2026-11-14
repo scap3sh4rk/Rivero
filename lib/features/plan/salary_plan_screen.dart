@@ -45,7 +45,6 @@ class _SalaryPlanScreenState extends ConsumerState<SalaryPlanScreen> {
   String? _salaryId;
   String? _spendingId;
   final Map<String, String?> _dest = {};
-  bool _movesExist = false;
 
   @override
   void initState() {
@@ -55,12 +54,6 @@ class _SalaryPlanScreenState extends ConsumerState<SalaryPlanScreen> {
         ? tx.amountMinorUnits
         : ref.read(monthlySalaryProvider);
     _salary = TextEditingController(text: minor > 0 ? _rupees(minor) : '');
-    ref
-        .read(planTransferServiceProvider)
-        .hasMoves(ref.read(currentPaycycleProvider).cycleStartDate)
-        .then((v) {
-          if (mounted) setState(() => _movesExist = v);
-        });
   }
 
   @override
@@ -187,6 +180,9 @@ class _SalaryPlanScreenState extends ConsumerState<SalaryPlanScreen> {
       cycleStart: ref.read(currentPaycycleProvider).cycleStartDate,
       rememberAsDefault: _remember,
       carryOver: _carry,
+      // Applying the plan moves money between the accounts you track,
+      // whether or not this cycle's salary was logged in Rivero.
+      moveMoney: true,
     );
     // Planning without a credit sets the expected salary; a real credit
     // updates it only when this split becomes the default.
@@ -235,7 +231,6 @@ class _SalaryPlanScreenState extends ConsumerState<SalaryPlanScreen> {
     final spendingAcc =
         accounts.where((a) => a.id == _spendingId).firstOrNull ??
         PlanTransferService.spendingAccountOf(buckets, accounts, salaryAcc);
-    final willMove = widget.salaryTransaction != null || _movesExist;
     final moves = salaryAcc == null
         ? const <PlannedMove>[]
         : ref
@@ -410,14 +405,12 @@ class _SalaryPlanScreenState extends ConsumerState<SalaryPlanScreen> {
             const SizedBox(height: RiveroSpacing.md),
             RiveroCard(
               key: const ValueKey('moves-card'),
-              borderColor: willMove && short > 0 ? RiveroColors.warning : null,
+              borderColor: short > 0 ? RiveroColors.warning : null,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    willMove
-                        ? 'Moves out of ${salaryAcc.name}'
-                        : 'Will move when your salary arrives',
+                    'Moves out of ${salaryAcc.name}',
                     style: RiveroTypography.titleMedium,
                   ),
                   const SizedBox(height: RiveroSpacing.sm),
@@ -439,7 +432,7 @@ class _SalaryPlanScreenState extends ConsumerState<SalaryPlanScreen> {
                         ],
                       ),
                     ),
-                  if (willMove && short > 0)
+                  if (short > 0)
                     Padding(
                       padding: const EdgeInsets.only(top: RiveroSpacing.sm),
                       child: Text(

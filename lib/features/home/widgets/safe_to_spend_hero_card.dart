@@ -50,9 +50,8 @@ class SafeToSpendHeroCard extends ConsumerWidget {
       limit += b.allocatedMinorUnits + b.carryOverMinorUnits;
       spent += b.spentMinorUnits;
     }
-    final remaining = limit > 0
-        ? (limit - spent) / limit
-        : (sts.isDeficit ? 0.0 : 1.0);
+    final left = breakdown?.usable ?? limit - spent;
+    final remaining = limit > 0 ? left / limit : (sts.isDeficit ? 0.0 : 1.0);
     final tone = toneFor(remaining, deficit: sts.isDeficit);
 
     // Everything about today's number lives in one card: the figure, what is

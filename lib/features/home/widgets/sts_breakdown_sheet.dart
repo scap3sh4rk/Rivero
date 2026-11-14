@@ -68,6 +68,26 @@ class StsBreakdownSheet extends ConsumerWidget {
                   '${money(b.setAside)} is set aside for investments, savings '
                   'and other categories, so it is not counted here.',
                 ),
+              if (b.limitedByAccount) ...[
+                _line(
+                  'Actually in your spending account',
+                  money(b.spendingAccountBalance!),
+                ),
+                if (b.reservedInAccount > 0)
+                  _line(
+                    'Promised to other categories',
+                    '− ${money(b.reservedInAccount)}',
+                  ),
+                _total(
+                  'Available to spend',
+                  money(b.accountAvailable!),
+                  warn: b.accountAvailable! < 0,
+                ),
+                _note(
+                  'The account holds less than your budget, so what it '
+                  'really holds is used instead of the budget.',
+                ),
+              ],
 
               _section('2 · Money already spoken for'),
               _line(
@@ -112,18 +132,14 @@ class StsBreakdownSheet extends ConsumerWidget {
               ),
               if (r.isDeficit)
                 _note(
-                  b.overBudget
+                  b.limitedByAccount
+                      ? 'Your spending account does not hold enough for '
+                            'what is due.'
+                      : b.overBudget
                       ? 'You have spent ${money(-b.budgetLeft)} more than '
                             'planned this cycle.'
                       : 'Autopay and card bills due are more than what is '
                             'left in your budget.',
-                  warn: true,
-                ),
-              if (b.budgetExceedsAccount)
-                _note(
-                  'Your spending budget (${money(b.budgetLeft)}) is more than '
-                  'the ${money(b.spendingAccountBalance!)} actually in the '
-                  'account it draws from. Check the account balance.',
                   warn: true,
                 ),
               _note(switch (r.reliability) {

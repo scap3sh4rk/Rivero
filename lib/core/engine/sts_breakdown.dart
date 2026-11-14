@@ -10,7 +10,10 @@ import 'package:rivero/core/engine/safe_to_spend_calculator.dart';
 /// they can never disagree.
 ///
 ///   budget left = planned + carried over − spent
-///   safe to spend = budget left − autopay due − card bills (+ owed to you)
+///   usable = the smaller of budget left and what the spending account
+///            really holds (minus money in it set aside for plan-only
+///            categories) — the account is the truth, the budget a ceiling
+///   safe to spend = usable − autopay due − card bills (+ owed to you)
 ///   per day = safe to spend ÷ days to payday
 class StsBreakdown {
   const StsBreakdown({
@@ -24,6 +27,7 @@ class StsBreakdown {
     required this.owedIncluded,
     required this.setAside,
     required this.spendingAccountBalance,
+    required this.reservedInAccount,
     required this.daysToPayday,
     required this.result,
   });
@@ -69,8 +73,34 @@ class StsBreakdown {
         ? null
         : linkedAccounts.fold<int>(0, (s, a) => s + a.balanceMinorUnits);
 
+    // Money in the spending account that the plan has promised elsewhere
+    // (e.g. rent that is paid out of the same account), not spendable.
+    final reserved = accountBalance == null
+        ? 0
+        : buckets
+              .where(
+                (b) =>
+                    b.role != AccountRole.expense &&
+                    (b.linkedPhysicalAccountId == null ||
+                        linked.contains(b.linkedPhysicalAccountId)),
+              )
+              .fold<int>(
+                0,
+                (s, b) =>
+                    s +
+                    (b.allocatedMinorUnits - b.spentMinorUnits).clamp(
+                      0,
+                      b.allocatedMinorUnits,
+                    ),
+              );
+    final budgetLeft = planned + carried - spent;
+    final inAccount = accountBalance == null ? null : accountBalance - reserved;
+    final usable = inAccount == null || budgetLeft <= inAccount
+        ? budgetLeft
+        : inAccount;
+
     final result = calculator.calculate(
-      expenseBalance: planned + carried - spent,
+      expenseBalance: usable,
       upcomingMandates: dueTotal,
       unsettledCreditCardLiability: cards,
       pendingReimbursements: owed,
@@ -91,6 +121,7 @@ class StsBreakdown {
       owedIncluded: includeOwed,
       setAside: setAside,
       spendingAccountBalance: accountBalance,
+      reservedInAccount: reserved,
       daysToPayday: result.daysRemainingInCycle,
       result: result,
     );
@@ -117,6 +148,9 @@ class StsBreakdown {
   /// Balance of the account(s) your spending budget draws from, or null if
   /// the budget is not linked to an account.
   final int? spendingAccountBalance;
+
+  /// Part of that balance promised to plan-only categories.
+  final int reservedInAccount;
   final int daysToPayday;
   final SafeToSpendResult result;
 
@@ -125,9 +159,17 @@ class StsBreakdown {
   /// Spent more than planned.
   bool get overBudget => budgetLeft < 0;
 
-  /// The budget promises more than the linked account actually holds.
-  bool get budgetExceedsAccount =>
-      spendingAccountBalance != null &&
-      spendingAccountBalance! >= 0 &&
-      budgetLeft > spendingAccountBalance!;
+  /// What the account really holds for spending (balance minus money the
+  /// plan has promised elsewhere), or null when no account is linked.
+  int? get accountAvailable => spendingAccountBalance == null
+      ? null
+      : spendingAccountBalance! - reservedInAccount;
+
+  /// The account holds less than the budget promises, so the account limits
+  /// Safe to spend rather than the budget.
+  bool get limitedByAccount =>
+      accountAvailable != null && accountAvailable! < budgetLeft;
+
+  /// The money the calculation starts from.
+  int get usable => limitedByAccount ? accountAvailable! : budgetLeft;
 }

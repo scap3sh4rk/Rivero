@@ -5,16 +5,12 @@ import 'package:rivero/core/database/daos/settings_dao.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/account_role.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
-import 'package:rivero/core/dues/dues_service.dart';
 import 'package:rivero/core/plan/plan_transfer_service.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
-import 'package:rivero/design_system/widgets/bento_tile.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
-import 'package:rivero/features/mandates/mandates_screen.dart';
-import 'package:rivero/features/owed/owed_screen.dart';
 import 'package:rivero/features/plan/salary_plan_screen.dart';
 
 /// Plan: where this month's salary goes. One card for the salary, one short
@@ -90,7 +86,6 @@ class BudgetsScreen extends ConsumerWidget {
     final buckets = ref.watch(allAllocationBucketsProvider).value ?? const [];
     final salary = ref.watch(monthlySalaryProvider);
     final privacy = ref.watch(privacyModeProvider);
-    final mandates = ref.watch(activeMandatesProvider).value?.length ?? 0;
 
     String money(int v) => privacy ? '••••' : CurrencyFormatter.format(v);
 
@@ -121,31 +116,6 @@ class BudgetsScreen extends ConsumerWidget {
           RiveroSpacing.huge,
         ),
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: BentoTile(
-                  label: 'AUTOPAY',
-                  value: '$mandates Active',
-                  onTap: () => MandatesScreen.open(context),
-                ),
-              ),
-              const SizedBox(width: RiveroSpacing.md),
-              Expanded(
-                child: BentoTile(
-                  key: const ValueKey('owed-tile'),
-                  label: 'OWED TO YOU',
-                  value: money(
-                    DuesService.totalOutstanding(
-                      ref.watch(duesProvider).value ?? const [],
-                    ),
-                  ),
-                  onTap: () => OwedScreen.open(context),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: RiveroSpacing.md),
           RiveroCard(
             isElevated: true,
             onTap: () => SalaryPlanScreen.open(context),

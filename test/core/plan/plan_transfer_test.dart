@@ -188,6 +188,35 @@ void main() {
     expect(await bal('spend'), 0);
   });
 
+  test(
+    'Apply with no salary credit still funds a linked investment account',
+    () async {
+      await account('invacc', 'Investments', 0, '7777');
+      await db.accountsDao.upsertBucket(
+        (await db.accountsDao.getBucketById('inv'))!
+            .copyWith(linkedPhysicalAccountId: const Value('invacc'))
+            .toCompanion(true),
+      );
+      await plan.apply(
+        salary: 5200000,
+        allocations: {'rent': 0, 'inv': 500000, 'exp': 4700000},
+        cycleStart: cycle,
+        moveMoney: true,
+      );
+      expect(await bal('invacc'), 500000);
+      expect(await bal('spend'), 4700000);
+      expect(await bal('salary'), 0);
+      // Applying again changes nothing.
+      await plan.apply(
+        salary: 5200000,
+        allocations: {'rent': 0, 'inv': 500000, 'exp': 4700000},
+        cycleStart: cycle,
+        moveMoney: true,
+      );
+      expect(await bal('invacc'), 500000);
+    },
+  );
+
   test('removing an account stops plan categories routing into it', () async {
     await db.accountsDao.deactivatePhysicalAccount('spend');
     final exp = (await db.accountsDao.getBucketById('exp'))!;

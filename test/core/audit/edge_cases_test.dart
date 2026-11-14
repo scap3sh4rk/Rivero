@@ -182,15 +182,82 @@ void main() {
       expect(b.result.dailySpendingPace, 0);
     });
 
-    test('budget larger than the account it draws from is flagged', () {
+    test('mid-month start: the account balance caps the budget', () {
       final b = _sts(
         buckets: [
           _bucket('exp', AccountRole.expense, allocated: 4700000, account: 'a'),
         ],
-        accounts: [_account('a', 1000000)],
+        accounts: [_account('a', 1000000)], // only ₹10,000 really there
       );
-      expect(b.budgetExceedsAccount, isTrue);
-      expect(b.result.effectiveSafeToSpend, 4700000); // advice, not a cap
+      expect(b.limitedByAccount, isTrue);
+      expect(b.result.effectiveSafeToSpend, 1000000);
+    });
+
+    test('account holding more than the budget: the budget stays the cap', () {
+      final b = _sts(
+        buckets: [
+          _bucket('exp', AccountRole.expense, allocated: 1000000, account: 'a'),
+        ],
+        accounts: [_account('a', 9000000)],
+      );
+      expect(b.limitedByAccount, isFalse);
+      expect(b.result.effectiveSafeToSpend, 1000000);
+    });
+
+    test('money promised to plan-only categories is not spendable', () {
+      final b = _sts(
+        buckets: [
+          _bucket('exp', AccountRole.expense, allocated: 3000000, account: 'a'),
+          _bucket('rent', AccountRole.custom, allocated: 1500000),
+        ],
+        accounts: [
+          _account('a', 3000000),
+        ], // salary account doubles as spending
+      );
+      expect(b.reservedInAccount, 1500000);
+      expect(b.result.effectiveSafeToSpend, 1500000);
+    });
+
+    test(
+      'paid categories and ones moved to another account reserve nothing',
+      () {
+        final b = _sts(
+          buckets: [
+            _bucket(
+              'exp',
+              AccountRole.expense,
+              allocated: 3000000,
+              account: 'a',
+            ),
+            _bucket(
+              'rent',
+              AccountRole.custom,
+              allocated: 1500000,
+              spent: 1500000,
+            ),
+            _bucket(
+              'inv',
+              AccountRole.investment,
+              allocated: 500000,
+              account: 'b',
+            ),
+          ],
+          accounts: [_account('a', 3000000), _account('b', 0)],
+        );
+        expect(b.reservedInAccount, 0);
+        expect(b.result.effectiveSafeToSpend, 3000000);
+      },
+    );
+
+    test('an overdrawn spending account is a deficit', () {
+      final b = _sts(
+        buckets: [
+          _bucket('exp', AccountRole.expense, allocated: 1000000, account: 'a'),
+        ],
+        accounts: [_account('a', -20000)],
+      );
+      expect(b.result.isDeficit, isTrue);
+      expect(b.result.dailySpendingPace, 0);
     });
   });
 

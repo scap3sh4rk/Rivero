@@ -54,6 +54,8 @@ void main() {
     )..where((b) => b.id.equals('bucket-expense'))).write(
       const AllocationBucketsCompanion(carryOverMinorUnits: Value(500000)),
     );
+    // The money really is in the spending account too (it is the ceiling).
+    await db.accountsDao.adjustAccountBalance('acc-expense', 500000);
     await Future<void>.delayed(const Duration(milliseconds: 100));
     final after = c.read(liveSafeToSpendResultProvider).value!;
     expect(after.effectiveSafeToSpend - before.effectiveSafeToSpend, 500000);

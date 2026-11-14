@@ -112,8 +112,8 @@ void main() {
     // Salary and spending accounts are chosen here...
     expect(find.text('Salary arrives in'), findsOneWidget);
     expect(find.text('Spending money goes to'), findsOneWidget);
-    // ...and nothing moves until a salary credit is being split.
-    expect(find.text('Will move when your salary arrives'), findsOneWidget);
+    // ...and Apply moves money between them straight away.
+    expect(find.textContaining('Moves out of'), findsOneWidget);
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('moves-card')),
