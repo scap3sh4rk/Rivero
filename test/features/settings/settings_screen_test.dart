@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rivero/core/database/database.dart';
@@ -72,5 +73,59 @@ void main() {
 
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 50));
+  });
+
+  testWidgets('developer card shows the name and opens repo and issues', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 3000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final opened = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      const MethodChannel('plugins.flutter.io/url_launcher'),
+      (call) async {
+        if (call.method == 'launch') {
+          opened.add((call.arguments as Map)['url'] as String);
+          return true;
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        const MethodChannel('plugins.flutter.io/url_launcher'),
+        null,
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [databaseProvider.overrideWithValue(db)],
+        child: const MaterialApp(home: SettingsScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('developer-card')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Parthiv Kumar Nikku'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('link-repo')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('link-issues')));
+    await tester.pump();
+    expect(opened, [
+      'https://github.com/scap3sh4rk/Rivero',
+      'https://github.com/scap3sh4rk/Rivero/issues',
+    ]);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 100));
   });
 }

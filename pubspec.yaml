@@ -32,6 +32,7 @@ dependencies:
   googleapis: ^19.0.0
   extension_google_sign_in_as_googleapis_auth: ^3.0.0
   cryptography: ^2.9.0
+  url_launcher: ^6.3.3
 
 dev_dependencies:
   flutter_test:

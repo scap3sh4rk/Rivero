@@ -8,11 +8,13 @@ import 'package:rivero/core/storage/media_store.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/picker.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
+import 'package:rivero/design_system/widgets/rivero_card.dart';
 import 'package:rivero/features/backup/backup_screen.dart';
 import 'package:rivero/features/mandates/mandates_screen.dart';
 import 'package:rivero/features/settings/screens/account_types_screen.dart';
 import 'package:rivero/features/settings/screens/categories_screen.dart';
 import 'package:rivero/features/settings/screens/import_statement.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Settings as short rows: one line each, details one tap deeper.
 class SettingsScreen extends ConsumerWidget {
@@ -182,7 +184,7 @@ class SettingsScreen extends ConsumerWidget {
             subtitle: 'Adds past transactions to an account',
             onTap: () => importStatement(context, ref),
           ),
-          const _Header('Developer'),
+          const _Header('Data'),
           _Row(
             icon: Icons.delete_forever_outlined,
             title: 'Delete all data',
@@ -197,6 +199,8 @@ class SettingsScreen extends ConsumerWidget {
               onTap: () => _confirmReset(context, ref),
             ),
           ],
+          const SizedBox(height: RiveroSpacing.xl),
+          const _DeveloperCard(),
         ],
       ),
     );
@@ -518,6 +522,84 @@ class _CaptureRowsState extends ConsumerState<_CaptureRows>
           onTap: _sendTest,
         ),
       ],
+    );
+  }
+}
+
+/// Who built the app, with quick links to the repository and issue tracker.
+class _DeveloperCard extends StatelessWidget {
+  const _DeveloperCard();
+
+  static const name = 'Parthiv Kumar Nikku';
+  static const repo = 'https://github.com/scap3sh4rk/Rivero';
+  static const issues = 'https://github.com/scap3sh4rk/Rivero/issues';
+
+  Future<void> _open(BuildContext context, String url) async {
+    final ok = await launchUrl(
+      Uri.parse(url),
+      mode: LaunchMode.externalApplication,
+    );
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Could not open $url')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: RiveroSpacing.xl),
+      child: RiveroCard(
+        key: const ValueKey('developer-card'),
+        padding: const EdgeInsets.all(RiveroSpacing.xl),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'DEVELOPER',
+              style: RiveroTypography.labelSmall.copyWith(letterSpacing: 1.5),
+            ),
+            const SizedBox(height: RiveroSpacing.sm),
+            Row(
+              children: [
+                Image.asset('assets/icon/logo.png', width: 40, height: 40),
+                const SizedBox(width: RiveroSpacing.md),
+                Expanded(
+                  child: Text(name, style: RiveroTypography.titleMedium),
+                ),
+              ],
+            ),
+            const SizedBox(height: RiveroSpacing.lg),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    key: const ValueKey('link-repo'),
+                    onPressed: () => _open(context, repo),
+                    style: OutlinedButton.styleFrom(
+                      shape: const StadiumBorder(),
+                    ),
+                    icon: const Icon(Icons.code_rounded, size: 18),
+                    label: const Text('Repository'),
+                  ),
+                ),
+                const SizedBox(width: RiveroSpacing.sm),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    key: const ValueKey('link-issues'),
+                    onPressed: () => _open(context, issues),
+                    style: OutlinedButton.styleFrom(
+                      shape: const StadiumBorder(),
+                    ),
+                    icon: const Icon(Icons.bug_report_outlined, size: 18),
+                    label: const Text('Issues'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
