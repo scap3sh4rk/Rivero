@@ -144,6 +144,7 @@ void main() {
   );
 
   test('lending is not spending; writing it off is', () async {
+    await db.accountsDao.updateAccountBalance('bank', 100000);
     await dues.lend(
       person: 'Kiran',
       amountMinorUnits: 50000,
@@ -151,7 +152,7 @@ void main() {
     );
     expect(
       (await db.accountsDao.getPhysicalAccountById('bank'))!.balanceMinorUnits,
-      -50000,
+      50000,
     );
     expect(await spent(), 0);
     final d = (await all()).single;

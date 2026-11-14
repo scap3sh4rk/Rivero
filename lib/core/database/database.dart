@@ -84,7 +84,7 @@ class RiveroDatabase extends _$RiveroDatabase {
   }
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration {
@@ -139,6 +139,13 @@ class RiveroDatabase extends _$RiveroDatabase {
           );
         }
         if (from < 10) await _createIndexes();
+        if (from < 12) {
+          // Money accounts never go below zero.
+          await customStatement(
+            'UPDATE physical_accounts SET balance_minor_units = 0 '
+            'WHERE is_liability = 0 AND balance_minor_units < 0',
+          );
+        }
         if (from < 11) {
           await m.addColumn(physicalAccounts, physicalAccounts.statementDay);
           await m.addColumn(physicalAccounts, physicalAccounts.paymentDueDay);

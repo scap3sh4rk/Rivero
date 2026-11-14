@@ -78,10 +78,11 @@ void main() {
   test(
     'confirming a bank expense moves balance and bucket spend once',
     () async {
+      await db.accountsDao.updateAccountBalance('bank', 100000);
       await txn('e', 'bank', -50000, TransactionType.expense);
       await ledger.confirm('e');
       await ledger.confirm('e'); // idempotent
-      expect(await balance('bank'), -50000);
+      expect(await balance('bank'), 50000);
       expect(await spent(), 50000);
     },
   );
@@ -111,6 +112,7 @@ void main() {
   );
 
   test('refund returns budget and income does not touch it', () async {
+    await db.accountsDao.updateAccountBalance('bank', 100000);
     await txn('e', 'bank', -80000, TransactionType.expense);
     await ledger.confirm('e');
     await txn('r', 'bank', 30000, TransactionType.refund);
@@ -118,14 +120,15 @@ void main() {
     await txn('i', 'bank', 9000000, TransactionType.income);
     await ledger.confirm('i');
     expect(await spent(), 50000);
-    expect(await balance('bank'), 9000000 - 80000 + 30000);
+    expect(await balance('bank'), 100000 + 9000000 - 80000 + 30000);
   });
 
   test('deleting a confirmed expense gives back balance and budget', () async {
+    await db.accountsDao.updateAccountBalance('bank', 100000);
     await txn('e', 'bank', -50000, TransactionType.expense);
     await ledger.confirm('e');
     await ledger.remove('e');
-    expect(await balance('bank'), 0);
+    expect(await balance('bank'), 100000);
     expect(await spent(), 0);
     expect(await db.transactionsDao.getTransactionById('e'), isNull);
   });

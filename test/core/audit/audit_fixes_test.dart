@@ -439,4 +439,14 @@ void main() {
       containsAll(['idx_txn_time', 'idx_txn_account', 'idx_logs_status']),
     );
   });
+
+  test('a bank balance never goes negative; a card can owe', () async {
+    await account('card', -50000, card: true);
+    await db.accountsDao.adjustAccountBalance('bank', -999999);
+    expect(await bal('bank'), 0);
+    await db.accountsDao.updateAccountBalance('bank', -500);
+    expect(await bal('bank'), 0);
+    await db.accountsDao.adjustAccountBalance('card', -100000);
+    expect(await bal('card'), -150000); // debts are stored negative
+  });
 }
