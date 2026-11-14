@@ -15,6 +15,7 @@ import 'package:rivero/features/mandates/mandates_screen.dart';
 import 'package:rivero/features/settings/screens/account_types_screen.dart';
 import 'package:rivero/features/settings/screens/capture_log_screen.dart';
 import 'package:rivero/features/settings/screens/categories_screen.dart';
+import 'package:rivero/features/settings/screens/export_data.dart';
 import 'package:rivero/features/settings/screens/import_statement.dart';
 import 'package:rivero/features/tour/app_tour.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -200,6 +201,12 @@ class SettingsScreen extends ConsumerWidget {
             },
           ),
           const _Header('Data'),
+          _Row(
+            icon: Icons.ios_share_rounded,
+            title: 'Export data',
+            subtitle: 'Excel or CSV: transactions, accounts, plan, owed',
+            onTap: () => exportData(context, ref),
+          ),
           _Row(
             icon: Icons.delete_forever_outlined,
             title: 'Delete all data',
