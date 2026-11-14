@@ -80,7 +80,8 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
             .where(
               (t) =>
                   t.amountMinorUnits < 0 &&
-                  !t.isInternalTransfer &&
+                  SpendingSummary.applied(t) &&
+                  SpendingSummary.isSpending(t) &&
                   !t.transactionTimestamp.isBefore(monthStart) &&
                   t.transactionTimestamp.isBefore(monthEnd),
             )

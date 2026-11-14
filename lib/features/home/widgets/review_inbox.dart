@@ -7,6 +7,7 @@ import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/bank_badge.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
+import 'package:rivero/features/home/widgets/unreadable_sheet.dart';
 
 /// Captured transactions the app was not sure about. Buttons, not swipes, so
 /// it never fights the page swipe. Hidden entirely when there is nothing.
@@ -22,7 +23,39 @@ class ReviewInbox extends ConsumerWidget {
               const <LedgerTransaction>[])
         if (!t.id.startsWith('cc-')) t,
     ];
-    if (pending.isEmpty) return const SizedBox.shrink();
+    final unreadable = ref.watch(unreadableMessagesProvider).value?.length ?? 0;
+    if (pending.isEmpty && unreadable == 0) return const SizedBox.shrink();
+    final unreadableCard = unreadable == 0
+        ? null
+        : Padding(
+            padding: const EdgeInsets.only(bottom: RiveroSpacing.sm),
+            child: RiveroCard(
+              key: const ValueKey('unreadable-card'),
+              onTap: () => UnreadableSheet.show(context),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.mark_email_unread_outlined,
+                    color: RiveroColors.warning,
+                  ),
+                  const SizedBox(width: RiveroSpacing.md),
+                  Expanded(
+                    child: Text(
+                      unreadable == 1
+                          ? "1 bank message couldn't be read"
+                          : "$unreadable bank messages couldn't be read",
+                      style: RiveroTypography.bodyLarge,
+                    ),
+                  ),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: RiveroColors.textSecondary,
+                  ),
+                ],
+              ),
+            ),
+          );
+    if (pending.isEmpty) return unreadableCard!;
     final privacy = ref.watch(privacyModeProvider);
 
     Future<void> confirm(LedgerTransaction t) async {
@@ -46,6 +79,7 @@ class ReviewInbox extends ConsumerWidget {
           style: RiveroTypography.bodySmall,
         ),
         const SizedBox(height: RiveroSpacing.md),
+        ?unreadableCard,
         for (final t in pending.take(3))
           Padding(
             key: ValueKey(t.id),

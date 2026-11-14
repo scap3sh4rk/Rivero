@@ -350,6 +350,11 @@ final pendingReviewTransactionsProvider =
       return db.transactionsDao.watchPendingReviewTransactions();
     });
 
+/// Bank messages Rivero could not read (see IngestionLogsDao.watchUnreadable).
+final unreadableMessagesProvider = StreamProvider<List<RawIngestionLog>>((ref) {
+  return ref.watch(databaseProvider).ingestionLogsDao.watchUnreadable();
+});
+
 /// Stream of active recurring mandates (UPI Autopay / e-NACH).
 final activeMandatesProvider = StreamProvider<List<Mandate>>((ref) {
   return ref.watch(databaseProvider).mandatesDao.watchActiveMandates();
@@ -376,13 +381,17 @@ final stsBreakdownProvider = Provider<AsyncValue<StsBreakdown>>((ref) {
   final accounts = accountsAsync.value ?? const <PhysicalAccount>[];
   final txns = ref.watch(allTransactionsStreamProvider).value ?? const [];
 
-  // How fresh the figures are: the newest balance update or logged entry.
+  // How fresh the figures are: the newest recorded entry (captured, typed
+  // in, or a balance update). Renaming an account is not fresh data. With
+  // no entries yet, the balances are as fresh as the accounts' creation.
   DateTime? synced;
-  for (final a in accounts) {
-    if (synced == null || a.updatedAt.isAfter(synced)) synced = a.updatedAt;
-  }
-  for (final t in txns.take(1)) {
+  for (final t in txns) {
     if (synced == null || t.createdAt.isAfter(synced)) synced = t.createdAt;
+  }
+  if (synced == null) {
+    for (final a in accounts) {
+      if (synced == null || a.createdAt.isAfter(synced)) synced = a.createdAt;
+    }
   }
 
   return AsyncValue.data(

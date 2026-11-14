@@ -42,6 +42,9 @@ class HomeShortcuts extends ConsumerWidget {
       othersShare: DuesService.othersShareByTransaction(
         ref.watch(duesProvider).value ?? const [],
       ),
+      // Everyday spending, like Safe to spend: rent and family paid through
+      // the plan are not in it.
+      includePlan: false,
     ).total;
     void tab(int i) => ref.read(selectedNavIndexProvider.notifier).state = i;
 

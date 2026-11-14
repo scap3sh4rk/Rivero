@@ -20,6 +20,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   int _day = 1;
   bool _separate = false;
+  bool _alreadySetAside = true;
   final _salary = TextEditingController();
   final _salaryName = TextEditingController();
   final _salaryMask = TextEditingController();
@@ -88,6 +89,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         expenseBalanceMinor: parseAmountMinorUnits(_expBalance.text),
         investMinor: parseAmountMinorUnits(_invest.text),
         savingsMinor: parseAmountMinorUnits(_savings.text),
+        alreadySetAside: _split > 0 && _alreadySetAside,
       ),
     );
     ref.read(userSalaryDayProvider.notifier).state = _day;
@@ -249,6 +251,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                           style: RiveroTypography.bodySmall.copyWith(
                             color: RiveroColors.danger,
                           ),
+                        ),
+                      if (_split > 0)
+                        SwitchListTile(
+                          key: const ValueKey('already-set-aside'),
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Already done this month'),
+                          subtitle: const Text(
+                            "This month's investments and savings already "
+                            'went out; the balances above show it',
+                          ),
+                          value: _alreadySetAside,
+                          onChanged: (v) =>
+                              setState(() => _alreadySetAside = v),
                         ),
                     ],
                   ),

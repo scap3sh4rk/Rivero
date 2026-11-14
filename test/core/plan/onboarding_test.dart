@@ -43,6 +43,33 @@ void main() {
     },
   );
 
+  test('M8: set up mid-month with the money already out', () async {
+    final db = RiveroDatabase.memory();
+    addTearDown(db.close);
+    await completeOnboarding(
+      db,
+      const OnboardingData(
+        salaryDay: 1,
+        salaryMinor: 10000000,
+        salaryAccountName: 'SBI',
+        salaryInstitution: 'SBI',
+        salaryBalanceMinor: 200000,
+        investMinor: 3000000,
+        alreadySetAside: true,
+      ),
+    );
+    final inv = (await db.accountsDao.getBucketById('bucket-invest'))!;
+    expect(inv.spentMinorUnits, 3000000); // counted as paid
+    final start = Paycycle.fromSalaryDay(salaryCreditDay: 1).cycleStartDate;
+    expect(await SalaryPlanService(db).movedOutside(start), isTrue);
+    // The salary account balance is exactly what was entered.
+    expect(
+      (await db.accountsDao.getPhysicalAccountById('acc-salary'))!
+          .balanceMinorUnits,
+      200000,
+    );
+  });
+
   test('rejects a split larger than the salary', () async {
     final db = RiveroDatabase.memory();
     addTearDown(db.close);

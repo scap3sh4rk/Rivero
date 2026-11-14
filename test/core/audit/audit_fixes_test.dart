@@ -7,6 +7,7 @@ import 'package:rivero/core/domain/account_role.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/dues/dues_service.dart';
 import 'package:rivero/core/engine/paycycle.dart';
+import 'package:rivero/core/engine/spending_summary.dart';
 import 'package:rivero/core/import/statement_importer.dart';
 import 'package:rivero/core/import/statement_parser.dart';
 import 'package:rivero/core/ingestion/mandate_tracker.dart';
@@ -396,4 +397,33 @@ void main() {
       expect(await bal('bank'), 77700);
     },
   );
+
+  test('M16/L5: one rule for what counts as spending', () {
+    LedgerTransaction t(TransactionType type, int amount) => LedgerTransaction(
+      id: '$type',
+      physicalAccountId: 'bank',
+      amountMinorUnits: amount,
+      transactionType: type,
+      transactionState: TransactionState.confirmed,
+      merchant: 'm',
+      category: 'c',
+      transactionTimestamp: now,
+      isInternalTransfer: false,
+      createdAt: now,
+    );
+    expect(SpendingSummary.isSpending(t(TransactionType.expense, -1)), isTrue);
+    expect(SpendingSummary.isSpending(t(TransactionType.refund, 1)), isTrue);
+    for (final not in [
+      TransactionType.lending,
+      TransactionType.atmWithdrawal,
+      TransactionType.balanceAdjustment,
+      TransactionType.creditCardSettlement,
+      TransactionType.reimbursement,
+    ]) {
+      expect(SpendingSummary.isSpending(t(not, -1)), isFalse, reason: '$not');
+    }
+    final rent = t(TransactionType.planTransfer, -1500000);
+    expect(SpendingSummary.isSpending(rent), isTrue);
+    expect(SpendingSummary.isSpending(rent, includePlan: false), isFalse);
+  });
 }

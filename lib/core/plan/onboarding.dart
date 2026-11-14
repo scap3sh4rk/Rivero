@@ -21,6 +21,7 @@ class OnboardingData {
     this.expenseBalanceMinor = 0,
     this.investMinor = 0,
     this.savingsMinor = 0,
+    this.alreadySetAside = false,
   });
 
   final int salaryDay;
@@ -38,6 +39,10 @@ class OnboardingData {
 
   final int investMinor;
   final int savingsMinor;
+
+  /// Set up mid-month: this month's investments and savings already went
+  /// out (the balances entered show it), so they count as paid.
+  final bool alreadySetAside;
 
   bool get hasSeparateExpenseAccount =>
       expenseName != null && expenseName!.trim().isNotEmpty;
@@ -145,14 +150,24 @@ Future<void> completeOnboarding(RiveroDatabase db, OnboardingData d) async {
   await db.settingsDao.set(SettingKeys.salaryAccount, 'acc-salary');
   final plan = SalaryPlanService(db);
   final buckets = await db.accountsDao.getAllBuckets();
+  final cycleStart = Paycycle.fromSalaryDay(salaryCreditDay: d.salaryDay)
+      .cycleStartDate;
   await plan.apply(
     salary: d.salaryMinor,
     allocations: plan.preview(d.salaryMinor, buckets),
     // Balances were entered as they are today: setup moves no money.
     moveMoney: false,
-    cycleStart: Paycycle.fromSalaryDay(salaryCreditDay: d.salaryDay)
-        .cycleStartDate,
+    cycleStart: cycleStart,
   );
+  if (d.alreadySetAside) {
+    for (final id in ['bucket-invest', 'bucket-savings']) {
+      await plan.markAlreadyPaid(id);
+    }
+    await db.settingsDao.set(
+      SettingKeys.planMovedOutside,
+      SalaryPlanService.cycleKey(cycleStart),
+    );
+  }
 
   await db.settingsDao.set(SettingKeys.salaryDay, '${d.salaryDay}');
   await db.settingsDao.set(SettingKeys.monthlySalary, '${d.salaryMinor}');

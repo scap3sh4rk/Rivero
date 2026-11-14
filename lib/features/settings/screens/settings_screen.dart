@@ -118,7 +118,9 @@ class SettingsScreen extends ConsumerWidget {
           _Row(
             icon: Icons.handshake_outlined,
             title: 'Count money owed to me',
-            subtitle: 'Adds what friends owe you to Safe to spend',
+            subtitle:
+                'Adds what friends owe you to Safe to spend before it '
+                'arrives. Leave off if it is repaid into another account',
             trailing: Switch(
               value: ref.watch(includePendingReimbursementsProvider),
               onChanged: (v) =>

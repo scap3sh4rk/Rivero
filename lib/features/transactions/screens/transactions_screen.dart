@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
+import 'package:rivero/core/engine/spending_summary.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
@@ -52,6 +53,9 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     TransactionType.creditCardSettlement,
     TransactionType.walletTopup,
     TransactionType.balanceAdjustment,
+    TransactionType.lending,
+    TransactionType.reimbursement,
+    TransactionType.atmWithdrawal,
   };
 
   bool _matches(LedgerTransaction t) {
@@ -62,11 +66,14 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     }
     return switch (_filter) {
       ActivityFilter.all => true,
-      ActivityFilter.expenses =>
-        t.amountMinorUnits < 0 && !_transferTypes.contains(t.transactionType),
+      // Same rule as the spending totals and Analytics.
+      ActivityFilter.expenses => SpendingSummary.isSpending(t),
       ActivityFilter.income =>
-        t.amountMinorUnits > 0 && !_transferTypes.contains(t.transactionType),
-      ActivityFilter.transfers => _transferTypes.contains(t.transactionType),
+        t.amountMinorUnits > 0 &&
+            !t.isInternalTransfer &&
+            t.transactionType == TransactionType.income,
+      ActivityFilter.transfers =>
+        t.isInternalTransfer || _transferTypes.contains(t.transactionType),
     };
   }
 

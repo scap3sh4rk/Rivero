@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:rivero/core/database/daos/ingestion_logs_dao.dart';
 import 'package:rivero/core/database/daos/settings_dao.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/account_role.dart';
@@ -59,9 +60,7 @@ class IngestionService {
           receivedAt: Value(notification.receivedAt),
           parseStatus: const Value(ParseStatus.failed),
           confidenceScore: const Value(0),
-          failureReason: const Value(
-            'No recognizable financial entities found',
-          ),
+          failureReason: const Value(IngestionLogsDao.unreadable),
           createdAt: Value(now),
         ),
       );
