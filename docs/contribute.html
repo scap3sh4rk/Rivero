@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Build & contribute · Rivero</title>
+<meta name="description" content="Build Rivero from source, the quality gate, branches, releases, CI and known limits.">
+<meta name="theme-color" content="#000000">
+<meta property="og:title" content="Build & contribute · Rivero">
+<meta property="og:description" content="Build Rivero from source, the quality gate, branches, releases, CI and known limits.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://scap3sh4rk.github.io/Rivero/assets/Rivero.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Urbanist:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="top"><div class="top-in">
+<a class="brand" href="index.html"><img src="assets/logo.png" alt="">Rivero</a>
+<nav aria-label="Documentation"><a href="index.html">Home</a><a href="user-guide.html">User guide</a><a href="how-it-works.html">How it works</a><a href="technical.html">Technical</a><a href="privacy-security.html">Privacy & security</a><a href="contribute.html" aria-current="page">Build & contribute</a></nav>
+<div class="tools"><a class="gh" href="https://github.com/scap3sh4rk/Rivero">GitHub</a><button class="icon-btn" id="theme" type="button" aria-label="Switch theme">☀</button></div>
+</div></header>
+<main><div class="doc">
+<aside class="toc"><h4>On this page</h4><a href="#build-it">Build it</a><a href="#the-quality-gate">The quality gate</a><a href="#principles-to-keep">Principles to keep</a><a href="#branches-and-commits">Branches and commits</a><a href="#releases">Releases</a><a href="#google-drive-backup-setup">Google Drive backup setup</a><a href="#known-limits-and-roadmap">Known limits and roadmap</a><a href="#contributing">Contributing</a></aside>
+<article>
+<span class="badge">Developers</span>
+<h1>Build and contribute</h1>
+<p class="lede">Everything you need to run, test, release and improve Rivero.</p>
+
+<h2 id="build-it">Build it</h2>
+<p>You need the Flutter SDK matching <code>.github/workflows</code> (currently 3.50.0), Android Studio or the Android SDK, and Java 21 for release builds.</p>
+<pre><code>git clone https://github.com/scap3sh4rk/Rivero.git
+cd Rivero
+flutter pub get
+dart run build_runner build --delete-conflicting-outputs   # Drift generated code
+./tool/verify.sh                                           # format, analyze, test
+flutter run                                                # debug on a device</code></pre>
+<p>Generated <code>*.g.dart</code> files are not committed. After running <code>build_runner</code>, run <code>dart format .</code>.</p>
+
+<h2 id="the-quality-gate">The quality gate</h2>
+<p><code>./tool/verify.sh</code> must pass before every commit. It runs:</p>
+<ol class="steps">
+<li><strong>Format check</strong><code>dart format --output=none --set-exit-if-changed .</code></li>
+<li><strong>Static analysis</strong><code>flutter analyze</code> with very_good_analysis rules</li>
+<li><strong>Tests</strong><code>flutter test</code>, over 280 tests</li>
+</ol>
+
+<h2 id="principles-to-keep">Principles to keep</h2>
+<ul>
+<li><strong>Integer minor units only.</strong> Money is <code>int</code> paise. No floating point in persistence or calculation.</li>
+<li><strong>Two-tier ledger.</strong> Physical accounts and plan categories stay decoupled; plans never create or duplicate money.</li>
+<li><strong>Zero <code>READ_SMS</code>.</strong> Capture uses notification access only.</li>
+<li><strong>Conservation.</strong> <code>unallocated = salary − Σ allocated</code>; allocations never exceed the salary.</li>
+<li><strong>One writer.</strong> Balance and budget changes go through <code>LedgerService</code>, atomically.</li>
+<li><strong>Local-first and encrypted.</strong> No plaintext database, no data leaves the phone unless the user starts a backup.</li>
+</ul>
+
+<h2 id="branches-and-commits">Branches and commits</h2>
+<table>
+<tr><th>Branch</th><th>Use</th></tr>
+<tr><td><code>develop</code></td><td>All active work: features, fixes, tests, migrations</td></tr>
+<tr><td><code>main</code></td><td>Release branch. A push to it builds and publishes a release</td></tr>
+</table>
+<p>Keep commits focused with a clear message ("fix(plan): …", "feat(capture): …"). Add or update a test with every behaviour change; money paths need a regression test.</p>
+
+<h2 id="releases">Releases</h2>
+<p><code>.github/workflows/release.yml</code> runs on every push to <code>main</code>: it verifies, builds a signed APK and App Bundle with Java 21, and publishes a GitHub Release tagged <code>v&lt;version&gt;-&lt;run&gt;</code> with notes from <code>.github/release-notes.md</code> plus generated change notes.</p>
+<p>Signing uses repository secrets: <code>ANDROID_KEYSTORE_BASE64</code>, <code>ANDROID_KEYSTORE_PASSWORD</code>, <code>ANDROID_KEY_ALIAS</code>, <code>ANDROID_KEY_PASSWORD</code>. Without them the build falls back to the debug key and is not fit for distribution. CI (<code>ci.yml</code>) runs the quality gate on every push and pull request. This site is published by <code>pages.yml</code> when files under <code>docs/</code> change on <code>main</code>.</p>
+
+<h2 id="google-drive-backup-setup">Google Drive backup setup</h2>
+<p>Backup needs a Google Cloud project with the Drive API enabled and OAuth clients: a <strong>Web</strong> client (its ID is set in <code>lib/core/backup/drive_backup.dart</code>) and an <strong>Android</strong> client for each signing key (package <code>dev.scap3sh4rk.rivero</code> with that key's SHA-1). iOS needs its own iOS client.</p>
+
+<h2 id="known-limits-and-roadmap">Known limits and roadmap</h2>
+<table>
+<tr><th>Area</th><th>Status</th></tr>
+<tr><td>iOS</td><td>Project configured; not yet built or tested on a device. No passive notification capture on iOS, so it relies on manual logging, bill scan and statement import.</td></tr>
+<tr><td>Google Drive sign-in</td><td>Needs a Drive OAuth client per signing key; verify on a release build.</td></tr>
+<tr><td>Statement import</td><td>CSV only, experimental; history only, balances unchanged.</td></tr>
+<tr><td>APK size</td><td>About 98 MB (bundled fonts and ML Kit text recognition); the App Bundle is smaller per device.</td></tr>
+<tr><td>Spends from the salary account</td><td>When the salary account is separate from the spending account, spends from it do not reduce Safe to spend (by design).</td></tr>
+<tr><td>Next</td><td>iOS device testing and more bank message formats.</td></tr>
+</table>
+
+<h2 id="contributing">Contributing</h2>
+<p>Issues and pull requests are welcome at <a href="https://github.com/scap3sh4rk/Rivero">github.com/scap3sh4rk/Rivero</a>. The most valuable contributions right now: real-world bank message formats (with personal details removed) for the parser tests, iOS testing, and accessibility feedback.</p>
+
+<div class="pager"><a href="privacy-security.html"><small>Previous</small>Privacy & security</a></div>
+</article></div></main>
+<footer><div class="foot-in">
+<div>Rivero · private, local-first money for Android and iOS.<br>Built by Parthiv Kumar Nikku.</div>
+<div><a href="https://github.com/scap3sh4rk/Rivero">Source</a> · <a href="https://github.com/scap3sh4rk/Rivero/issues">Report an issue</a> · <a href="https://github.com/scap3sh4rk/Rivero/releases">Releases</a></div>
+</div></footer>
+<script src="assets/site.js"></script>
+</body>
+</html>

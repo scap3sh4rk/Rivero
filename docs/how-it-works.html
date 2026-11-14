@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How it works · Rivero</title>
+<meta name="description" content="The money model behind Rivero: safe to spend, the salary plan, what counts as spending, cards and owed money.">
+<meta name="theme-color" content="#000000">
+<meta property="og:title" content="How it works · Rivero">
+<meta property="og:description" content="The money model behind Rivero: safe to spend, the salary plan, what counts as spending, cards and owed money.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://scap3sh4rk.github.io/Rivero/assets/Rivero.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Urbanist:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="top"><div class="top-in">
+<a class="brand" href="index.html"><img src="assets/logo.png" alt="">Rivero</a>
+<nav aria-label="Documentation"><a href="index.html">Home</a><a href="user-guide.html">User guide</a><a href="how-it-works.html" aria-current="page">How it works</a><a href="technical.html">Technical</a><a href="privacy-security.html">Privacy & security</a><a href="contribute.html">Build & contribute</a></nav>
+<div class="tools"><a class="gh" href="https://github.com/scap3sh4rk/Rivero">GitHub</a><button class="icon-btn" id="theme" type="button" aria-label="Switch theme">☀</button></div>
+</div></header>
+<main><div class="doc">
+<aside class="toc"><h4>On this page</h4><a href="#the-mental-model">The mental model</a><a href="#safe-to-spend">Safe to spend</a><a href="#a-worked-example">A worked example</a><a href="#the-salary-plan">The salary plan</a><a href="#what-counts-as-spending">What counts as spending</a><a href="#cards-owed-money-and-transfers">Cards, owed money and transfers</a><a href="#money-is-integers">Money is integers</a></aside>
+<article>
+<span class="badge">Money model</span>
+<h1>How Rivero thinks about money</h1>
+<p class="lede">The rules and formulas behind every number, with a worked example, so you can trust (and check) what you see.</p>
+
+<h2 id="the-mental-model">The mental model</h2>
+<div class="grid g2">
+<div class="card"><h3><span class="dot" style="background:var(--amber)"></span>Two tiers of money</h3><p><strong>Physical accounts</strong> are real: banks, cards, wallets, cash. <strong>Plan categories</strong> are intentions: how a salary should be split. They never create or duplicate money; the plan only moves real balances between accounts you track.</p></div>
+<div class="card"><h3><span class="dot" style="background:var(--accent)"></span>The bank is the truth</h3><p>Spending money is what your spending account really holds. The plan is the "of": what you meant to have this cycle. A bank's "available balance" message always wins over arithmetic.</p></div>
+</div>
+
+<h2 id="safe-to-spend">Safe to spend</h2>
+<p>Everything on Home comes from one calculation, shared by the card, the Plan tab, the breakdown sheet and the "Log this anyway?" check, so they can never disagree.</p>
+<div class="formula">
+<b>left to spend</b> = spending account balance − plan money still to be paid out of it<br>
+<b>safe until payday</b> = left to spend − autopay due − card bills (+ money owed, if counted)<br>
+<b>per day</b> = safe until payday ÷ days to payday &nbsp;&nbsp;(never below 1 day, never below ₹0)
+</div>
+<h3>The pieces</h3>
+<table>
+<tr><th>Piece</th><th>Where it comes from</th></tr>
+<tr><td>Spending account balance</td><td>The account linked to your spending category (or the salary account). Updated by captures, logged payments, balance updates and the bank's "Avl bal".</td></tr>
+<tr><td>Plan money still to be paid</td><td>Unpaid remainder of plan-only categories (rent, family) <em>when they are paid out of the same account</em> that you spend from. If your spending account is separate from the salary account, nothing is held back from it.</td></tr>
+<tr><td>Autopay due</td><td>Active autopays dated from 5 days ago (overdue, not yet seen) to the end of the cycle. Weekly ones count once per remaining week. Variable ones reserve their cap. Autopays charged to a different bank account do not touch your spending account.</td></tr>
+<tr><td>Card bills</td><td>Outstanding balance on credit cards, if "keep money aside for card bills" is on.</td></tr>
+<tr><td>Money owed</td><td>What friends owe you, added only if you turned on "Count money owed to me".</td></tr>
+<tr><td>Days to payday</td><td>Days until the next pay day, minimum 1. Refreshes at midnight and when the app opens. A salary that arrived early starts the next cycle and counts to the pay day after it.</td></tr>
+</table>
+<h3>If no spending account is linked</h3>
+<p>Rivero falls back to the budget: <code>planned + carried over − spent</code>. Linking a spending account makes the real balance the truth instead.</p>
+<h3>Freshness</h3>
+<p><span class="pill ok">Verified</span> the newest entry is under 24 hours old · <span class="pill warn">Estimated</span> 24 to 72 hours · <span class="pill bad">Stale</span> older than 72 hours. A negative result is shown as a <strong>deficit</strong> with ₹0 per day.</p>
+
+<h2 id="a-worked-example">A worked example</h2>
+<p>Pay day is the 1st. It is the 14th, so 17 days remain. Salary ₹52,000 landed in SBI; spending lives in a separate ICICI account.</p>
+<table>
+<tr><th>Step</th><th>Amount</th></tr>
+<tr><td>Plan: investments ₹5,000, rent ₹15,000, family ₹7,000, spending ₹25,000</td><td>₹52,000</td></tr>
+<tr><td>ICICI (spending) balance after Apply moved ₹25,000 and you spent ₹6,400</td><td>₹18,600</td></tr>
+<tr><td>Rent and family: paid from SBI, so nothing is held back from ICICI</td><td>₹0</td></tr>
+<tr><td>Netflix on the 20th</td><td>− ₹649</td></tr>
+<tr><td>Card bill outstanding</td><td>− ₹3,000</td></tr>
+<tr><td><strong>Safe until payday</strong></td><td><strong>₹14,951</strong></td></tr>
+<tr><td><strong>Per day</strong> (÷ 17)</td><td><strong>₹879</strong></td></tr>
+</table>
+
+<h2 id="the-salary-plan">The salary plan</h2>
+<ol class="steps">
+<li><strong>Salary lands in the salary account</strong>A captured credit (or you planning ahead) triggers the split.</li>
+<li><strong>You choose the split</strong>Percentages or amounts. The total can never exceed the salary: <code>unallocated = salary − Σ categories</code>.</li>
+<li><strong>Apply moves tracked money</strong>Salary → spending account, salary → a linked investment or savings account. Entries get deterministic ids per cycle, so re-applying adjusts them instead of duplicating.</li>
+<li><strong>Plan-only categories wait</strong>Rent and family change a balance when their real payment is recorded; a bank debit with the exact planned amount from the salary account is matched to its category (and asks you to confirm).</li>
+</ol>
+<h3>Safety rules</h3>
+<ul>
+<li>A plan never moves an account below zero.</li>
+<li>Re-applying inside the same cycle is a revision: spending so far and carry-over stay as they were.</li>
+<li>Carry-over is unspent spending money from the last cycle; overspending is not carried as debt.</li>
+<li>"Already moved" is remembered per cycle, so applying again never moves the money twice.</li>
+</ul>
+
+<h2 id="what-counts-as-spending">What counts as spending</h2>
+<table>
+<tr><th>Counts as spending</th><th>Never counts</th></tr>
+<tr><td>Expenses, cash spending, card purchases, rent/EMI/family paid through the plan (in totals), refunds (reduce spending)</td><td>Transfers between your accounts, card-bill payments, ATM withdrawals, loans you gave, repayments to you, balance updates, ignored or unconfirmed entries, shares of a split bill that others owe</td></tr>
+</table>
+<p>Home's "Spent this cycle" leaves out rent and family paid through the plan, matching Safe to spend. Activity's Spends filter, Analytics and the totals all use the same rule.</p>
+
+<h2 id="cards-owed-money-and-transfers">Cards, owed money and transfers</h2>
+<ul>
+<li><strong>Card purchase</strong>: raises the card's outstanding; reserved as a bill; does not touch the spending budget until paid.</li>
+<li><strong>Card bill from the bank</strong>: the bank debit and the card credit are linked as one transfer (in either arrival order); the card's outstanding falls once.</li>
+<li><strong>Split bill</strong>: others' shares stop being your spending at once; the money is credited back to the budget only when it arrives.</li>
+<li><strong>Lending</strong>: the account balance drops, the budget does not. A repayment is tagged "Paid back", never income.</li>
+<li><strong>Self-transfers</strong> are paired only when they could really be one: compatible kinds, same bank reference (or none on either, within 2 minutes), never a salary without the same reference.</li>
+</ul>
+
+<h2 id="money-is-integers">Money is integers</h2>
+<p>Every amount is an integer in <strong>paise</strong> (minor units). There is no floating-point money anywhere in storage or arithmetic. The largest accepted amount is ₹100 crore (10<sup>11</sup> paise); parsing and calculation are guarded against overflow, and zero or negative input is rejected.</p>
+
+<div class="pager"><a href="user-guide.html"><small>Previous</small>User guide</a><a class="next" href="technical.html"><small>Next</small>Technical</a></div>
+</article></div></main>
+<footer><div class="foot-in">
+<div>Rivero · private, local-first money for Android and iOS.<br>Built by Parthiv Kumar Nikku.</div>
+<div><a href="https://github.com/scap3sh4rk/Rivero">Source</a> · <a href="https://github.com/scap3sh4rk/Rivero/issues">Report an issue</a> · <a href="https://github.com/scap3sh4rk/Rivero/releases">Releases</a></div>
+</div></footer>
+<script src="assets/site.js"></script>
+</body>
+</html>

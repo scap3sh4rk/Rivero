@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy & security · Rivero</title>
+<meta name="description" content="What Rivero stores, how it is encrypted and what permissions it uses.">
+<meta name="theme-color" content="#000000">
+<meta property="og:title" content="Privacy & security · Rivero">
+<meta property="og:description" content="What Rivero stores, how it is encrypted and what permissions it uses.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://scap3sh4rk.github.io/Rivero/assets/Rivero.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Urbanist:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="top"><div class="top-in">
+<a class="brand" href="index.html"><img src="assets/logo.png" alt="">Rivero</a>
+<nav aria-label="Documentation"><a href="index.html">Home</a><a href="user-guide.html">User guide</a><a href="how-it-works.html">How it works</a><a href="technical.html">Technical</a><a href="privacy-security.html" aria-current="page">Privacy & security</a><a href="contribute.html">Build & contribute</a></nav>
+<div class="tools"><a class="gh" href="https://github.com/scap3sh4rk/Rivero">GitHub</a><button class="icon-btn" id="theme" type="button" aria-label="Switch theme">☀</button></div>
+</div></header>
+<main><div class="doc">
+<aside class="toc"><h4>On this page</h4><a href="#what-rivero-never-does">What Rivero never does</a><a href="#permissions">Permissions</a><a href="#how-data-is-protected">How data is protected</a><a href="#what-is-stored-and-for-how-long">What is stored, and for how long</a><a href="#system-level-protections">System-level protections</a><a href="#threat-model">Threat model</a><a href="#responsible-disclosure">Responsible disclosure</a></aside>
+<article>
+<span class="badge">Privacy &amp; security</span>
+<h1>Your money stays yours</h1>
+<p class="lede">No servers, no tracking, no SMS permission. Here is exactly what is stored, where, and how it is protected.</p>
+
+<h2 id="what-rivero-never-does">What Rivero never does</h2>
+<ul>
+<li>No account, no sign-up, no server of ours. Rivero has no backend.</li>
+<li>No analytics, advertising or tracking SDKs.</li>
+<li>No bank login, no credentials, no screen scraping.</li>
+<li>No <code>READ_SMS</code> or other SMS permission. Ever.</li>
+<li>No upload of your data. The only network use is the optional Google Drive backup you start yourself.</li>
+</ul>
+
+<h2 id="permissions">Permissions</h2>
+<table>
+<tr><th>Permission or access</th><th>Why</th></tr>
+<tr><td>Notification access (user-granted in system settings)</td><td>Reads bank, UPI and SMS-app notifications to record payments. Only notifications that mention money are kept.</td></tr>
+<tr><td>Post notifications (Android 13+)</td><td>Only for the "Send a test notification" check.</td></tr>
+<tr><td>Biometrics</td><td>Optional app lock.</td></tr>
+<tr><td>Camera / photos (when you choose)</td><td>Bill photos, account pictures, bill scanning (text recognised on the phone).</td></tr>
+<tr><td>Internet</td><td>Optional Google Drive backup only.</td></tr>
+</table>
+
+<h2 id="how-data-is-protected">How data is protected</h2>
+<div class="grid g2">
+<div class="card"><h3>At rest</h3><p>The database is encrypted with AES-256 (SQLite3 Multiple Ciphers). Its key is generated on the phone and held by the platform keystore through Flutter Secure Storage. There is no plaintext fallback: if the database cannot open, Rivero shows an error instead of creating an unencrypted one.</p></div>
+<div class="card"><h3>In the capture queue</h3><p>Notifications waiting for the app are encrypted with AES-256-GCM using a key that never leaves the Android Keystore.</p></div>
+<div class="card"><h3>In backups</h3><p>Encrypted on the phone with a key derived from your passphrase (PBKDF2-HMAC-SHA256, 210,000 rounds) using AES-256-GCM, with authentication. Wrong passphrase or tampering is detected and refused. Drive only ever holds an opaque file in the app's private folder.</p></div>
+<div class="card"><h3>On screen</h3><p>Optional biometric lock, hide-amounts mode, and, while the lock is on, screenshots and the recent-apps preview are blocked.</p></div>
+</div>
+
+<h2 id="what-is-stored-and-for-how-long">What is stored, and for how long</h2>
+<table>
+<tr><th>Data</th><th>Kept</th></tr>
+<tr><td>Accounts, transactions, plans, autopay, owed money, settings</td><td>Until you delete them or use Delete all data</td></tr>
+<tr><td>Raw bank message text (audit log)</td><td>90 days, then purged. One-time passwords are never stored. Not included in backups.</td></tr>
+<tr><td>Bill photos and account pictures</td><td>Until you remove them. Included in encrypted backups.</td></tr>
+<tr><td>Capture queue</td><td>Until the app next opens (then processed and emptied). Cleared by Delete all data.</td></tr>
+</table>
+
+<h2 id="system-level-protections">System-level protections</h2>
+<ul>
+<li><code>android:allowBackup="false"</code>: Android's own backup never copies the database without its key.</li>
+<li>Release builds are signed with a release key and built in CI from the public source.</li>
+<li>Quality gate on every change: formatting, strict static analysis (<code>very_good_analysis</code>) and the full test suite.</li>
+</ul>
+
+<h2 id="threat-model">Threat model</h2>
+<table>
+<tr><th>Risk</th><th>Mitigation</th></tr>
+<tr><td>Lost or stolen phone</td><td>Encrypted database, optional biometric lock, encrypted backups for recovery</td></tr>
+<tr><td>Someone looking over your shoulder</td><td>Hide amounts; screenshot and preview blocking with lock on</td></tr>
+<tr><td>Cloud account compromise</td><td>Backups are encrypted with a passphrase Google never sees</td></tr>
+<tr><td>Malicious or promotional SMS</td><td>Intent classifier and promotion filter; uncertain captures wait for your confirmation instead of changing balances</td></tr>
+<tr><td>App data copied off the device</td><td>Backup disabled at the OS level; key bound to the keystore</td></tr>
+</table>
+<div class="warn"><p><strong>Your passphrase cannot be recovered.</strong> Rivero does not know it and has no server to reset it. Store it somewhere safe.</p></div>
+
+<h2 id="responsible-disclosure">Responsible disclosure</h2>
+<p>Found a security issue? Please open an issue on the <a href="https://github.com/scap3sh4rk/Rivero/issues">GitHub repository</a> describing the area affected, without exploit details, and it will be looked at promptly.</p>
+
+<div class="pager"><a href="technical.html"><small>Previous</small>Technical</a><a class="next" href="contribute.html"><small>Next</small>Build & contribute</a></div>
+</article></div></main>
+<footer><div class="foot-in">
+<div>Rivero · private, local-first money for Android and iOS.<br>Built by Parthiv Kumar Nikku.</div>
+<div><a href="https://github.com/scap3sh4rk/Rivero">Source</a> · <a href="https://github.com/scap3sh4rk/Rivero/issues">Report an issue</a> · <a href="https://github.com/scap3sh4rk/Rivero/releases">Releases</a></div>
+</div></footer>
+<script src="assets/site.js"></script>
+</body>
+</html>

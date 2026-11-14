@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>User guide · Rivero</title>
+<meta name="description" content="How to set up and use Rivero: plan, accounts, logging, capture, owed money, autopay, backup.">
+<meta name="theme-color" content="#000000">
+<meta property="og:title" content="User guide · Rivero">
+<meta property="og:description" content="How to set up and use Rivero: plan, accounts, logging, capture, owed money, autopay, backup.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://scap3sh4rk.github.io/Rivero/assets/Rivero.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Urbanist:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="top"><div class="top-in">
+<a class="brand" href="index.html"><img src="assets/logo.png" alt="">Rivero</a>
+<nav aria-label="Documentation"><a href="index.html">Home</a><a href="user-guide.html" aria-current="page">User guide</a><a href="how-it-works.html">How it works</a><a href="technical.html">Technical</a><a href="privacy-security.html">Privacy & security</a><a href="contribute.html">Build & contribute</a></nav>
+<div class="tools"><a class="gh" href="https://github.com/scap3sh4rk/Rivero">GitHub</a><button class="icon-btn" id="theme" type="button" aria-label="Switch theme">☀</button></div>
+</div></header>
+<main><div class="doc">
+<aside class="toc"><h4>On this page</h4><a href="#quick-start">Quick start</a><a href="#the-five-tabs">The five tabs</a><a href="#home-your-daily-number">Home: your daily number</a><a href="#plan-where-the-salary-goes">Plan: where the salary goes</a><a href="#accounts">Accounts</a><a href="#log-a-payment">Log a payment</a><a href="#activity-and-analytics">Activity and analytics</a><a href="#owed-to-you">Owed to you</a><a href="#autopay-and-cards">Autopay and cards</a><a href="#capturing-payments-automatically">Capturing payments automatically</a><a href="#backup-restore-lock">Backup, restore, lock</a><a href="#settings-you-may-want">Settings you may want</a><a href="#faq">FAQ</a></aside>
+<article>
+<span class="badge">User guide</span>
+<h1>Use Rivero, step by step</h1>
+<p class="lede">From first launch to a daily habit: set up your salary plan, capture payments automatically, and read your Safe to spend number with confidence.</p>
+
+<h2 id="quick-start">Quick start</h2>
+<ol class="steps">
+<li><strong>Install and open Rivero</strong>Download the APK from the latest <a href="https://github.com/scap3sh4rk/Rivero/releases/latest">GitHub release</a> and install it (allow "install unknown apps" for your browser once).</li>
+<li><strong>Answer three short questions</strong>Your pay day and monthly salary, the account your salary lands in (and optionally a separate spending account), and what you set aside each month for investments or savings.</li>
+<li><strong>Enter today's balances</strong>Type what your accounts hold right now. Rivero treats these as true from this moment on.</li>
+<li><strong>Turn on capture (optional)</strong>Settings → Capture → Notification access. Rivero then records bank and UPI payments as they happen.</li>
+<li><strong>Glance at Home</strong>The big number is what you can safely spend per day until payday.</li>
+</ol>
+<div class="note"><p>Setting up in the middle of the month? In the last step Rivero asks whether this month's investments and savings are <strong>already done</strong>. Say yes if they are: they are counted as paid and nothing is moved or deducted again.</p></div>
+
+<h2 id="the-five-tabs">The five tabs</h2>
+<p>Swipe left and right, or tap the bar at the bottom. Home is in the centre.</p>
+<table>
+<tr><th>Tab</th><th>What it is for</th></tr>
+<tr><td>Owed</td><td>Money friends owe you: split bills, loans, part-payments.</td></tr>
+<tr><td>Accounts</td><td>Banks, cards, wallets, cash. Net worth, card usage, balances.</td></tr>
+<tr><td>Home</td><td>Safe to spend per day, items to review, shortcuts.</td></tr>
+<tr><td>Log</td><td>A keypad to record a payment in two taps.</td></tr>
+<tr><td>Activity</td><td>Everything that happened, with search, filters and a spending overview.</td></tr>
+</table>
+
+<h2 id="home-your-daily-number">Home: your daily number</h2>
+<p>The big figure is <strong>Safe to spend per day</strong>. Below it: the total you can safely spend until payday, how many days that covers, and a bar showing how much of this cycle's spending money is left.</p>
+<ul>
+<li><strong>Tap the card</strong> to see "How this is calculated" with every line.</li>
+<li>The coloured dot shows how fresh the figures are: <span class="pill ok">Verified</span> updated in the last 24 hours, <span class="pill warn">Estimated</span> 1 to 3 days, <span class="pill bad">Stale</span> older than 3 days.</li>
+<li>If the number shows "Short by", you have less spending money than you owe in bills before payday. Spending is not blocked; it is a warning.</li>
+</ul>
+<h3>To review</h3>
+<p>When Rivero captures a payment it is not sure about, it appears here. <strong>Confirm</strong> to count it, <strong>Ignore</strong> if it is not a payment. Captures are held back for review when Rivero had to guess which account was meant, or the message was unclear.</p>
+<h3>Bank messages to check</h3>
+<p>If a money message could not be read, or a bank reports a <strong>failed autopay</strong>, a card appears with the message text. Choose <strong>Add it</strong> to record it by hand on the Log tab, or <strong>Not a payment</strong> to dismiss it.</p>
+
+<h2 id="plan-where-the-salary-goes">Plan: where the salary goes</h2>
+<p>Open Plan from Home. The salary card shows your monthly salary and how it is split. Tap it to edit.</p>
+<h3>The salary plan screen</h3>
+<ul>
+<li><strong>Salary arrives in</strong> and <strong>Spending money goes to</strong> pick your accounts. They can be the same account.</li>
+<li><strong>Set aside first</strong> lists categories (Investments, Savings, Rent, Family, anything you add). Leave one empty to skip it this month.</li>
+<li>Tap a category's <strong>→</strong> to choose which of your accounts receives it, or "Paid outside Rivero" for rent, family and the like. If you have exactly one investment account, investments default to it.</li>
+<li>The <strong>"Moves out of …"</strong> card lists every category with its amount and a total, so you can see the whole salary being spent.</li>
+<li><strong>Carry over unspent money</strong> adds last month's leftover spending money to this month.</li>
+</ul>
+<h3>What Apply does</h3>
+<p>Apply moves money <strong>only between accounts you track in Rivero</strong>: salary to spending, salary to a linked investment or savings account. Each move shows in Activity as "Transfer: SBI → ICICI".</p>
+<p>Categories with no account of their own (rent, family) are <strong>plan-only</strong>. Nothing changes in your balances until the real payment is recorded: the bank's message arrives and matches the exact amount, or you tap the category on the Plan tab.</p>
+<h3>Setting up mid-month</h3>
+<p>The first time you apply in a cycle Rivero asks <strong>"Has this month's money already moved?"</strong></p>
+<table>
+<tr><th>Your answer</th><th>What happens</th></tr>
+<tr><td>Already moved</td><td>Nothing moves. Categories are marked done. Your entered balances stay as they are. Rivero remembers the answer for this cycle.</td></tr>
+<tr><td>Move now</td><td>The money moves between your accounts. Only offered when the salary account can cover it.</td></tr>
+</table>
+<div class="warn"><p>A plan never takes an account below zero. If the salary account holds less than the plan moves, Apply refuses and tells you why.</p></div>
+<h3>Marking a category paid</h3>
+<p>Tap a plan-only category on the Plan tab. Choose <strong>Already paid</strong> (the money left before Rivero knew: no balance change) or <strong>Paying now</strong> (the amount comes out of the salary account).</p>
+<h3>When salary arrives</h3>
+<p>If a salary credit is captured, Home offers to split it. A salary that lands a few days early (weekends, holidays) is treated as the next cycle's salary. Bonuses and refunds are only offered when the bank calls them salary.</p>
+
+<h2 id="accounts">Accounts</h2>
+<ul>
+<li>Tap <strong>+</strong> to add an account: bank, wallet, cash, credit card, investment, or your own type. Cards take a credit limit; the usage pill shows the percentage used, with ticks at 10% and 30%.</li>
+<li>Tap an account to open it: balance, recent activity, autopay on that account. <strong>Update balance</strong> sets what it really holds, recorded as a visible "Balance update" entry.</li>
+<li>Long-press and drag to reorder. Give each account a picture and colour.</li>
+<li>Tap <strong>Net worth</strong> for the breakdown.</li>
+<li>Removing an account hides it; past transactions stay, and plan categories that pointed to it are un-linked.</li>
+</ul>
+
+<h2 id="log-a-payment">Log a payment</h2>
+<p>The Log tab is a calculator-style keypad. Type an amount (the calculator key handles things like <code>120 + 80 × 2</code>), add a note, pick a category, choose the account, and Save. Long-press <kbd>0</kbd> for a decimal point. Use the Income switch for money in.</p>
+<ul>
+<li>If a spend is bigger than the account holds or than you have left to spend, Rivero asks <strong>Log this anyway?</strong></li>
+<li>Amounts above ₹100 crore are refused; zero and negative amounts are not accepted.</li>
+<li><strong>Scan a bill</strong> reads the total from a photo on your phone (on-device text recognition) and attaches the photo.</li>
+</ul>
+
+<h2 id="activity-and-analytics">Activity and analytics</h2>
+<ul>
+<li>Search by merchant or category. Filter: All, Spends, Income, Transfers.</li>
+<li>Tap an entry to edit the note and category, attach a bill photo, split the bill, confirm or ignore it, or delete it. Deleting undoes its effect on balances and budget.</li>
+<li>The overview at the top shows what you spent this cycle (everyday spending, not rent paid through the plan) with a daily chart and top categories. <strong>Analytics</strong> shows month by month and per account.</li>
+</ul>
+
+<h2 id="owed-to-you">Owed to you</h2>
+<ul>
+<li><strong>Split this bill</strong> (from any payment): choose who owes what. Their share stops counting as your spending immediately.</li>
+<li><strong>Lend money</strong> records an outflow that is not spending.</li>
+<li>Record a part-payment or full repayment. If it arrives in your bank, Rivero offers matching credits and tags the one you pick as "Paid back", never as income.</li>
+<li><strong>Write off</strong> gives up on what is left; for a loan, that remainder becomes spending.</li>
+<li>Settings → "Count money owed to me" optionally adds what is owed to Safe to spend before it arrives. Leave it off if friends repay into a different account than your spending account.</li>
+</ul>
+
+<h2 id="autopay-and-cards">Autopay and cards</h2>
+<h3>Autopay</h3>
+<p>Settings → Autopay lists every recurring debit. Rivero adds them from bank messages ("mandate created", "will be debited on …") and by hand. Before payday it holds back what is still due, including <strong>every weekly debit left</strong> in the cycle, and the cap for variable-amount mandates.</p>
+<ul>
+<li>When the real debit is recorded (captured or typed in), the autopay moves to its next date. Matching uses the payee name and the amount.</li>
+<li>An autopay that passed its date without a debit shows <strong>Overdue</strong> and stays reserved for 5 days, then is assumed paid and moved on.</li>
+<li>Month-end dates are handled properly: a 31st rolls to the 28th or 29th in February.</li>
+</ul>
+<h3>Credit cards</h3>
+<p>Card spending does not use up your spending budget when you swipe; it is held back as a bill to pay (Settings → "Keep money aside for card bills"). When you pay the bill from your bank, the bank's debit and the card's "payment received" are recognised as <strong>one transfer</strong>: the card's outstanding drops and your spending is not counted twice.</p>
+
+<h2 id="capturing-payments-automatically">Capturing payments automatically</h2>
+<ol class="steps">
+<li><strong>Grant notification access</strong>Settings → Capture → Open settings → enable Rivero. Rivero does not request SMS permission.</li>
+<li><strong>Send a test notification</strong>Settings → Capture → "Send a test notification". A ₹1 sample should appear in Activity.</li>
+<li><strong>Let it work</strong>Bank SMS (via your messaging app), bank apps and UPI apps are listened to. Only notifications that mention money are kept; chats and OTPs are not.</li>
+</ol>
+<div class="note"><p>Captured messages wait in an encrypted queue on the phone until Rivero opens, then are processed in order. Old raw message text is deleted after 90 days.</p></div>
+<h3>How Rivero decides</h3>
+<ul>
+<li>One-time passwords, pre-debit reminders, mandate notices and card statements are never recorded as payments.</li>
+<li>Two messages for one payment (a UPI app and the bank) become one entry. Different UPI references are always different payments.</li>
+<li>A payment you already typed in, up to 6 hours earlier, is matched with the bank's message instead of being counted twice.</li>
+<li>Promotional messages ("Get ₹500 cashback…") are ignored.</li>
+<li>The bank's "available balance" corrects the account's balance when a captured payment is confirmed.</li>
+</ul>
+
+<h2 id="backup-restore-lock">Backup, restore, lock</h2>
+<ul>
+<li><strong>Backup &amp; restore</strong>: save to your own Google Drive or to a file. You choose a passphrase (8+ characters); the backup is encrypted on the phone before it leaves. Bill photos and account pictures are included; raw bank message text is not. <strong>Keep your passphrase safe: it cannot be recovered.</strong></li>
+<li>Restore replaces everything on the phone, and refuses a backup made by a newer version of the app.</li>
+<li><strong>App lock</strong>: fingerprint, face or phone PIN to open. While on, screenshots and the recent-apps preview are blocked.</li>
+<li><strong>Hide amounts</strong> shows dots instead of numbers.</li>
+<li><strong>Delete all data</strong> wipes the database, photos and the capture queue, then starts setup again.</li>
+</ul>
+
+<h2 id="settings-you-may-want">Settings you may want</h2>
+<table>
+<tr><th>Setting</th><th>Effect</th></tr>
+<tr><td>Pay day</td><td>Day of the month your cycle starts. Changing it keeps this month's plan.</td></tr>
+<tr><td>Theme and Font</td><td>Dark ("Ink &amp; Sky"), light, or follow the system; six bundled fonts.</td></tr>
+<tr><td>Open on quick log</td><td>Start on the Log keypad instead of Home.</td></tr>
+<tr><td>Categories</td><td>Your spending categories, colours and order.</td></tr>
+<tr><td>Account types</td><td>Add your own (for example "Chit fund").</td></tr>
+<tr><td>Import bank statement (CSV)</td><td>Adds past transactions to an account for history and charts. Does not change balances. Experimental.</td></tr>
+</table>
+
+<h2 id="faq">FAQ</h2>
+<h3>Why is my Safe to spend lower than my plan says?</h3>
+<p>Your bank balance is the truth. If the spending account holds less than the plan expected (for example you set up mid-month), that is what you can spend. Tap the card to see the lines.</p>
+<h3>I paid rent but my salary account did not change.</h3>
+<p>Rent has no account in Rivero, so it is plan-only. Tap the category on the Plan tab and choose Paying now, or let the bank's message match it.</p>
+<h3>A payment I made was not captured.</h3>
+<p>Check notification access is on and run the test notification. Look for a "bank messages to check" card on Home. You can always add the payment on the Log tab.</p>
+<h3>The balance looks wrong.</h3>
+<p>Open the account and use <strong>Update balance</strong>. The difference is recorded as a "Balance update" so history stays explainable.</p>
+<h3>Does it work on iPhone?</h3>
+<p>The iOS project is configured but not yet tested on a device, and iOS cannot read notifications passively, so it would rely on manual logging, bill scanning and statement import.</p>
+<h3>Is my data safe if I lose my phone?</h3>
+<p>It is encrypted and can be behind your fingerprint. Make regular encrypted backups; restoring on a new phone brings everything back, including photos.</p>
+
+<div class="pager"><a href="index.html"><small>Previous</small>Home</a><a class="next" href="how-it-works.html"><small>Next</small>How it works</a></div>
+</article></div></main>
+<footer><div class="foot-in">
+<div>Rivero · private, local-first money for Android and iOS.<br>Built by Parthiv Kumar Nikku.</div>
+<div><a href="https://github.com/scap3sh4rk/Rivero">Source</a> · <a href="https://github.com/scap3sh4rk/Rivero/issues">Report an issue</a> · <a href="https://github.com/scap3sh4rk/Rivero/releases">Releases</a></div>
+</div></footer>
+<script src="assets/site.js"></script>
+</body>
+</html>

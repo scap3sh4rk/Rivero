@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Technical implementation · Rivero</title>
+<meta name="description" content="Architecture, data model, ledger, ingestion pipeline, plan engine and backup format of Rivero.">
+<meta name="theme-color" content="#000000">
+<meta property="og:title" content="Technical implementation · Rivero">
+<meta property="og:description" content="Architecture, data model, ledger, ingestion pipeline, plan engine and backup format of Rivero.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://scap3sh4rk.github.io/Rivero/assets/Rivero.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Urbanist:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="top"><div class="top-in">
+<a class="brand" href="index.html"><img src="assets/logo.png" alt="">Rivero</a>
+<nav aria-label="Documentation"><a href="index.html">Home</a><a href="user-guide.html">User guide</a><a href="how-it-works.html">How it works</a><a href="technical.html" aria-current="page">Technical</a><a href="privacy-security.html">Privacy & security</a><a href="contribute.html">Build & contribute</a></nav>
+<div class="tools"><a class="gh" href="https://github.com/scap3sh4rk/Rivero">GitHub</a><button class="icon-btn" id="theme" type="button" aria-label="Switch theme">☀</button></div>
+</div></header>
+<main><div class="doc">
+<aside class="toc"><h4>On this page</h4><a href="#at-a-glance">At a glance</a><a href="#architecture">Architecture</a><a href="#data-model">Data model</a><a href="#the-ledger">The ledger</a><a href="#ingestion-pipeline">Ingestion pipeline</a><a href="#plan-engine">Plan engine</a><a href="#autopay-engine">Autopay engine</a><a href="#providers-and-refresh">Providers and refresh</a><a href="#platform-layer-android">Platform layer (Android)</a><a href="#backup-format">Backup format</a><a href="#testing">Testing</a><a href="#design-system">Design system</a></aside>
+<article>
+<span class="badge">Technical implementation</span>
+<h1>Under the hood</h1>
+<p class="lede">Architecture, data flow and the invariants that keep the numbers right. Written for contributors and the curious.</p>
+
+<h2 id="at-a-glance">At a glance</h2>
+<table>
+<tr><th>Area</th><th>Choice</th></tr>
+<tr><td>Framework</td><td>Flutter 3.50 / Dart 3.14 (Android primary, iOS configured)</td></tr>
+<tr><td>State</td><td>Riverpod (providers for streams, derived figures, settings)</td></tr>
+<tr><td>Storage</td><td>Drift over SQLite3 Multiple Ciphers (AES-256); schema version 10; key in Flutter Secure Storage</td></tr>
+<tr><td>Money</td><td>Integer paise only; BigInt guards in the calculator</td></tr>
+<tr><td>Capture</td><td>Kotlin <code>NotificationListenerService</code> → Keystore-encrypted queue → Dart ingestion</td></tr>
+<tr><td>On-device ML</td><td>Google ML Kit text recognition (bill scan), no network</td></tr>
+<tr><td>Backup</td><td>PBKDF2-HMAC-SHA256 (210,000 rounds) → AES-256-GCM; Google Drive appDataFolder or file</td></tr>
+<tr><td>Quality gate</td><td><code>tool/verify.sh</code>: format check, analyzer (very_good_analysis), 280+ tests</td></tr>
+</table>
+
+<h2 id="architecture">Architecture</h2>
+<pre><code>lib/
+  main.dart                  startup, encrypted DB, lifecycle (drain, daily upkeep)
+  core/
+    database/                Drift tables, DAOs, migrations, seeder
+    domain/                  enums & value types (transaction type/state, roles)
+    ledger/                  LedgerService: the only place balances change
+    ingestion/               parser, intent classifier, dedup, mandate tracker,
+                             IngestionService, notification bridge (platform)
+    reconciliation/          self-transfer & refund matchers, balance reconciler
+    plan/                    SalaryPlanService, PlanTransferService, onboarding
+    engine/                  paycycle, safe-to-spend calculator, STS breakdown,
+                             waterfall allocator, spending summary
+    dues/                    owed money, splits, lending
+    import/                  statement CSV & bill text parsing
+    backup/                  codec (encrypt/restore), Drive client
+    security/                app lock, database key manager
+    providers/               Riverpod wiring
+  features/                  one folder per screen area (home, plan, accounts, log...)
+  design_system/             tokens ("Ink &amp; Sky"), widgets, fonts, icons
+android/.../kotlin/          RiveroNotificationListener, CaptureQueue, MainActivity</code></pre>
+<p>Dependencies point inward: <code>features</code> → <code>providers</code> → <code>core</code>. Core services take a database and have no Flutter UI imports, which keeps nearly all behaviour unit-testable against an in-memory database.</p>
+
+<h2 id="data-model">Data model</h2>
+<table>
+<tr><th>Table</th><th>Purpose</th></tr>
+<tr><td>physical_accounts</td><td>Banks, cards, wallets: balance (paise), liability flag, credit limit, type, mask (last digits), colour, picture, sort order</td></tr>
+<tr><td>allocation_buckets</td><td>Plan categories: role (expense, investment, savings, custom), allocated, carry-over, spent, target, linked destination account</td></tr>
+<tr><td>transactions</td><td>The ledger: signed amount, type, state, merchant, category, reference, timestamp, links to account/bucket/ingestion log, paired leg, attachment</td></tr>
+<tr><td>mandates</td><td>Autopay: payee, amount or cap, frequency, next date, status, account</td></tr>
+<tr><td>dues</td><td>Money owed: person, amount, received, kind (split, lent), source transaction</td></tr>
+<tr><td>raw_ingestion_logs</td><td>Capture audit trail (kept 90 days; excluded from backups)</td></tr>
+<tr><td>associated_titles</td><td>Remembered merchant → category hints</td></tr>
+<tr><td>app_settings</td><td>Key/value settings (pay day, salary, toggles, lock, categories)</td></tr>
+</table>
+<h3>Transaction type and state</h3>
+<p><strong>Types</strong>: expense, income, creditCardPurchase, creditCardSettlement, atmWithdrawal, cashExpenditure, internalTransfer, bucketFunding, investmentContribution, investmentRedemption, walletTopup, balanceAdjustment, refund, reversal, reimbursement, lending, planTransfer.</p>
+<p><strong>States</strong>: <code>needsReview</code> (no effect yet) → <code>confirmed</code> (applied) → <code>reconciled</code> (matched with a partner or bank message); or <code>ignored</code>. Balances and budgets change exactly once, when an entry becomes applied.</p>
+<h3>Id conventions</h3>
+<table>
+<tr><th>Prefix</th><th>Meaning</th></tr>
+<tr><td><code>plan-yyyyMMdd-bucket-out/-in</code></td><td>Plan transfer legs for a cycle (deterministic: re-applying edits, never duplicates)</td></tr>
+<tr><td><code>cc-…</code></td><td>Card-side leg of a bill paid from the bank</td></tr>
+<tr><td><code>import-…</code></td><td>Statement-import row: history only, never touches balances</td></tr>
+<tr><td><code>txn-manual-…</code></td><td>Entered by hand (eligible to absorb a later bank message)</td></tr>
+</table>
+<h3>Migrations</h3>
+<p>Versions 2–10 add columns and tables, repair data (v8 resets inflated carry-over, v9 clears obsolete bucket links) and add indexes on transaction time, account, state and amount (v10). Restoring an older backup applies the same repairs.</p>
+
+<h2 id="the-ledger">The ledger</h2>
+<p><code>LedgerService</code> is the single writer of balance and budget effects. Every path (capture, confirm, manual entry, plan, import) goes through it.</p>
+<ul>
+<li><strong>Atomic</strong>: record, confirm, remove, set-balance and transfer conversion each run in one database transaction.</li>
+<li><strong>Race-safe</strong>: balance and spent updates are single SQL <code>UPDATE … SET x = x + ?</code> statements; <code>confirm</code> flips the state with a conditional update and only the caller that flipped it applies the effects, so a double tap applies once.</li>
+<li><strong>Budget rules</strong>: cash outflows consume the spending bucket; card purchases do not (the bill is reserved instead); refunds give budget back; plan-category payments mark the category paid.</li>
+<li><strong>Undo</strong>: removing an applied entry reverses balance, budget and category-paid effects; history-only imports reverse nothing; deleting a bill removes its unpaid dues.</li>
+<li>Recording a debit that matches a live autopay rolls that autopay to its next date.</li>
+</ul>
+
+<h2 id="ingestion-pipeline">Ingestion pipeline</h2>
+<pre><code>Android notification
+  → RiveroNotificationListener      allow-listed apps (SMS apps, bank/UPI apps), money regex
+  → CaptureQueue                    AES-256-GCM, key in Android Keystore, cap 500
+  → MethodChannel "drain"           on open / resume / instantly while open
+  → NotificationBridge.ingestJson   per-item try/catch (one bad message never drops others)
+  → IngestionService.processNotification
+       0  classify intent           otp | preDebit | mandate created/cancelled/failed |
+                                    statementDue | transaction
+       1  FinancialParser           amount (with or without Rs/INR), direction, mask,
+                                    reference, balance, merchant, confidence
+       2  promotion filter          unsure + no mask + no reference + not a payment app
+       3  audit log
+       4  resolve account           digits → right kind (card vs bank) → learn digits
+                                    → else guess flagged for review
+       5  match plan entry         bank message for a plan move → attach, don't double count
+       6  duplicate check          reference-first, else amount+time+merchant; manual entries ±6h
+       7  card bill pairing        link bank leg and card leg, either order
+       8  insert                   confirmed if high confidence and sure, else needsReview
+       9  apply effects, adopt "Avl bal", reconcile</code></pre>
+<h3>Parser notes</h3>
+<ul>
+<li>Handles formats such as <code>Rs 450.00 debited</code>, <code>INR 1,299.00</code>, <code>₹500</code> and SBI-style <code>debited by 500.0</code> with no currency symbol.</li>
+<li>Confidence = amount (0.35) + direction (0.20) + account mask (0.15) + reference (0.15) + merchant (0.10) + known sender (0.05). At 0.85 and above, and with a certain account, it auto-confirms.</li>
+<li>OTPs are never stored (the log holds a placeholder).</li>
+<li>The notification title is used as the sender header for SMS apps (<code>VM-SBIUPI</code>), validated against known TRAI/DLT entity codes.</li>
+</ul>
+<h3>Reconciliation</h3>
+<p>Self-transfer matcher pairs a debit and a credit on different accounts only if the kinds can be transfers, amounts equal, and either both references match or neither exists and the legs are within two minutes. Refund matcher links refunds to their original purchase by merchant and amount. Paired legs become <code>internalTransfer</code> and leave spending.</p>
+
+<h2 id="plan-engine">Plan engine</h2>
+<ul>
+<li><code>SalaryPlanService.apply</code> validates the split (<code>Σ ≤ salary</code>), writes buckets, handles same-cycle revision vs new cycle (carry-over), and delegates money moves.</li>
+<li><code>PlanTransferService</code> computes moves (<code>movesFor</code>: tracked destinations only), plan-only categories (<code>planOnly</code>), syncs deterministic entries (<code>sync</code>), guards against shortfalls and can re-key a cycle when the pay day changes.</li>
+<li>Mid-month setup is handled by <code>alreadyMoved</code>: no transfers, categories marked paid, remembered per cycle.</li>
+<li><code>WaterfallAllocator</code> allocates by priority with integer percent maths; the conservation invariant <code>unallocated = salary − Σ allocated</code> is tested.</li>
+</ul>
+
+<h2 id="autopay-engine">Autopay engine</h2>
+<ul>
+<li><code>upcomingMandates</code> returns active mandates from 5 days overdue to the cycle end; <code>reserveUntil</code> multiplies by the number of weekly debits left.</li>
+<li><code>MandateTracker.onDebit</code> matches by whole-word payee and amount (or exact amount alone when only one fits); <code>rollOverdue</code> runs on start/resume and moves stale dates forward; <code>addMonths</code> clamps month ends.</li>
+</ul>
+
+<h2 id="providers-and-refresh">Providers and refresh</h2>
+<p>Streams from Drift DAOs feed Riverpod providers. <code>stsBreakdownProvider</code> composes buckets, accounts, mandates, dues, the pay cycle and settings into one <code>StsBreakdown</code>; <code>liveSafeToSpendResultProvider</code> derives from it. <code>todayProvider</code> is refreshed at midnight and on resume; <code>currentPaycycleProvider</code> recomputes from it and from the last planned cycle (early salary).</p>
+
+<h2 id="platform-layer-android">Platform layer (Android)</h2>
+<ul>
+<li><code>RiveroNotificationListener</code>: filters sources and money-like text, writes to <code>CaptureQueue</code>, nudges the live app.</li>
+<li><code>CaptureQueue</code>: AES-256-GCM with a non-exportable Keystore key; migrates an older plain queue; cleared by "Delete all data".</li>
+<li><code>MainActivity</code> (FlutterFragmentActivity for biometrics): channel methods <code>isEnabled</code>, <code>openSettings</code>, <code>drain</code>, <code>clearQueue</code>, <code>setSecure</code>, <code>postTest</code>.</li>
+<li>Manifest: no <code>READ_SMS</code>; <code>allowBackup="false"</code> so the database can never be copied without its key.</li>
+</ul>
+
+<h2 id="backup-format">Backup format</h2>
+<pre><code>{ format: "rivero-backup", v: 1, kdf: "pbkdf2-sha256", iter: 210000,
+  salt, nonce, mac, data: base64(AES-256-GCM(json)) }
+
+json = { schema, createdAt, physicalAccounts, allocationBuckets, transactions,
+         mandates, associatedTitles, dues, appSettings, media[] }</code></pre>
+<p>Restore: authenticate and decrypt, refuse a newer schema, write pictures back and re-point their paths, wipe and insert parents before children inside one transaction, fill columns added since, then apply the v8/v9 repairs for older backups.</p>
+
+<h2 id="testing">Testing</h2>
+<table>
+<tr><th>Layer</th><th>What is covered</th></tr>
+<tr><td>Engine</td><td>Safe to spend, pay cycle (leap years, 31st, early salary), waterfall invariants, spending summary</td></tr>
+<tr><td>Ledger</td><td>Effects and undo, double confirm, parallel balance writes, imports, set-balance</td></tr>
+<tr><td>Ingestion</td><td>Real-world SMS formats, intent classification, duplicates, card-bill pairing, account resolution, promotions</td></tr>
+<tr><td>Plan</td><td>Moves, plan-only, mid-month, shortfall refusal, pay-day change, early salary, onboarding</td></tr>
+<tr><td>Autopay</td><td>Roll-forward, overdue, weekly, month-end, matching</td></tr>
+<tr><td>Backup</td><td>Round trip, wrong passphrase, schema checks, photos, no raw messages</td></tr>
+<tr><td>Widgets</td><td>Home, Plan, Accounts, Log, review inbox, onboarding, contrast checks for both themes</td></tr>
+</table>
+<p>Regression tests for every issue found in the audits live in <code>test/core/audit/</code> and <code>test/core/ingestion/capture_audit_test.dart</code>.</p>
+
+<h2 id="design-system">Design system</h2>
+<p>"Ink &amp; Sky": a pure-black dark theme with a single blue accent, and a warm paper light theme. Colour carries meaning (categories, accounts, money in and out), not decoration. Tokens live in <code>rivero_tokens.dart</code>; this documentation site uses the same values. Six bundled fonts (Urbanist default, Inter, Plus Jakarta Sans, Manrope, DM Sans, JetBrains Mono for figures).</p>
+
+<div class="pager"><a href="how-it-works.html"><small>Previous</small>How it works</a><a class="next" href="privacy-security.html"><small>Next</small>Privacy & security</a></div>
+</article></div></main>
+<footer><div class="foot-in">
+<div>Rivero · private, local-first money for Android and iOS.<br>Built by Parthiv Kumar Nikku.</div>
+<div><a href="https://github.com/scap3sh4rk/Rivero">Source</a> · <a href="https://github.com/scap3sh4rk/Rivero/issues">Report an issue</a> · <a href="https://github.com/scap3sh4rk/Rivero/releases">Releases</a></div>
+</div></footer>
+<script src="assets/site.js"></script>
+</body>
+</html>
