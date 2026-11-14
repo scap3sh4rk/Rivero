@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 /// Semantic colors for Rivero's design system.
 /// All hex codes strictly adhere to the approved architecture specifications.
@@ -105,41 +104,64 @@ abstract final class RiveroRadii {
   );
 }
 
+/// Fonts bundled with the app (SIL Open Font License, see assets/fonts).
+abstract final class RiveroFonts {
+  /// Every family the user can choose, first is the default.
+  /// Urbanist is the closest open-licence match to Slice's typeface.
+  static const families = [
+    'Urbanist',
+    'Inter',
+    'Plus Jakarta Sans',
+    'Manrope',
+    'DM Sans',
+  ];
+
+  static const mono = 'JetBrains Mono';
+
+  /// Set by the app root before building, like [RiveroColors.isLight].
+  static String current = families.first;
+}
+
 /// Typography scale implementing:
 /// - Plus Jakarta Sans for headings & financial counters
 /// - Inter for general UI text
 /// - JetBrains Mono for account masks, transaction references, and timestamps
 abstract final class RiveroTypography {
   // --- Plus Jakarta Sans: Financial Counters & Display ---
-  static TextStyle get financialHero => GoogleFonts.plusJakartaSans(
+  static TextStyle get financialHero => TextStyle(
+    fontFamily: RiveroFonts.current,
     fontSize: 52,
     fontWeight: FontWeight.w700,
     letterSpacing: -0.8,
     color: RiveroColors.textPrimary,
   );
 
-  static TextStyle get financialLarge => GoogleFonts.plusJakartaSans(
+  static TextStyle get financialLarge => TextStyle(
+    fontFamily: RiveroFonts.current,
     fontSize: 28,
     fontWeight: FontWeight.w700,
     letterSpacing: -0.5,
     color: RiveroColors.textPrimary,
   );
 
-  static TextStyle get financialMedium => GoogleFonts.plusJakartaSans(
+  static TextStyle get financialMedium => TextStyle(
+    fontFamily: RiveroFonts.current,
     fontSize: 22,
     fontWeight: FontWeight.w600,
     letterSpacing: -0.3,
     color: RiveroColors.textPrimary,
   );
 
-  static TextStyle get displayLarge => GoogleFonts.plusJakartaSans(
+  static TextStyle get displayLarge => TextStyle(
+    fontFamily: RiveroFonts.current,
     fontSize: 24,
     fontWeight: FontWeight.w700,
     letterSpacing: -0.4,
     color: RiveroColors.textPrimary,
   );
 
-  static TextStyle get displayMedium => GoogleFonts.plusJakartaSans(
+  static TextStyle get displayMedium => TextStyle(
+    fontFamily: RiveroFonts.current,
     fontSize: 20,
     fontWeight: FontWeight.w600,
     letterSpacing: -0.2,
@@ -147,44 +169,51 @@ abstract final class RiveroTypography {
   );
 
   // --- Inter: UI Text ---
-  static TextStyle get titleLarge => GoogleFonts.inter(
+  static TextStyle get titleLarge => TextStyle(
+    fontFamily: RiveroFonts.current,
     fontSize: 18,
     fontWeight: FontWeight.w600,
     color: RiveroColors.textPrimary,
   );
 
-  static TextStyle get titleMedium => GoogleFonts.inter(
+  static TextStyle get titleMedium => TextStyle(
+    fontFamily: RiveroFonts.current,
     fontSize: 16,
     fontWeight: FontWeight.w600,
     color: RiveroColors.textPrimary,
   );
 
-  static TextStyle get bodyLarge => GoogleFonts.inter(
+  static TextStyle get bodyLarge => TextStyle(
+    fontFamily: RiveroFonts.current,
     fontSize: 16,
     fontWeight: FontWeight.w400,
     color: RiveroColors.textPrimary,
   );
 
-  static TextStyle get bodyMedium => GoogleFonts.inter(
+  static TextStyle get bodyMedium => TextStyle(
+    fontFamily: RiveroFonts.current,
     fontSize: 14,
     fontWeight: FontWeight.w400,
     color: RiveroColors.textSecondary,
   );
 
-  static TextStyle get bodySmall => GoogleFonts.inter(
+  static TextStyle get bodySmall => TextStyle(
+    fontFamily: RiveroFonts.current,
     fontSize: 12,
     fontWeight: FontWeight.w400,
     color: RiveroColors.textMuted,
   );
 
-  static TextStyle get labelLarge => GoogleFonts.inter(
+  static TextStyle get labelLarge => TextStyle(
+    fontFamily: RiveroFonts.current,
     fontSize: 14,
     fontWeight: FontWeight.w600,
     letterSpacing: 0.1,
     color: RiveroColors.textPrimary,
   );
 
-  static TextStyle get labelSmall => GoogleFonts.inter(
+  static TextStyle get labelSmall => TextStyle(
+    fontFamily: RiveroFonts.current,
     fontSize: 11,
     fontWeight: FontWeight.w500,
     letterSpacing: 0.2,
@@ -192,19 +221,22 @@ abstract final class RiveroTypography {
   );
 
   // --- JetBrains Mono: Account Masks, References, Timestamps ---
-  static TextStyle get monoLarge => GoogleFonts.jetBrainsMono(
+  static TextStyle get monoLarge => TextStyle(
+    fontFamily: RiveroFonts.mono,
     fontSize: 16,
     fontWeight: FontWeight.w500,
     color: RiveroColors.textPrimary,
   );
 
-  static TextStyle get monoMedium => GoogleFonts.jetBrainsMono(
+  static TextStyle get monoMedium => TextStyle(
+    fontFamily: RiveroFonts.mono,
     fontSize: 13,
     fontWeight: FontWeight.w400,
     color: RiveroColors.textSecondary,
   );
 
-  static TextStyle get monoSmall => GoogleFonts.jetBrainsMono(
+  static TextStyle get monoSmall => TextStyle(
+    fontFamily: RiveroFonts.mono,
     fontSize: 11,
     fontWeight: FontWeight.w400,
     color: RiveroColors.textMuted,
@@ -218,8 +250,11 @@ abstract final class RiveroTheme {
 
   /// Builds the theme and points [RiveroColors] neutrals at the same mode,
   /// so widgets reading `RiveroColors.*` match the Material theme.
-  static ThemeData build({required bool light}) {
+  static ThemeData build({required bool light, String? font}) {
     RiveroColors.isLight = light;
+    if (font != null && RiveroFonts.families.contains(font)) {
+      RiveroFonts.current = font;
+    }
     final scheme = light
         ? ColorScheme.light(
             surface: RiveroColors.surface,
@@ -242,6 +277,7 @@ abstract final class RiveroTheme {
           );
     return ThemeData(
       useMaterial3: true,
+      fontFamily: RiveroFonts.current,
       brightness: light ? Brightness.light : Brightness.dark,
       scaffoldBackgroundColor: RiveroColors.background,
       colorScheme: scheme,

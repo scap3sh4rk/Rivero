@@ -23,6 +23,7 @@ import 'package:rivero/core/reconciliation/internal_transfer_matcher.dart';
 import 'package:rivero/core/reconciliation/reconciliation_service.dart';
 import 'package:rivero/core/reconciliation/refund_matcher.dart';
 import 'package:rivero/core/security/app_lock.dart';
+import 'package:rivero/design_system/rivero_tokens.dart';
 
 /// Provider holding the current Safe-to-Spend amount in minor units (paise).
 final safeToSpendProvider = StateProvider<int>((ref) => 4825000); // ₹48,250.00
@@ -77,6 +78,10 @@ class SettingsSync {
         await dao.getInt(SettingKeys.monthlySalary) ?? 0;
     ref.read(reserveCreditCardsProvider.notifier).state =
         (await dao.get(SettingKeys.reserveCreditCards)) != '0';
+    final font = await dao.get(SettingKeys.font);
+    if (font != null && RiveroFonts.families.contains(font)) {
+      ref.read(fontFamilyProvider.notifier).state = font;
+    }
     ref.read(lastLogAccountProvider.notifier).state = await dao.get(
       SettingKeys.lastLogAccount,
     );
@@ -129,6 +134,7 @@ class SettingsSync {
         reserveCreditCardsProvider,
         (_, v) => save(SettingKeys.reserveCreditCards, v ? '1' : '0'),
       )
+      ..listen(fontFamilyProvider, (_, v) => save(SettingKeys.font, v))
       ..listen(lastLogAccountProvider, (_, v) {
         if (v != null) save(SettingKeys.lastLogAccount, v);
       })
@@ -400,6 +406,11 @@ final lastLogAccountProvider = StateProvider<String?>((ref) => null);
 /// The user's spending categories (with colours), in their order.
 final logCategoriesProvider = StateProvider<List<LogCategory>>(
   (ref) => LogCategory.defaults,
+);
+
+/// The app's typeface (one of RiveroFonts.families).
+final fontFamilyProvider = StateProvider<String>(
+  (ref) => RiveroFonts.families.first,
 );
 
 /// Open the app on the quick-log keypad instead of Home.

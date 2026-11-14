@@ -6,6 +6,7 @@ import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/security/app_lock.dart';
 import 'package:rivero/core/storage/media_store.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
+import 'package:rivero/design_system/widgets/picker.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/features/mandates/mandates_screen.dart';
 import 'package:rivero/features/settings/screens/account_types_screen.dart';
@@ -54,6 +55,37 @@ class SettingsScreen extends ConsumerWidget {
             title: 'Theme',
             subtitle: _themeLabels[theme],
             onTap: () => _pickTheme(context, ref, theme),
+          ),
+          _Row(
+            icon: Icons.text_fields_rounded,
+            title: 'Font',
+            subtitle: ref.watch(fontFamilyProvider),
+            onTap: () async {
+              final picked = await showPicker<String>(
+                context,
+                title: 'Font',
+                selected: ref.read(fontFamilyProvider),
+                options: [
+                  for (final f in RiveroFonts.families)
+                    PickerOption(
+                      f,
+                      f == RiveroFonts.families.first ? '$f (Slice-like)' : f,
+                      leading: Text(
+                        'Aa ₹1,250',
+                        style: TextStyle(
+                          fontFamily: f,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: RiveroColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                ],
+              );
+              if (picked != null) {
+                ref.read(fontFamilyProvider.notifier).state = picked.value;
+              }
+            },
           ),
           _Row(
             icon: Icons.dialpad_rounded,

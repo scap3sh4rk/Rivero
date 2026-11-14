@@ -116,6 +116,7 @@ class _RiveroAppState extends ConsumerState<RiveroApp>
   Widget build(BuildContext context) {
     ref.listen(themeModeProvider, (_, mode) => _saveTheme(mode));
     final mode = ref.watch(themeModeProvider);
+    final font = ref.watch(fontFamilyProvider);
     final light =
         mode == AppThemeMode.light ||
         (mode == AppThemeMode.system &&
@@ -123,11 +124,11 @@ class _RiveroAppState extends ConsumerState<RiveroApp>
                 Brightness.light);
     // Colours are read statically, so remount the tree when the mode flips.
     return KeyedSubtree(
-      key: ValueKey(light),
+      key: ValueKey('$light-$font'),
       child: MaterialApp(
         title: 'Rivero',
         debugShowCheckedModeBanner: false,
-        theme: RiveroTheme.build(light: light),
+        theme: RiveroTheme.build(light: light, font: font),
         home: switch (ref.watch(onboardedProvider)) {
           null => Scaffold(backgroundColor: RiveroColors.background),
           true => const AppLockGate(child: MainScreen()),

@@ -91,4 +91,26 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 100));
   });
+
+  testWidgets('choosing a font applies it app-wide', (tester) async {
+    addTearDown(() => RiveroFonts.current = RiveroFonts.families.first);
+    final container = ProviderContainer(
+      overrides: [databaseProvider.overrideWithValue(db)],
+    );
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(container: container, child: const RiveroApp()),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(RiveroFonts.current, 'Urbanist');
+
+    container.read(fontFamilyProvider.notifier).state = 'Inter';
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(RiveroFonts.current, 'Inter');
+    expect(RiveroTypography.bodyLarge.fontFamily, 'Inter');
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 100));
+  });
 }

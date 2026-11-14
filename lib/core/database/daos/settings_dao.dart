@@ -18,6 +18,7 @@ abstract final class SettingKeys {
   static const logCategories = 'log_categories_json';
   static const appLock = 'app_lock';
   static const lastLogAccount = 'last_log_account';
+  static const font = 'font_family';
 }
 
 @DriftAccessor(tables: [AppSettings])
