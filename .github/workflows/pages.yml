@@ -1,7 +1,12 @@
 name: Docs
 
 # The documentation site (docs/) is published to GitHub Pages when it
-# changes on main. Needs Settings -> Pages -> Source: "GitHub Actions".
+# changes on main.
+#
+# One-time setup by a repository admin: Settings -> Pages -> Source:
+# "GitHub Actions" (a private repository also needs a plan that includes
+# Pages). Until then this workflow ends with a notice instead of failing,
+# because the default token cannot switch Pages on.
 on:
   push:
     branches: [main]
@@ -25,9 +30,24 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/configure-pages@v5
+
+      - name: Is Pages enabled?
+        id: pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh api "repos/${{ github.repository }}/pages" --jq .build_type 2>/dev/null | grep -qx workflow; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=GitHub Pages is not enabled::Open Settings > Pages and set Source to 'GitHub Actions', then re-run this workflow. Private repositories also need a plan that includes Pages."
+          fi
+
       - uses: actions/upload-pages-artifact@v3
+        if: steps.pages.outputs.enabled == 'true'
         with:
           path: docs
+
       - id: deployment
+        if: steps.pages.outputs.enabled == 'true'
         uses: actions/deploy-pages@v4

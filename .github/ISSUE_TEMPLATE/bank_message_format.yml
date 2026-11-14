@@ -1,0 +1,55 @@
+name: Bank message not recognised
+description: A payment message Rivero could not read, or read wrongly
+title: "[Parser] "
+labels: [bug, help wanted]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is the most useful kind of report: each new format makes Rivero better for everyone.
+        **Remove personal details first.** Replace names with `NAME`, account digits with `XXXX`, and phone numbers, references and balances with made-up ones of the same shape. Keep the wording, order and punctuation exactly.
+  - type: textarea
+    id: message
+    attributes:
+      label: The message text (personal details removed)
+      render: text
+    validations:
+      required: true
+  - type: input
+    id: sender
+    attributes:
+      label: Sender name shown above the message
+      description: For example VM-SBIUPI, or the app name (PhonePe, Google Pay).
+    validations:
+      required: true
+  - type: dropdown
+    id: source
+    attributes:
+      label: How did it arrive?
+      options:
+        - SMS (Samsung Messages)
+        - SMS (Google Messages)
+        - SMS (another app)
+        - Bank app notification
+        - UPI app notification
+    validations:
+      required: true
+  - type: dropdown
+    id: result
+    attributes:
+      label: What did Rivero do?
+      options:
+        - Nothing, it never appeared
+        - Appeared under "bank messages to check"
+        - Recorded the wrong amount
+        - Recorded as spending but it was income (or the reverse)
+        - Recorded on the wrong account
+        - Counted twice
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should it have been?
+      placeholder: Debit of the amount from my savings account, merchant "NAME"

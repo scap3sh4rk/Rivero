@@ -1,0 +1,67 @@
+name: Bug report
+description: Something in Rivero is wrong, confusing or broken
+title: "[Bug] "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping! **Never paste real account numbers, names, balances you want private, passphrases or one-time passwords.** Blur or replace them.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where does it happen?
+      options:
+        - Safe to spend / Home
+        - Salary plan / Plan tab
+        - Accounts / cards
+        - Log (quick entry, bill scan)
+        - Activity / analytics
+        - Owed to you / split bills
+        - Autopay
+        - Capture (notifications)
+        - Backup / restore / Google Drive
+        - App lock / privacy
+        - Settings / other
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you see, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open Plan, tap the salary card
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: numbers
+    attributes:
+      label: The numbers involved (optional)
+      description: Round or made-up numbers are fine. For a wrong Safe to spend, tap the card and paste the lines of "How this is calculated".
+  - type: input
+    id: version
+    attributes:
+      label: Rivero version
+      description: The release tag, e.g. v0.2.0-4
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Phone and Android version
+      placeholder: Samsung S23, Android 15
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error text or screenshot (optional)
+      description: Paste the exact error message. Drag screenshots in, after hiding personal details.

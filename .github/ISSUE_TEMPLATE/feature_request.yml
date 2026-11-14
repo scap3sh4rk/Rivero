@@ -1,0 +1,47 @@
+name: Feature request
+description: Suggest an improvement or a new capability
+title: "[Feature] "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: Describe the situation, not the solution. Real examples help most.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like Rivero to do?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What do you do today instead?
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Safe to spend
+        - Salary plan
+        - Accounts / cards
+        - Capture / bank formats
+        - Autopay
+        - Owed / splits
+        - Reports / analytics
+        - Backup / import / export
+        - Design / accessibility
+        - Other
+    validations:
+      required: true
+  - type: checkboxes
+    id: principles
+    attributes:
+      label: Fits Rivero's principles
+      description: Rivero keeps money as whole paise, works offline, never asks for SMS permission or a bank login, and keeps data on the phone.
+      options:
+        - label: This does not need a server, a bank login or SMS permission
+          required: true

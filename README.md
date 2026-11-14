@@ -111,7 +111,7 @@ Android is the primary target. The iOS project is configured but has not been bu
 
 ## Contributing
 
-Issues and pull requests are welcome. The most useful help right now: real-world bank message formats (personal details removed) for the parser tests, iOS testing, and accessibility feedback. See [Build & contribute](https://scap3sh4rk.github.io/Rivero/contribute.html).
+Issues and pull requests are welcome; pick a template (bug, feature, bank message not recognised, question). Security problems: please report privately, see [SECURITY.md](SECURITY.md). The most useful help right now: real-world bank message formats (personal details removed) for the parser tests, iOS testing, and accessibility feedback. See [Build & contribute](https://scap3sh4rk.github.io/Rivero/contribute.html).
 
 ## Author
 
