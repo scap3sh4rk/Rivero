@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 
@@ -9,7 +11,15 @@ class BankBadge extends StatelessWidget {
     super.key,
     this.size = 44,
     this.circle = false,
+    this.color,
+    this.imagePath,
   });
+
+  /// Explicit tint (account / category colour); else derived from [name].
+  final Color? color;
+
+  /// A user-chosen picture shown instead of initials, if the file exists.
+  final String? imagePath;
 
   final String name;
   final double size;
@@ -27,6 +37,10 @@ class BankBadge extends StatelessWidget {
     RiveroColors.walletAccent,
   ];
 
+  /// Stable tint for a name (used when no colour was chosen).
+  static Color tintFor(String name) =>
+      _tints[name.codeUnits.fold(0, (a, b) => a + b) % _tints.length];
+
   /// First one or two initials, e.g. "HDFC Bank" -> "HB", "SBI" -> "S".
   static String initials(String name) {
     final words = name.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty);
@@ -35,8 +49,20 @@ class BankBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tint =
-        _tints[name.codeUnits.fold(0, (a, b) => a + b) % _tints.length];
+    final tint = color ?? tintFor(name);
+    final path = imagePath;
+    if (path != null && File(path).existsSync()) {
+      final radius = circle ? size / 2 : size * 0.3;
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: Image.file(
+          File(path),
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+        ),
+      );
+    }
     return Container(
       width: size,
       height: size,

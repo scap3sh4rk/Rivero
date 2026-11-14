@@ -313,11 +313,7 @@ class _SalaryPlanScreenState extends ConsumerState<SalaryPlanScreen> {
           SizedBox(
             height: 56,
             child: FilledButton(
-              style: FilledButton.styleFrom(
-                shape: const StadiumBorder(),
-                backgroundColor: RiveroColors.textPrimary,
-                foregroundColor: RiveroColors.background,
-              ),
+              style: FilledButton.styleFrom(shape: const StadiumBorder()),
               onPressed: salary == 0 || over || _saving
                   ? null
                   : () => _apply(salary, split),

@@ -6,6 +6,7 @@ import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
+import 'package:rivero/features/settings/screens/categories_screen.dart';
 import 'package:rivero/features/transactions/widgets/split_sheet.dart';
 
 /// One transaction: what it was, a note, its category, and fixes
@@ -26,16 +27,6 @@ class TransactionDetailSheet extends ConsumerStatefulWidget {
       builder: (_) => TransactionDetailSheet(transaction: t),
     );
   }
-
-  static const categories = [
-    'Food',
-    'Transport',
-    'Shopping',
-    'Bills',
-    'Health',
-    'Fun',
-    'Other',
-  ];
 
   @override
   ConsumerState<TransactionDetailSheet> createState() =>
@@ -120,7 +111,11 @@ class _TransactionDetailSheetState
             .firstOrNull;
     final pending = t.transactionState == TransactionState.needsReview;
     final credit = t.amountMinorUnits > 0;
-    final cats = {...TransactionDetailSheet.categories, t.category}.toList();
+    final cats = {
+      ...ref.watch(logCategoriesProvider).map((c) => c.name),
+      t.category,
+      _category,
+    }.toList();
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
@@ -189,6 +184,16 @@ class _TransactionDetailSheetState
                       shape: const StadiumBorder(),
                       onSelected: (_) => setState(() => _category = c),
                     ),
+                  ActionChip(
+                    key: const ValueKey('custom-category'),
+                    avatar: const Icon(Icons.add_rounded, size: 16),
+                    label: const Text('Custom'),
+                    shape: const StadiumBorder(),
+                    onPressed: () async {
+                      final name = await promptNewCategory(context, ref);
+                      if (name != null) setState(() => _category = name);
+                    },
+                  ),
                 ],
               ),
             const SizedBox(height: RiveroSpacing.xl),

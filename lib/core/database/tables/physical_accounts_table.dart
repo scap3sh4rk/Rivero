@@ -36,6 +36,12 @@ class PhysicalAccounts extends Table {
   /// Soft deletion / archival flag.
   BoolColumn get isActive => boolean().withDefault(const Constant(true))();
 
+  /// Colour the user picked for this account (ARGB), if any.
+  IntColumn get colorValue => integer().nullable()();
+
+  /// Path to a picture/thumbnail the user chose for this account.
+  TextColumn get imagePath => text().nullable()();
+
   /// Audit timestamp when the account record was created.
   DateTimeColumn get createdAt => dateTime()();
 

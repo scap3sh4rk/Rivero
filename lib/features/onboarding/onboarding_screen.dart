@@ -255,11 +255,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 width: double.infinity,
                 height: 56,
                 child: FilledButton(
-                  style: FilledButton.styleFrom(
-                    shape: const StadiumBorder(),
-                    backgroundColor: RiveroColors.textPrimary,
-                    foregroundColor: RiveroColors.background,
-                  ),
+                  style: FilledButton.styleFrom(shape: const StadiumBorder()),
                   onPressed: _stepValid && !_saving ? _next : null,
                   child: Text(_step < 2 ? 'Continue' : 'Start'),
                 ),

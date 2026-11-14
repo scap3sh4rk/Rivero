@@ -96,8 +96,6 @@ class ReviewInbox extends ConsumerWidget {
                           onPressed: () => confirm(t),
                           style: FilledButton.styleFrom(
                             shape: const StadiumBorder(),
-                            backgroundColor: RiveroColors.textPrimary,
-                            foregroundColor: RiveroColors.background,
                           ),
                           child: const Text('Confirm'),
                         ),

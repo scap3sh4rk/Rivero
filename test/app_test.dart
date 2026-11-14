@@ -86,7 +86,7 @@ void main() {
     expect(RiveroColors.isLight, isTrue);
     final scaffold = tester.widget<Scaffold>(find.byType(Scaffold).first);
     expect(scaffold.backgroundColor, RiveroColors.background);
-    expect(RiveroColors.background, const Color(0xFFF6F5F2));
+    expect(RiveroColors.background, const Color(0xFFF6F3EE));
 
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 100));

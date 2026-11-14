@@ -9,6 +9,7 @@ import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/bank_badge.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
+import 'package:rivero/features/settings/screens/categories_screen.dart';
 import 'package:rivero/features/transactions/widgets/spending_overview.dart';
 import 'package:rivero/features/transactions/widgets/transaction_detail_sheet.dart';
 
@@ -96,6 +97,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     final txns = ref.watch(allTransactionsStreamProvider).value ?? const [];
     final privacy = ref.watch(privacyModeProvider);
     final shown = txns.where(_matches).toList();
+    final categories = ref.watch(logCategoriesProvider);
 
     return Scaffold(
       backgroundColor: RiveroColors.background,
@@ -188,9 +190,13 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                     ],
                   );
                 }
+                final t = shown[i - 1];
                 return _ActivityRow(
-                  shown[i - 1],
+                  t,
                   privacy: privacy,
+                  tint: t.amountMinorUnits > 0
+                      ? RiveroColors.success
+                      : categoryColor(t.category, categories),
                 ).animate().fadeIn(duration: 220.ms);
               },
             ),
@@ -202,10 +208,11 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
 }
 
 class _ActivityRow extends StatelessWidget {
-  const _ActivityRow(this.t, {required this.privacy});
+  const _ActivityRow(this.t, {required this.privacy, required this.tint});
 
   final LedgerTransaction t;
   final bool privacy;
+  final Color tint;
 
   @override
   Widget build(BuildContext context) {
@@ -224,7 +231,7 @@ class _ActivityRow extends StatelessWidget {
         ),
         child: Row(
           children: [
-            BankBadge(name: t.merchant, size: 48, circle: true),
+            BankBadge(name: t.merchant, size: 48, circle: true, color: tint),
             const SizedBox(width: RiveroSpacing.md),
             Expanded(
               child: Column(

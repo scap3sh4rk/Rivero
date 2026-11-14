@@ -8,6 +8,7 @@ import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/database/database_seeder.dart';
 import 'package:rivero/core/domain/account_role.dart';
 import 'package:rivero/core/domain/custom_account_types.dart';
+import 'package:rivero/core/domain/log_category.dart';
 import 'package:rivero/core/dues/dues_service.dart';
 import 'package:rivero/core/engine/paycycle.dart';
 import 'package:rivero/core/engine/safe_to_spend_calculator.dart';
@@ -75,6 +76,13 @@ class SettingsSync {
         await dao.getInt(SettingKeys.monthlySalary) ?? 0;
     ref.read(reserveCreditCardsProvider.notifier).state =
         (await dao.get(SettingKeys.reserveCreditCards)) != '0';
+    final catsJson = await dao.get(SettingKeys.logCategories);
+    if (catsJson != null) {
+      ref.read(logCategoriesProvider.notifier).state = [
+        for (final j in jsonDecode(catsJson) as List)
+          LogCategory.fromJson(j as Map<String, dynamic>),
+      ];
+    }
     final typesJson = await dao.get(SettingKeys.accountTypes);
     if (typesJson != null) {
       ref.read(customAccountTypesProvider.notifier).state =
@@ -114,6 +122,13 @@ class SettingsSync {
       ..listen(
         reserveCreditCardsProvider,
         (_, v) => save(SettingKeys.reserveCreditCards, v ? '1' : '0'),
+      )
+      ..listen(
+        logCategoriesProvider,
+        (_, v) => save(
+          SettingKeys.logCategories,
+          jsonEncode([for (final c in v) c.toJson()]),
+        ),
       )
       ..listen(
         customAccountTypesProvider,
@@ -368,6 +383,11 @@ final selectedNavIndexProvider = StateProvider<int>((ref) => 2);
 /// Last category / account used on the quick-log keypad (kept for the session).
 final lastLogCategoryProvider = StateProvider<String>((ref) => 'Food');
 final lastLogAccountProvider = StateProvider<String?>((ref) => null);
+
+/// The user's spending categories (with colours), in their order.
+final logCategoriesProvider = StateProvider<List<LogCategory>>(
+  (ref) => LogCategory.defaults,
+);
 
 /// Open the app on the quick-log keypad instead of Home.
 final openOnLogProvider = StateProvider<bool>((ref) => false);

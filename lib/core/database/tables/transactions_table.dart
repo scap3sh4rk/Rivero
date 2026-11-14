@@ -61,6 +61,9 @@ class Transactions extends Table {
   /// Optional user annotations.
   TextColumn get userNotes => text().nullable()();
 
+  /// Path to an attached bill/receipt photo.
+  TextColumn get attachmentPath => text().nullable()();
+
   /// Audit timestamp when the record was persisted.
   DateTimeColumn get createdAt => dateTime()();
 

@@ -6,7 +6,9 @@ import 'package:rivero/core/engine/spending_summary.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
+import 'package:rivero/design_system/widgets/account_color.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
+import 'package:rivero/features/settings/screens/categories_screen.dart';
 
 /// "You've spent ₹X since payday": a day-by-day chart for this pay cycle and
 /// the categories it went to. Tapping a category filters the list below.
@@ -71,6 +73,7 @@ class SpendingOverview extends ConsumerWidget {
             const SizedBox(height: RiveroSpacing.lg),
             for (final e in s.byCategory.take(5))
               _CategoryBar(
+                color: categoryColor(e.key, ref.watch(logCategoriesProvider)),
                 name: e.key,
                 amount: money(e.value),
                 share: e.value / s.total,
@@ -90,12 +93,14 @@ class SpendingOverview extends ConsumerWidget {
 
 class _CategoryBar extends StatelessWidget {
   const _CategoryBar({
+    required this.color,
     required this.name,
     required this.amount,
     required this.share,
     required this.onTap,
   });
 
+  final Color color;
   final String name;
   final String amount;
   final double share;
@@ -112,6 +117,8 @@ class _CategoryBar extends StatelessWidget {
           children: [
             Row(
               children: [
+                ColorDot(color),
+                const SizedBox(width: RiveroSpacing.sm),
                 Expanded(child: Text(name, style: RiveroTypography.bodyMedium)),
                 Text(amount, style: RiveroTypography.labelLarge),
               ],
@@ -123,9 +130,7 @@ class _CategoryBar extends StatelessWidget {
                 value: share,
                 minHeight: 4,
                 backgroundColor: RiveroColors.surfaceInteractive,
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  RiveroColors.textSecondary,
-                ),
+                valueColor: AlwaysStoppedAnimation<Color>(color),
               ),
             ),
           ],

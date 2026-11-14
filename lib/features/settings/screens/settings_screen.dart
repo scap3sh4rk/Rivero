@@ -7,6 +7,7 @@ import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/features/mandates/mandates_screen.dart';
 import 'package:rivero/features/settings/screens/account_types_screen.dart';
+import 'package:rivero/features/settings/screens/categories_screen.dart';
 
 /// Settings as short rows: one line each, details one tap deeper.
 class SettingsScreen extends ConsumerWidget {
@@ -88,6 +89,12 @@ class SettingsScreen extends ConsumerWidget {
                           .state =
                       v,
             ),
+          ),
+          _Row(
+            icon: Icons.sell_outlined,
+            title: 'Categories',
+            subtitle: 'Used by Log and Activity',
+            onTap: () => CategoriesScreen.open(context),
           ),
           _Row(
             icon: Icons.category_outlined,

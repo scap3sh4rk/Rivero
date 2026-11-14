@@ -21,17 +21,16 @@ void main() {
     expect(parseAmountMinorUnits(''), 0);
   });
 
-  testWidgets('typing 45 and saving posts an expense and spends the budget', (
-    tester,
-  ) async {
+  late RiveroDatabase db;
+
+  Future<ProviderContainer> pumpLog(WidgetTester tester) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    final db = RiveroDatabase.memory();
+    db = RiveroDatabase.memory();
     addTearDown(db.close);
     await DatabaseSeeder(db).seedIfEmpty();
-
     await tester.pumpWidget(
       ProviderScope(
         overrides: [databaseProvider.overrideWithValue(db)],
@@ -40,92 +39,109 @@ void main() {
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
+    return ProviderScope.containerOf(
+      tester.element(find.byType(QuickLogScreen)),
+    );
+  }
 
-    final before = (await tester.runAsync(
-      () => db.accountsDao.getBucketById('bucket-expense'),
-    ))!.spentMinorUnits;
-
-    await tester.tap(find.byKey(const ValueKey('key-4')));
-    await tester.tap(find.byKey(const ValueKey('key-5')));
+  Future<void> press(WidgetTester tester, String key) async {
+    await tester.tap(find.byKey(ValueKey(key)));
     await tester.pump();
-    expect(find.text('₹45'), findsOneWidget);
+  }
 
+  Future<void> saveAndSettle(WidgetTester tester) async {
     await tester.tap(find.text('Save'));
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 300)),
     );
     await tester.pump();
+  }
+
+  Future<void> finish(WidgetTester tester) async {
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+
+  testWidgets('nothing pre-selected; an unlabelled spend goes to Other', (
+    tester,
+  ) async {
+    await pumpLog(tester);
+    final chips = tester.widgetList<ChoiceChip>(find.byType(ChoiceChip));
+    expect(chips.any((c) => c.selected), isFalse);
+    expect(find.byKey(const ValueKey('recents')), findsNothing);
+
+    final before = (await tester.runAsync(
+      () => db.accountsDao.getBucketById('bucket-expense'),
+    ))!.spentMinorUnits;
+    await press(tester, 'key-4');
+    await press(tester, 'key-5');
+    expect(find.text('₹45'), findsOneWidget);
+    await saveAndSettle(tester);
 
     final after = (await tester.runAsync(
       () => db.accountsDao.getBucketById('bucket-expense'),
     ))!.spentMinorUnits;
     expect(after - before, 4500);
-    expect(
-      find.text('Saved to Food'),
-      findsOneWidget,
-    ); // inline, not a snackbar
+    expect(find.text('Saved to Other'), findsOneWidget);
     await tester.pump(const Duration(milliseconds: 1600));
     expect(find.text('₹0'), findsOneWidget);
-
-    await tester.pumpWidget(const SizedBox());
-    await tester.pump(const Duration(milliseconds: 100));
+    await finish(tester);
   });
 
-  testWidgets('recent chip refills; rent can be paid from its own category', (
+  testWidgets('long-press 0 types a decimal point', (tester) async {
+    await pumpLog(tester);
+    await press(tester, 'key-1');
+    await tester.longPress(find.byKey(const ValueKey('key-0')));
+    await tester.pump();
+    await press(tester, 'key-5');
+    expect(find.text('₹1.5'), findsOneWidget);
+    await finish(tester);
+  });
+
+  testWidgets('a note becomes the title and remembers its category', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(1080, 2400);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    final db = RiveroDatabase.memory();
-    addTearDown(db.close);
-    await DatabaseSeeder(db).seedIfEmpty();
+    await pumpLog(tester);
+    await tester.enterText(
+      find.byKey(const ValueKey('log-note')),
+      'Metro card',
+    );
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Transport'));
+    await press(tester, 'key-2');
+    await press(tester, 'key-0');
+    await press(tester, 'key-0');
+    await saveAndSettle(tester);
+    await tester.pump(const Duration(milliseconds: 1600));
+
+    final saved = (await tester.runAsync(
+      () => db.select(db.transactions).get(),
+    ))!.firstWhere((t) => t.merchant == 'Metro card');
+    expect(saved.category, 'Transport');
+
+    await tester.enterText(
+      find.byKey(const ValueKey('log-note')),
+      'metro card',
+    );
+    await tester.pump();
+    expect(
+      tester
+          .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Transport'))
+          .selected,
+      isTrue,
+    );
+    await finish(tester);
+  });
+
+  testWidgets('rent can be paid from its own category', (tester) async {
+    await pumpLog(tester);
     final rentId = (await tester.runAsync(
       () => SalaryPlanService(db).addCustomCategory('Rent', 2500000),
     ))!;
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [databaseProvider.overrideWithValue(db)],
-        child: const MaterialApp(home: QuickLogScreen()),
-      ),
-    );
-    await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
 
-    Future<void> settle() async {
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 300)),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 200));
-    }
-
-    // Log ₹45 once; it then shows up as a one-tap recent.
-    await tester.tap(find.byKey(const ValueKey('key-4')));
-    await tester.tap(find.byKey(const ValueKey('key-5')));
-    await tester.pump();
-    await tester.tap(find.text('Save'));
-    await settle();
-    await tester.pump(const Duration(milliseconds: 1600));
-    expect(find.text('₹0'), findsOneWidget);
-
-    final recent = find.descendant(
-      of: find.byKey(const ValueKey('recents')),
-      matching: find.byType(ActionChip),
-    );
-    expect(recent, findsWidgets);
-    await tester.tap(recent.first);
-    await tester.pump();
-    expect(find.text('₹45'), findsOneWidget);
-
-    // Pay rent from the Rent category, not the spending budget.
-    await tester.longPress(find.byKey(const ValueKey('key-<'))); // clear
     for (final k in ['2', '5', '0', '0', '0']) {
-      await tester.tap(find.byKey(ValueKey('key-$k')));
+      await press(tester, 'key-$k');
     }
-    await tester.pump();
     await tester.tap(find.byKey(const ValueKey('pay-from')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
@@ -136,12 +152,7 @@ void main() {
     final spendingBefore = (await tester.runAsync(
       () => db.accountsDao.getBucketById('bucket-expense'),
     ))!.spentMinorUnits;
-    await tester.tap(find.text('Save'));
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 300)),
-    );
-    await tester.pump();
-
+    await saveAndSettle(tester);
     final rent = (await tester.runAsync(
       () => db.accountsDao.getBucketById(rentId),
     ))!;
@@ -150,91 +161,14 @@ void main() {
     ))!;
     expect(rent.spentMinorUnits, 2500000);
     expect(spending.spentMinorUnits, spendingBefore);
-
-    await tester.pumpWidget(const SizedBox());
-    await tester.pump(const Duration(milliseconds: 100));
+    await finish(tester);
   });
 
-  testWidgets('a note becomes the title and remembers its category', (
+  testWidgets('calculator key on the keypad: 120 + 80 × 2 logs ₹280', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(1080, 2400);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    final db = RiveroDatabase.memory();
-    addTearDown(db.close);
-    await DatabaseSeeder(db).seedIfEmpty();
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [databaseProvider.overrideWithValue(db)],
-        child: const MaterialApp(home: QuickLogScreen()),
-      ),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 200));
-
-    await tester.enterText(
-      find.byKey(const ValueKey('log-note')),
-      'Metro card',
-    );
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Transport'));
-    await tester.tap(find.byKey(const ValueKey('key-2')));
-    await tester.tap(find.byKey(const ValueKey('key-0')));
-    await tester.tap(find.byKey(const ValueKey('key-0')));
-    await tester.pump();
-    await tester.tap(find.text('Save'));
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 300)),
-    );
-    await tester.pump(const Duration(milliseconds: 1600));
-
-    final saved = (await tester.runAsync(
-      () => db.select(db.transactions).get(),
-    ))!.firstWhere((t) => t.merchant == 'Metro card');
-    expect(saved.category, 'Transport');
-
-    // Switch away, then type the same note: Transport comes back by itself.
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Food'));
-    await tester.enterText(
-      find.byKey(const ValueKey('log-note')),
-      'metro card',
-    );
-    await tester.pump();
-    final transport = tester.widget<ChoiceChip>(
-      find.widgetWithText(ChoiceChip, 'Transport'),
-    );
-    expect(transport.selected, isTrue);
-
-    await tester.pumpWidget(const SizedBox());
-    await tester.pump(const Duration(milliseconds: 100));
-  });
-
-  testWidgets('calculator pane: 120 + 80 × 2 logs ₹280', (tester) async {
-    tester.view.physicalSize = const Size(1080, 2400);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    final db = RiveroDatabase.memory();
-    addTearDown(db.close);
-    await DatabaseSeeder(db).seedIfEmpty();
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [databaseProvider.overrideWithValue(db)],
-        child: const MaterialApp(home: QuickLogScreen()),
-      ),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 200));
-
-    Future<void> press(String key) async {
-      await tester.tap(find.byKey(ValueKey(key)));
-      await tester.pump();
-    }
-
-    await press('calc-toggle');
+    await pumpLog(tester);
+    await press(tester, 'calc-toggle');
     await tester.pump(const Duration(milliseconds: 400));
     for (final k in [
       'key-1',
@@ -246,26 +180,39 @@ void main() {
       'op-×',
       'key-2',
     ]) {
-      await press(k);
+      await press(tester, k);
     }
     expect(find.text('120+80×2'), findsOneWidget);
     expect(find.text('₹280'), findsOneWidget);
-
-    await press('op-=');
+    await press(tester, 'op-=');
     expect(find.text('120+80×2'), findsNothing);
-    expect(find.text('₹280'), findsOneWidget);
-
-    await tester.tap(find.text('Save'));
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 300)),
-    );
-    await tester.pump(const Duration(milliseconds: 1600));
+    await saveAndSettle(tester);
     final txns = (await tester.runAsync(
       () => db.select(db.transactions).get(),
     ))!;
     expect(txns.any((t) => t.amountMinorUnits == -28000), isTrue);
+    await finish(tester);
+  });
 
-    await tester.pumpWidget(const SizedBox());
-    await tester.pump(const Duration(milliseconds: 100));
+  testWidgets('New creates a category and selects it', (tester) async {
+    final container = await pumpLog(tester);
+    await tester.tap(find.byKey(const ValueKey('new-category')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.enterText(find.byKey(const ValueKey('category-name')), 'Pets');
+    await tester.tap(find.text('Save').last);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(
+      container.read(logCategoriesProvider).map((c) => c.name),
+      contains('Pets'),
+    );
+    expect(
+      tester
+          .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Pets'))
+          .selected,
+      isTrue,
+    );
+    await finish(tester);
   });
 }

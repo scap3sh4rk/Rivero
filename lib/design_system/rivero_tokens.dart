@@ -7,90 +7,69 @@ abstract final class RiveroColors {
   /// Set by the app root before building; neutrals below follow it.
   static bool isLight = false;
 
-  // --- Core Surfaces ---
-  /// Deep pitch dark background: `#08080C`
+  // Palette "Ink & Sky": blue-black ink and soft blue in dark mode, warm
+  // paper and deeper blue in light mode. One accent; colour is used for
+  // meaning (categories, accounts, money in/out), not decoration.
+
+  // --- Core surfaces ---
   static Color get background =>
-      isLight ? const Color(0xFFF6F5F2) : const Color(0xFF09090B);
-
-  /// Primary card and container surface: `#12121A`
+      isLight ? const Color(0xFFF6F3EE) : const Color(0xFF0E1116);
   static Color get surface =>
-      isLight ? const Color(0xFFFFFFFF) : const Color(0xFF131316);
-
-  /// Elevated card, modal, or floating surface: `#1A1A26`
+      isLight ? const Color(0xFFFFFFFF) : const Color(0xFF161B22);
   static Color get surfaceElevated =>
-      isLight ? const Color(0xFFF0EFEB) : const Color(0xFF1B1B1F);
-
-  /// Higher level interactive surface (hover/active state): `#222233`
+      isLight ? const Color(0xFFEFEBE4) : const Color(0xFF1D232C);
   static Color get surfaceInteractive =>
-      isLight ? const Color(0xFFE6E4DF) : const Color(0xFF25252B);
+      isLight ? const Color(0xFFE5E0D7) : const Color(0xFF262D38);
 
-  // --- Financial Hierarchy Accents ---
-  /// Salary root accent (Warm Amber): `#F59E0B`
-  static const Color salaryAccent = Color(0xFFD4A85A);
+  /// The one interactive accent (selection, primary buttons, active tab).
+  static Color get accent =>
+      isLight ? const Color(0xFF1A73D9) : const Color(0xFF4EA3F8);
 
-  /// Expense bucket accent (Vibrant Violet): `#8B5CF6`
-  static const Color expenseAccent = Color(0xFF9A93D9);
+  // --- Role accents (shared with the category palette) ---
+  static const Color salaryAccent = Color(0xFFF2B33D); // amber
+  static const Color expenseAccent = Color(0xFF4EA3F8); // blue
+  static const Color investmentAccent = Color(0xFF9A85F2); // violet
+  static const Color savingsAccent = Color(0xFF33B5A5); // teal
+  static const Color mandateWarning = Color(0xFFF0717A); // coral
+  static const Color customAccent = Color(0xFFE879A9); // pink
+  static const Color liabilityAccent = Color(0xFFD9A47A); // sand
+  static const Color walletAccent = Color(0xFF6CC4EE); // sky
 
-  /// Investment bucket accent (Emerald Green): `#10B981`
-  static const Color investmentAccent = Color(0xFF6FBF9F);
+  /// Distinct, calm colours for categories and accounts.
+  static const List<Color> categorical = [
+    Color(0xFF4EA3F8), // blue
+    Color(0xFFF0717A), // coral
+    Color(0xFFF2B33D), // amber
+    Color(0xFF9A85F2), // violet
+    Color(0xFF33B5A5), // teal
+    Color(0xFFE879A9), // pink
+    Color(0xFF6CC4EE), // sky
+    Color(0xFFD9A47A), // sand
+  ];
 
-  /// Savings bucket accent (Cyan): `#06B6D4`
-  static const Color savingsAccent = Color(0xFF6BAFC4);
+  // --- Semantic ---
+  static const Color success = Color(0xFF34C77B); // money in
+  static const Color danger = Color(0xFFF0616D);
+  static const Color info = Color(0xFF4EA3F8);
+  static const Color warning = Color(0xFFF2A93B);
 
-  /// Recurring mandate and liquidity deficit warning (Rose Red): `#F43F5E`
-  static const Color mandateWarning = Color(0xFFD9695F);
-
-  /// Custom bucket accent (Fuchsia): `#EC4899`
-  static const Color customAccent = Color(0xFFC27BA0);
-
-  /// Credit card liability accent (Tangerine): `#FB923C`
-  static const Color liabilityAccent = Color(0xFFD89868);
-
-  /// Virtual wallet accent (Sky): `#38BDF8`
-  static const Color walletAccent = Color(0xFF7FAAD6);
-
-  // --- Semantic State Colors ---
-  /// Success green: `#10B981`
-  static const Color success = Color(0xFF6FBF9F);
-
-  /// Danger/Alert red: `#F43F5E`
-  static const Color danger = Color(0xFFD9695F);
-
-  /// Info blue: `#3B82F6`
-  static const Color info = Color(0xFF7C9ED9);
-
-  /// Warning amber: `#F59E0B`
-  static const Color warning = Color(0xFFD4A85A);
-
-  // --- Text & Foreground ---
-  /// Primary high-contrast text: `#F8FAFC`
+  // --- Text ---
   static Color get textPrimary =>
-      isLight ? const Color(0xFF16161A) : const Color(0xFFF8FAFC);
-
-  /// Secondary subdued text: `#94A3B8`
+      isLight ? const Color(0xFF14171C) : const Color(0xFFF2F4F7);
   static Color get textSecondary =>
-      isLight ? const Color(0xFF55596A) : const Color(0xFF94A3B8);
-
-  /// Muted helper text: `#64748B`
+      isLight ? const Color(0xFF4E5562) : const Color(0xFFA6AFBD);
   static Color get textMuted =>
-      isLight ? const Color(0xFF7C8091) : const Color(0xFF64748B);
-
-  /// Disabled text/icon: `#475569`
+      isLight ? const Color(0xFF7A8190) : const Color(0xFF6E7787);
   static Color get textDisabled =>
-      isLight ? const Color(0xFFA5A8B5) : const Color(0xFF475569);
+      isLight ? const Color(0xFFA9AEB8) : const Color(0xFF4B5260);
 
-  // --- Borders & Dividers ---
-  /// Subtle surface outline: `#1E1E2E`
+  // --- Borders ---
   static Color get borderSubtle =>
-      isLight ? const Color(0xFFE4E2DC) : const Color(0xFF1F1F25);
-
-  /// Distinct component border: `#2E2E42`
+      isLight ? const Color(0xFFE3DED5) : const Color(0xFF222831);
   static Color get borderMedium =>
-      isLight ? const Color(0xFFD3D0C8) : const Color(0xFF2D2D35);
-
-  /// Highlight/focused border: `#3E3E58`
+      isLight ? const Color(0xFFD4CEC3) : const Color(0xFF2C333D);
   static Color get borderHighlight =>
-      isLight ? const Color(0xFFBDB9AF) : const Color(0xFF3D3D48);
+      isLight ? const Color(0xFFBDB6A9) : const Color(0xFF3A424E);
 }
 
 /// Spacing scale based on an 8-point / 4-point harmonic grid.
@@ -244,18 +223,15 @@ abstract final class RiveroTheme {
         ? ColorScheme.light(
             surface: RiveroColors.surface,
             onSurface: RiveroColors.textPrimary,
-            primary: RiveroColors.textPrimary,
-            onPrimary: RiveroColors.background,
+            primary: RiveroColors.accent,
             secondary: RiveroColors.salaryAccent,
             error: RiveroColors.danger,
           )
         : ColorScheme.dark(
             surface: RiveroColors.surface,
             onSurface: RiveroColors.textPrimary,
-            // Monochrome controls (switches, chips, buttons): calmer, less
-            // "themed" than a coloured primary.
-            primary: RiveroColors.textPrimary,
-            onPrimary: RiveroColors.background,
+            primary: RiveroColors.accent,
+            onPrimary: const Color(0xFF0B1220),
             secondary: RiveroColors.salaryAccent,
             onSecondary: RiveroColors.background,
             error: RiveroColors.danger,

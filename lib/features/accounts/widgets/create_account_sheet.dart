@@ -38,6 +38,7 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
 
   String _selectedAccountType = StandardAccountTypes.savings;
   bool _isLiability = false;
+  int? _color; // null = automatic colour from the bank name
 
   static String _rupees(int minor) {
     final v = minor.abs();
@@ -58,6 +59,7 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
       _creditLimitController.text = _rupees(a.creditLimitMinorUnits);
       _selectedAccountType = a.accountType;
       _isLiability = a.isLiability;
+      _color = a.colorValue;
       final types = ref.read(customAccountTypesProvider);
       if (!types.contains(a.accountType)) {
         ref.read(customAccountTypesProvider.notifier).state = [
@@ -207,6 +209,8 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
         creditLimitMinorUnits: drift.Value(creditLimitMinorUnits),
         isActive: const drift.Value(true),
         isLiability: drift.Value(_isLiability),
+        colorValue: drift.Value(_color),
+        imagePath: drift.Value(widget.existing?.imagePath),
         createdAt: drift.Value(widget.existing?.createdAt ?? now),
         updatedAt: drift.Value(now),
       ),
@@ -508,6 +512,34 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
                     },
                   ),
                 ],
+                const SizedBox(height: RiveroSpacing.lg),
+                Text('Colour', style: RiveroTypography.bodyMedium),
+                const SizedBox(height: RiveroSpacing.sm),
+                Wrap(
+                  spacing: RiveroSpacing.sm,
+                  runSpacing: RiveroSpacing.sm,
+                  children: [
+                    for (final c in RiveroColors.categorical)
+                      GestureDetector(
+                        key: ValueKey('account-color-${c.toARGB32()}'),
+                        onTap: () => setState(() => _color = c.toARGB32()),
+                        child: Container(
+                          width: 30,
+                          height: 30,
+                          decoration: BoxDecoration(
+                            color: c,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              width: 3,
+                              color: _color == c.toARGB32()
+                                  ? RiveroColors.textPrimary
+                                  : Colors.transparent,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
                 const SizedBox(height: RiveroSpacing.xl),
 
                 // Submit Button

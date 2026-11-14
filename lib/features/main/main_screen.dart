@@ -156,14 +156,14 @@ class _NavButton extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: selected
-                  ? RiveroColors.surfaceInteractive
+                  ? RiveroColors.accent.withValues(alpha: 0.18)
                   : RiveroColors.surfaceElevated,
             ),
             child: Icon(
               selected ? selectedIcon : icon,
               size: selected ? 28 : 22,
               color: selected
-                  ? RiveroColors.textPrimary
+                  ? RiveroColors.accent
                   : RiveroColors.textSecondary,
             ),
           ),

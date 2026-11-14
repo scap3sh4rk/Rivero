@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
+import 'package:rivero/design_system/widgets/account_color.dart';
 import 'package:rivero/design_system/widgets/bank_badge.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
@@ -232,7 +233,11 @@ class AccountsScreen extends ConsumerWidget {
                             CreateAccountSheet.show(context, existing: account),
                         child: Row(
                           children: [
-                            BankBadge(name: account.institution),
+                            BankBadge(
+                              name: account.institution,
+                              color: accountColor(account),
+                              imagePath: account.imagePath,
+                            ),
                             const SizedBox(width: RiveroSpacing.md),
                             Expanded(
                               child: Column(
