@@ -28,7 +28,9 @@
 2. Answer the three setup questions and enter today's balances.
 3. Optional: *Settings → Capture → Notification access*, then *Send a test notification*.
 
-> The **.aab** is for Google Play uploads. iOS is configured but not yet device-tested.
+> The **.aab** is for Google Play uploads.
+>
+> **iPhone (experimental):** `…-ios-unsigned.ipa` is built and started in the iOS simulator by CI but **not tested on a real iPhone**. It is unsigned: sign it with a free Apple ID (AltStore or Sideloadly, renew every 7 days) or a paid developer account. iOS cannot read notifications, so there is no automatic payment capture; log payments, scan bills or import a statement.
 
 📖 **Docs:** user guide, how the money model works, technical implementation and privacy details are on the project site.
 

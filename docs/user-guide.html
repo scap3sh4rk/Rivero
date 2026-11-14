@@ -24,7 +24,7 @@
 <div class="tools"><a class="gh" href="https://github.com/scap3sh4rk/Rivero">GitHub</a><button class="icon-btn" id="theme" type="button" aria-label="Switch theme">☀</button></div>
 </div></header>
 <main><div class="doc">
-<aside class="toc"><h4>On this page</h4><a href="#quick-start">Quick start</a><a href="#the-five-tabs">The five tabs</a><a href="#home-your-daily-number">Home: your daily number</a><a href="#plan-where-the-salary-goes">Plan: where the salary goes</a><a href="#accounts">Accounts</a><a href="#log-a-payment">Log a payment</a><a href="#activity-and-analytics">Activity and analytics</a><a href="#owed-to-you">Owed to you</a><a href="#autopay-and-cards">Autopay and cards</a><a href="#capturing-payments-automatically">Capturing payments automatically</a><a href="#backup-restore-lock">Backup, restore, lock</a><a href="#settings-you-may-want">Settings you may want</a><a href="#faq">FAQ</a></aside>
+<aside class="toc"><h4>On this page</h4><a href="#quick-start">Quick start</a><a href="#install-on-iphone-experimental">Install on iPhone (experimental)</a><a href="#the-five-tabs">The five tabs</a><a href="#home-your-daily-number">Home: your daily number</a><a href="#plan-where-the-salary-goes">Plan: where the salary goes</a><a href="#accounts">Accounts</a><a href="#log-a-payment">Log a payment</a><a href="#activity-and-analytics">Activity and analytics</a><a href="#owed-to-you">Owed to you</a><a href="#autopay-and-cards">Autopay and cards</a><a href="#capturing-payments-automatically">Capturing payments automatically</a><a href="#backup-restore-lock">Backup, restore, lock</a><a href="#settings-you-may-want">Settings you may want</a><a href="#faq">FAQ</a></aside>
 <article>
 <span class="badge">User guide</span>
 <h1>Use Rivero, step by step</h1>
@@ -39,6 +39,16 @@
 <li><strong>Glance at Home</strong>The big number is what you can safely spend per day until payday.</li>
 </ol>
 <div class="note"><p>Setting up in the middle of the month? In the last step Rivero asks whether this month's investments and savings are <strong>already done</strong>. Say yes if they are: they are counted as paid and nothing is moved or deducted again.</p></div>
+
+<h2 id="install-on-iphone-experimental">Install on iPhone (experimental)</h2>
+<p>Rivero's main platform is Android. An <strong>experimental, unsigned iOS build</strong> is attached to each release as <code>rivero-…-ios-unsigned.ipa</code>. It is built and started in the iOS simulator by the project's CI, but it has <strong>not been tested on a real iPhone</strong>.</p>
+<ol class="steps">
+<li><strong>Download the .ipa</strong>From the latest <a href="https://github.com/scap3sh4rk/Rivero/releases/latest">release</a>.</li>
+<li><strong>Sign it for your phone</strong>Apple only runs signed apps. With a free Apple ID, a sideloading tool such as AltStore or Sideloadly signs it for your own iPhone (it must be renewed every 7 days). With a paid Apple Developer account it can be signed for longer.</li>
+<li><strong>Trust and open</strong>Settings → General → VPN &amp; Device Management → trust your Apple ID, then open Rivero.</li>
+</ol>
+<p style="text-align:center"><img src="assets/ios-simulator.png" alt="Rivero first-run screen running in the iOS simulator" style="width:240px;border:1px solid var(--border-2);border-radius:24px"><br><small style="color:var(--muted)">Rivero running in the iOS simulator (CI screenshot)</small></p>
+<div class="warn"><p><strong>What is different on iPhone:</strong> iOS does not let apps read other apps' notifications, so there is <strong>no automatic payment capture</strong>. Log payments with the Log tab, scan bills, or import a CSV statement. The plan, Safe to spend, accounts, cards, owed money, autopay list, app lock (Face ID) and encrypted backups use the same code as Android. Google Drive backup on iPhone needs extra setup by the project; back up to a file for now.</p></div>
 
 <h2 id="the-five-tabs">The five tabs</h2>
 <p>Swipe left and right, or tap the bar at the bottom. Home is in the centre.</p>
@@ -179,7 +189,7 @@
 <h3>The balance looks wrong.</h3>
 <p>Open the account and use <strong>Update balance</strong>. The difference is recorded as a "Balance update" so history stays explainable.</p>
 <h3>Does it work on iPhone?</h3>
-<p>The iOS project is configured but not yet tested on a device, and iOS cannot read notifications passively, so it would rely on manual logging, bill scanning and statement import.</p>
+<p>There is an experimental unsigned iOS build (see "Install on iPhone"). It builds and starts in the iOS simulator, but it has not been tested on a real iPhone, and iOS cannot read notifications, so payments are logged by hand, scanned from bills or imported from a statement.</p>
 <h3>Is my data safe if I lose my phone?</h3>
 <p>It is encrypted and can be behind your fingerprint. Make regular encrypted backups; restoring on a new phone brings everything back, including photos.</p>
 

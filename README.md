@@ -13,6 +13,7 @@ No bank login · No cloud account · No ads · No SMS permission.
 [![Release](https://img.shields.io/github/v/release/scap3sh4rk/Rivero?include_prereleases&label=release&color=4EA3F8)](https://github.com/scap3sh4rk/Rivero/releases/latest)
 ![Flutter](https://img.shields.io/badge/Flutter-3.50-4EA3F8)
 ![Platform](https://img.shields.io/badge/Android-primary-2DBE6C)
+![iOS](https://img.shields.io/badge/iOS-experimental-F2A93B)
 
 [**Download**](https://github.com/scap3sh4rk/Rivero/releases/latest) ·
 [**User guide**](https://scap3sh4rk.github.io/Rivero/user-guide.html) ·
@@ -101,13 +102,14 @@ The project site (`docs/`, published with GitHub Pages) has:
 
 - `develop` is where work happens. `main` is the release branch.
 - CI (`.github/workflows/ci.yml`) runs `tool/verify.sh` on every push and pull request.
-- Every push to `main` runs `.github/workflows/release.yml`, which builds a signed APK and App Bundle and publishes a GitHub Release (notes in `.github/release-notes.md`).
+- Every push to `main` runs `.github/workflows/release.yml`, which builds a signed APK and App Bundle, publishes a GitHub Release (notes in `.github/release-notes.md`), and attaches an unsigned iOS `.ipa`.
+- `.github/workflows/ios.yml` builds the iOS app on macOS and runs it in the simulator when `ios/` changes (or on demand).
 - Signing uses repository secrets: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`. Without them the build falls back to the debug key and is not suitable for distribution.
 - The docs site is published by `.github/workflows/pages.yml` when `docs/` changes on `main`.
 
 ## Status
 
-Android is the primary target. The iOS project is configured but has not been built or tested on a device; iOS cannot capture notifications passively, so it relies on manual entry and statement or bill import.
+Android is the primary target. **iOS is experimental:** CI builds the iOS app on a macOS runner, starts it in the iOS simulator, and attaches an **unsigned** `.ipa` to each release (sign it with a free Apple ID via AltStore or Sideloadly, or with a paid developer account). It has not been tested on a real iPhone. iOS cannot capture notifications passively, so it relies on manual entry, bill scanning and statement import. See [Install on iPhone](https://scap3sh4rk.github.io/Rivero/user-guide.html#install-on-iphone-experimental).
 
 ## Contributing
 

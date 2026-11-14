@@ -68,7 +68,7 @@ flutter run                                                # debug on a device</
 
 <h2 id="releases">Releases</h2>
 <p><code>.github/workflows/release.yml</code> runs on every push to <code>main</code>: it verifies, builds a signed APK and App Bundle with Java 21, and publishes a GitHub Release tagged <code>v&lt;version&gt;-&lt;run&gt;</code> with notes from <code>.github/release-notes.md</code> plus generated change notes.</p>
-<p>Signing uses repository secrets: <code>ANDROID_KEYSTORE_BASE64</code>, <code>ANDROID_KEYSTORE_PASSWORD</code>, <code>ANDROID_KEY_ALIAS</code>, <code>ANDROID_KEY_PASSWORD</code>. Without them the build falls back to the debug key and is not fit for distribution. CI (<code>ci.yml</code>) runs the quality gate on every push and pull request. This site is published by <code>pages.yml</code> when files under <code>docs/</code> change on <code>main</code>.</p>
+<p>Signing uses repository secrets: <code>ANDROID_KEYSTORE_BASE64</code>, <code>ANDROID_KEYSTORE_PASSWORD</code>, <code>ANDROID_KEY_ALIAS</code>, <code>ANDROID_KEY_PASSWORD</code>. Without them the build falls back to the debug key and is not fit for distribution. CI (<code>ci.yml</code>) runs the quality gate on every push and pull request. <code>ios.yml</code> builds the iOS app on a macOS runner and runs it in the simulator when <code>ios/</code> changes or on demand; the release workflow also attaches an unsigned iOS <code>.ipa</code> to each release (a failure there never blocks the Android release). This site is published by <code>pages.yml</code> when files under <code>docs/</code> change on <code>main</code>.</p>
 
 <h2 id="google-drive-backup-setup">Google Drive backup setup</h2>
 <p>Backup needs a Google Cloud project with the Drive API enabled and OAuth clients: a <strong>Web</strong> client (its ID is set in <code>lib/core/backup/drive_backup.dart</code>) and an <strong>Android</strong> client for each signing key (package <code>dev.scap3sh4rk.rivero</code> with that key's SHA-1). iOS needs its own iOS client.</p>
@@ -76,7 +76,7 @@ flutter run                                                # debug on a device</
 <h2 id="known-limits-and-roadmap">Known limits and roadmap</h2>
 <table>
 <tr><th>Area</th><th>Status</th></tr>
-<tr><td>iOS</td><td>Project configured; not yet built or tested on a device. No passive notification capture on iOS, so it relies on manual logging, bill scan and statement import.</td></tr>
+<tr><td>iOS</td><td>Builds on a macOS CI runner (<code>ios.yml</code>) and is smoke-tested in the simulator on each iOS change; an unsigned <code>.ipa</code> is attached to releases. Not yet tested on a real device or signed for distribution (needs an Apple Developer account for TestFlight). No passive notification capture on iOS, so it relies on manual logging, bill scan and statement import.</td></tr>
 <tr><td>Google Drive sign-in</td><td>Needs a Drive OAuth client per signing key; verify on a release build.</td></tr>
 <tr><td>Statement import</td><td>CSV only, experimental; history only, balances unchanged.</td></tr>
 <tr><td>APK size</td><td>About 98 MB (bundled fonts and ML Kit text recognition); the App Bundle is smaller per device.</td></tr>
