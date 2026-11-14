@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rivero/core/currency/currency.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/custom_account_types.dart';
 import 'package:rivero/core/providers/app_providers.dart';
@@ -47,6 +48,7 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
   bool _imageChanged = false;
   int? _statementDay; // cards: day the statement is generated
   int? _dueDay; // cards: day the bill is due
+  String _currency = homeCurrency; // bank/cash accounts only
 
   static String _rupees(int minor) {
     final v = minor.abs();
@@ -71,6 +73,7 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
       _imagePath = a.imagePath;
       _statementDay = a.statementDay;
       _dueDay = a.paymentDueDay;
+      _currency = a.currencyCode;
       final types = ref.read(customAccountTypesProvider);
       if (!types.contains(a.accountType)) {
         ref.read(customAccountTypesProvider.notifier).state = [
@@ -236,6 +239,8 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
         colorValue: drift.Value(_color),
         statementDay: drift.Value(_isLiability ? _statementDay : null),
         paymentDueDay: drift.Value(_isLiability ? _dueDay : null),
+        // Cards stay in rupees, so a bill is always compared like for like.
+        currencyCode: drift.Value(_isLiability ? homeCurrency : _currency),
         imagePath: drift.Value(await _storedImage(accountId)),
         createdAt: drift.Value(widget.existing?.createdAt ?? now),
         updatedAt: drift.Value(now),
@@ -539,8 +544,20 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
                     ),
                   ),
                 ] else ...[
+                  DropdownButtonFormField<String>(
+                    key: const ValueKey('account-currency'),
+                    initialValue: _currency,
+                    decoration: const InputDecoration(labelText: 'Currency'),
+                    items: [
+                      for (final c in currencySymbols.keys)
+                        DropdownMenuItem(value: c, child: Text(c)),
+                    ],
+                    onChanged: (v) =>
+                        setState(() => _currency = v ?? homeCurrency),
+                  ),
+                  const SizedBox(height: RiveroSpacing.md),
                   Text(
-                    'Initial Balance (₹)',
+                    'Initial Balance ($_currency)',
                     style: RiveroTypography.labelSmall,
                   ),
                   const SizedBox(height: RiveroSpacing.xs),
@@ -550,8 +567,8 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
                       decimal: true,
                     ),
                     style: RiveroTypography.bodyLarge,
-                    decoration: const InputDecoration(
-                      prefixText: '₹ ',
+                    decoration: InputDecoration(
+                      prefixText: '${currencySymbols[_currency]!.trim()} ',
                       hintText: '50000.00',
                     ),
                     validator: (v) {

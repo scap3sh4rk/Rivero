@@ -27,7 +27,8 @@ class DataExport {
 
   final RiveroDatabase db;
 
-  /// 12345 -> "123.45", -5 -> "-0.05". Exact; no floating point.
+  /// 12345 -> "123.45", -5 -> "-0.05". Exact; no floating point. (Works for
+  /// any two-decimal currency; the Accounts sheet names each one.)
   static String rupees(int minor) {
     final neg = minor < 0;
     final v = minor.abs();
@@ -40,6 +41,7 @@ class DataExport {
   Future<List<ExportSheet>> sheets() async {
     final accounts = await db.select(db.physicalAccounts).get();
     final name = {for (final a in accounts) a.id: a.name};
+    final currency = {for (final a in accounts) a.id: a.currencyCode};
     final txns = await (db.select(
       db.transactions,
     )..orderBy([(t) => OrderingTerm.desc(t.transactionTimestamp)])).get();
@@ -53,7 +55,8 @@ class DataExport {
         const [
           'Date',
           'Account',
-          'Amount (INR)',
+          'Amount',
+          'Currency',
           'Direction',
           'Type',
           'State',
@@ -68,6 +71,7 @@ class DataExport {
               _date.format(t.transactionTimestamp),
               name[t.physicalAccountId] ?? t.physicalAccountId,
               rupees(t.amountMinorUnits.abs()),
+              currency[t.physicalAccountId] ?? 'INR',
               t.amountMinorUnits < 0 ? 'out' : 'in',
               t.transactionType.name,
               t.transactionState.name,
@@ -85,9 +89,10 @@ class DataExport {
           'Bank',
           'Last digits',
           'Type',
-          'Balance (INR)',
+          'Currency',
+          'Balance',
           'Is card/loan',
-          'Credit limit (INR)',
+          'Credit limit',
           'Active',
         ],
         [
@@ -97,6 +102,7 @@ class DataExport {
               a.institution,
               a.accountMask,
               a.accountType,
+              a.currencyCode,
               rupees(a.balanceMinorUnits),
               a.isLiability ? 'yes' : 'no',
               rupees(a.creditLimitMinorUnits),
@@ -239,6 +245,9 @@ class DataExport {
     return s;
   }
 
+  /// Amount columns in the account's own currency (named in "Currency").
+  static const _inOwnCurrency = {'Amount', 'Balance', 'Credit limit'};
+
   static String _sheetXml(ExportSheet s) {
     final b = StringBuffer(
       '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -252,7 +261,10 @@ class DataExport {
         final v = all[r][c];
         final ref = '${_col(c)}${r + 1}';
         // Amount columns become real numbers so totals work in Excel.
-        if (r > 0 && _isNumber(v) && s.header[c].contains('(INR)')) {
+        if (r > 0 &&
+            _isNumber(v) &&
+            (s.header[c].contains('(INR)') ||
+                _inOwnCurrency.contains(s.header[c]))) {
           b.write('<c r="$ref"><v>$v</v></c>');
         } else {
           b.write(

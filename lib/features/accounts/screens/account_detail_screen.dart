@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:rivero/core/currency/currency.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/providers/app_providers.dart';
@@ -160,10 +161,12 @@ class AccountDetailScreen extends ConsumerWidget {
                         style: RiveroTypography.bodySmall,
                       ),
                       Text(
-                        money(
+                        accountMoney(
+                          account,
                           account.isLiability
                               ? account.balanceMinorUnits.abs()
                               : account.balanceMinorUnits,
+                          money,
                         ),
                         style: RiveroTypography.financialLarge,
                       ),
@@ -248,11 +251,17 @@ class NetWorthSheet extends ConsumerWidget {
     String money(int v) => privacy ? '••••' : CurrencyFormatter.format(v);
     final assets = accounts.where((a) => !a.isLiability).toList();
     final cards = accounts.where((a) => a.isLiability).toList();
-    final assetTotal = assets.fold<int>(0, (s, a) => s + a.balanceMinorUnits);
-    final debt = cards.fold<int>(
-      0,
-      (s, a) => s + (a.balanceMinorUnits < 0 ? -a.balanceMinorUnits : 0),
-    );
+    // Totals in rupees (other currencies at the user's rate).
+    final rates = ref.watch(exchangeRatesProvider);
+    final assetTotal = rates
+        .inHome(assets)
+        .fold<int>(0, (s, a) => s + a.balanceMinorUnits);
+    final debt = rates
+        .inHome(cards)
+        .fold<int>(
+          0,
+          (s, a) => s + (a.balanceMinorUnits < 0 ? -a.balanceMinorUnits : 0),
+        );
     final owed = (ref.watch(duesProvider).value ?? const [])
         .where((d) => d.status == DueStatus.open)
         .fold<int>(0, (s, d) => s + d.amountMinorUnits - d.receivedMinorUnits);
@@ -264,8 +273,8 @@ class NetWorthSheet extends ConsumerWidget {
       title: Text(a.name),
       trailing: Text(
         negative
-            ? '− ${money(a.balanceMinorUnits.abs())}'
-            : money(a.balanceMinorUnits),
+            ? '− ${accountMoney(a, a.balanceMinorUnits.abs(), money)}'
+            : accountMoney(a, a.balanceMinorUnits, money),
       ),
       onTap: () {
         Navigator.pop(context);

@@ -69,8 +69,9 @@ class BillsAndCommitments extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final accounts =
-        ref.watch(activePhysicalAccountsProvider).value ?? const [];
+    final accounts = ref
+        .watch(exchangeRatesProvider)
+        .inHome(ref.watch(activePhysicalAccountsProvider).value ?? const []);
     final mandates = ref.watch(activeMandatesProvider).value ?? const [];
     final cycle = ref.watch(currentPaycycleProvider);
     final privacy = ref.watch(privacyModeProvider);

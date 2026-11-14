@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:intl/intl.dart';
+import 'package:rivero/core/currency/currency.dart';
 import 'package:rivero/core/database/daos/settings_dao.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/card_cycle.dart';
@@ -184,7 +185,10 @@ Future<List<Reminder>> replanReminders(
   );
   final plan = ReminderPlanner.plan(
     now: now ?? DateTime.now(),
-    accounts: await db.accountsDao.getAllActivePhysicalAccounts(),
+    // In rupees, like the rest of the app's totals.
+    accounts: ExchangeRates.fromJson(
+      await db.settingsDao.get(SettingKeys.exchangeRates),
+    ).inHome(await db.accountsDao.getAllActivePhysicalAccounts()),
     mandates: await db.mandatesDao.getAllMandates(),
     dues: await db.select(db.dues).get(),
     prefs: prefs,

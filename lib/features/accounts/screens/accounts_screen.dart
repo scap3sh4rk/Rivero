@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:rivero/core/currency/currency.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/card_cycle.dart';
 import 'package:rivero/core/domain/credit_utilization.dart';
@@ -15,6 +16,7 @@ import 'package:rivero/design_system/widgets/rivero_card.dart';
 import 'package:rivero/design_system/widgets/rivero_fab.dart';
 import 'package:rivero/features/accounts/screens/account_detail_screen.dart';
 import 'package:rivero/features/accounts/widgets/create_account_sheet.dart';
+import 'package:rivero/features/settings/screens/exchange_rates_screen.dart';
 
 /// Accounts: net worth, then bank & cash and cards as short rows.
 /// Long-press a row to drag it up or down; tap to open it.
@@ -29,11 +31,17 @@ class AccountsScreen extends ConsumerWidget {
     String money(int v) => privacy ? '••••' : CurrencyFormatter.format(v);
     final banks = accounts.where((a) => !a.isLiability).toList();
     final cards = accounts.where((a) => a.isLiability).toList();
-    final bankTotal = banks.fold<int>(0, (s, a) => s + a.balanceMinorUnits);
-    final debt = cards.fold<int>(
-      0,
-      (s, a) => s + (a.balanceMinorUnits < 0 ? -a.balanceMinorUnits : 0),
-    );
+    // Totals in rupees (other currencies at the user's rate).
+    final rates = ref.watch(exchangeRatesProvider);
+    final bankTotal = rates
+        .inHome(banks)
+        .fold<int>(0, (s, a) => s + a.balanceMinorUnits);
+    final debt = rates
+        .inHome(cards)
+        .fold<int>(
+          0,
+          (s, a) => s + (a.balanceMinorUnits < 0 ? -a.balanceMinorUnits : 0),
+        );
 
     Future<void> reorder(List<PhysicalAccount> group, int from, int to) async {
       final ids = group.map((a) => a.id).toList();
@@ -136,6 +144,22 @@ class AccountsScreen extends ConsumerWidget {
               ],
             ),
           ),
+          for (final c in foreignCurrencies(accounts))
+            if (!rates.has(c))
+              Padding(
+                key: ValueKey('no-rate-$c'),
+                padding: const EdgeInsets.only(bottom: RiveroSpacing.md),
+                child: InkWell(
+                  onTap: () => ExchangeRatesScreen.open(context),
+                  child: Text(
+                    'Set a rate for $c (Settings → Exchange rates): until '
+                    'then it is left out of the totals.',
+                    style: RiveroTypography.bodySmall.copyWith(
+                      color: RiveroColors.warning,
+                    ),
+                  ),
+                ),
+              ),
           if (banks.isNotEmpty) section('Bank & cash', banks),
           if (cards.isNotEmpty)
             _CardsSummary(
@@ -192,7 +216,7 @@ class _AccountRow extends StatelessWidget {
                   Expanded(child: _identity()),
                   const SizedBox(width: RiveroSpacing.sm),
                   Text(
-                    money(a.balanceMinorUnits),
+                    accountMoney(a, a.balanceMinorUnits, money),
                     style: RiveroTypography.financialMedium,
                   ),
                 ],

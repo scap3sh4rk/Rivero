@@ -45,6 +45,7 @@ class HomeShortcuts extends ConsumerWidget {
       // Everyday spending, like Safe to spend: rent and family paid through
       // the plan are not in it.
       includePlan: false,
+      toHome: ref.watch(toHomeProvider),
     ).total;
     void tab(int i) => ref.read(selectedNavIndexProvider.notifier).state = i;
 

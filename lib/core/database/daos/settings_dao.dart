@@ -43,6 +43,9 @@ abstract final class SettingKeys {
 
   /// Savings goals (JSON list, see Goals).
   static const goals = 'goals_json';
+
+  /// Rates to rupees (JSON: code -> paise per unit), see ExchangeRates.
+  static const exchangeRates = 'exchange_rates_json';
   static const primaryUpi = 'primary_upi_package';
   static const primaryUpiName = 'primary_upi_name';
 

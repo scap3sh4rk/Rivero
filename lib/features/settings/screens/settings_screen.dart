@@ -17,6 +17,7 @@ import 'package:rivero/features/mandates/mandates_screen.dart';
 import 'package:rivero/features/settings/screens/account_types_screen.dart';
 import 'package:rivero/features/settings/screens/capture_log_screen.dart';
 import 'package:rivero/features/settings/screens/categories_screen.dart';
+import 'package:rivero/features/settings/screens/exchange_rates_screen.dart';
 import 'package:rivero/features/settings/screens/export_data.dart';
 import 'package:rivero/features/settings/screens/import_statement.dart';
 import 'package:rivero/features/settings/screens/rules_screen.dart';
@@ -144,6 +145,15 @@ class SettingsScreen extends ConsumerWidget {
             subtitle: 'Used by Log and Activity',
             onTap: () => CategoriesScreen.open(context),
           ),
+          if (foreignCurrencies(
+            ref.watch(activePhysicalAccountsProvider).value ?? const [],
+          ).isNotEmpty)
+            _Row(
+              icon: Icons.currency_exchange_rounded,
+              title: 'Exchange rates',
+              subtitle: 'For accounts not in rupees',
+              onTap: () => ExchangeRatesScreen.open(context),
+            ),
           _Row(
             icon: Icons.rule_rounded,
             title: 'Rules',

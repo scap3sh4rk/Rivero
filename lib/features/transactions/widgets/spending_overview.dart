@@ -48,6 +48,7 @@ class _SpendingOverviewState extends ConsumerState<SpendingOverview> {
       othersShare: DuesService.othersShareByTransaction(
         ref.watch(duesProvider).value ?? const [],
       ),
+      toHome: ref.watch(toHomeProvider),
     );
     String money(int v) => privacy ? '••••' : CurrencyFormatter.format(v);
     final daysSoFar = s.byDay.length;
