@@ -54,40 +54,43 @@ class StsBreakdownSheet extends ConsumerWidget {
               ),
               const SizedBox(height: RiveroSpacing.lg),
 
-              _section('1 · Your spending budget'),
-              _line('Planned for spending this cycle', money(b.planned)),
-              if (b.carriedOver > 0)
+              if (b.fromAccount) ...[
+                _section('1 · Your spending money'),
                 _line(
-                  'Carried over from last cycle',
-                  '+ ${money(b.carriedOver)}',
+                  'In your spending account now',
+                  money(b.spendingAccountBalance!),
                 ),
-              _line('Spent so far', '− ${money(b.spent)}'),
-              _total('Budget left', money(b.budgetLeft), warn: b.overBudget),
+                if (b.reservedInAccount > 0)
+                  _line(
+                    'Still to pay from it (rent, family…)',
+                    '− ${money(b.reservedInAccount)}',
+                  ),
+                _total('Left to spend', money(b.usable), warn: b.overBudget),
+                _note(
+                  'Your bank balance is the truth: whatever you spend, '
+                  'logged or not, shows up here. Planned for spending this '
+                  'cycle: ${money(b.planTotal)}.',
+                ),
+              ] else ...[
+                _section('1 · Your spending budget'),
+                _line('Planned for spending this cycle', money(b.planned)),
+                if (b.carriedOver > 0)
+                  _line(
+                    'Carried over from last cycle',
+                    '+ ${money(b.carriedOver)}',
+                  ),
+                _line('Spent so far', '− ${money(b.spent)}'),
+                _total('Left to spend', money(b.usable), warn: b.overBudget),
+                _note(
+                  'Link a spending account in the salary plan to follow its '
+                  'real balance instead.',
+                ),
+              ],
               if (b.setAside > 0)
                 _note(
                   '${money(b.setAside)} is set aside for investments, savings '
                   'and other categories, so it is not counted here.',
                 ),
-              if (b.limitedByAccount) ...[
-                _line(
-                  'Actually in your spending account',
-                  money(b.spendingAccountBalance!),
-                ),
-                if (b.reservedInAccount > 0)
-                  _line(
-                    'Promised to other categories',
-                    '− ${money(b.reservedInAccount)}',
-                  ),
-                _total(
-                  'Available to spend',
-                  money(b.accountAvailable!),
-                  warn: b.accountAvailable! < 0,
-                ),
-                _note(
-                  'The account holds less than your budget, so what it '
-                  'really holds is used instead of the budget.',
-                ),
-              ],
 
               _section('2 · Money already spoken for'),
               _line(
@@ -132,14 +135,13 @@ class StsBreakdownSheet extends ConsumerWidget {
               ),
               if (r.isDeficit)
                 _note(
-                  b.limitedByAccount
-                      ? 'Your spending account does not hold enough for '
-                            'what is due.'
-                      : b.overBudget
-                      ? 'You have spent ${money(-b.budgetLeft)} more than '
-                            'planned this cycle.'
+                  b.overBudget
+                      ? (b.fromAccount
+                            ? 'Your spending account is overdrawn.'
+                            : 'You have spent ${money(-b.usable)} more than '
+                                  'planned this cycle.')
                       : 'Autopay and card bills due are more than what is '
-                            'left in your budget.',
+                            'left to spend.',
                   warn: true,
                 ),
               _note(switch (r.reliability) {

@@ -62,7 +62,7 @@ class HomeShortcuts extends ConsumerWidget {
             label: 'PLAN',
             value: salary == 0
                 ? 'Set up'
-                : '${money((salary - setAside).clamp(0, salary))} to spend',
+                : '${money((salary - setAside).clamp(0, salary))} / month',
             onTap: () => BudgetsScreen.open(context),
           ),
           BentoTile(

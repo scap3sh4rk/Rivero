@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rivero/core/domain/account_role.dart';
 import 'package:rivero/core/engine/safe_to_spend_calculator.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
@@ -36,7 +35,6 @@ class SafeToSpendHeroCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final stsAsync = ref.watch(liveSafeToSpendResultProvider);
     final breakdown = ref.watch(stsBreakdownProvider).value;
-    final buckets = ref.watch(allAllocationBucketsProvider).value ?? const [];
     final isPrivacy = ref.watch(privacyModeProvider);
     final paycycle = ref.watch(currentPaycycleProvider);
     final awaiting = ref.watch(awaitingSalaryProvider).value ?? false;
@@ -44,13 +42,9 @@ class SafeToSpendHeroCard extends ConsumerWidget {
     final sts = stsAsync.value;
     if (sts == null) return const SizedBox(height: 220);
 
-    var limit = 0;
-    var spent = 0;
-    for (final b in buckets.where((b) => b.role == AccountRole.expense)) {
-      limit += b.allocatedMinorUnits + b.carryOverMinorUnits;
-      spent += b.spentMinorUnits;
-    }
-    final left = breakdown?.usable ?? limit - spent;
+    // Same "left" and "of" as the Plan screen and the breakdown sheet.
+    final limit = breakdown?.planTotal ?? 0;
+    final left = breakdown?.usable ?? 0;
     final remaining = limit > 0 ? left / limit : (sts.isDeficit ? 0.0 : 1.0);
     final tone = toneFor(remaining, deficit: sts.isDeficit);
 
@@ -104,12 +98,12 @@ class SafeToSpendHeroCard extends ConsumerWidget {
           Text(
             sts.isDeficit
                 ? (breakdown?.overBudget ?? false
-                      ? 'Over budget by '
-                            '${CurrencyFormatter.format(-breakdown!.budgetLeft)}'
+                      ? 'Short by '
+                            '${CurrencyFormatter.format(-breakdown!.usable)}'
                       : 'Bills due exceed what is left by '
                             '${CurrencyFormatter.format(sts.deficitAmount)}')
                 : '${isPrivacy ? '••••' : CurrencyFormatter.format(sts.effectiveSafeToSpend)}'
-                      ' left · '
+                      ' safe · '
                       '${awaiting ? 'waiting for salary' : '${paycycle.daysRemaining} days to payday'}',
             style: RiveroTypography.bodyMedium,
           ),
@@ -136,10 +130,13 @@ class SafeToSpendHeroCard extends ConsumerWidget {
           const SizedBox(height: RiveroSpacing.sm),
           Text(
             isPrivacy
-                ? '•••• spent of ••••'
+                ? '•••• left of ••••'
                 : limit > 0
-                ? '${CurrencyFormatter.format(spent)} spent of '
-                      '${CurrencyFormatter.format(limit)}'
+                ? (left > limit
+                      ? '${CurrencyFormatter.format(left)} left · '
+                            '${CurrencyFormatter.format(limit)} planned'
+                      : '${CurrencyFormatter.format(left)} left of '
+                            '${CurrencyFormatter.format(limit)}')
                 : 'No spending budget set',
             style: RiveroTypography.bodySmall,
           ),

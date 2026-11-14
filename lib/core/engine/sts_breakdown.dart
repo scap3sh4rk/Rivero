@@ -11,9 +11,9 @@ import 'package:rivero/core/plan/plan_transfer_service.dart';
 /// they can never disagree.
 ///
 ///   budget left = planned + carried over − spent
-///   usable = the smaller of budget left and what the spending account
-///            really holds (minus money in it set aside for plan-only
-///            categories) — the account is the truth, the budget a ceiling
+///   usable = what the spending account really holds (minus money in it the
+///            plan promised elsewhere). The account is the truth; the budget
+///            is only used when no spending account is linked.
 ///   safe to spend = usable − autopay due − card bills (+ owed to you)
 ///   per day = safe to spend ÷ days to payday
 class StsBreakdown {
@@ -54,9 +54,6 @@ class StsBreakdown {
         .where((b) => b.role != AccountRole.expense)
         .fold<int>(0, (s, b) => s + b.allocatedMinorUnits);
 
-    final due = upcomingMandates(mandates, at, cycle.cycleEndDate);
-    final dueTotal = due.fold<int>(0, (s, m) => s + mandateReserve(m));
-
     final cards = reserveCards
         ? accounts
               .where((a) => a.isLiability && a.balanceMinorUnits < 0)
@@ -74,6 +71,22 @@ class StsBreakdown {
     final accountBalance = linkedAccounts.isEmpty
         ? null
         : linkedAccounts.fold<int>(0, (s, a) => s + a.balanceMinorUnits);
+
+    // Autopay taken from another bank account (a SIP from the salary
+    // account) does not touch spending money; from the spending account or
+    // a card it does.
+    final otherBanks = {
+      for (final a in accounts)
+        if (!a.isLiability && !linked.contains(a.id)) a.id,
+    };
+    final due = upcomingMandates(mandates, at, cycle.cycleEndDate)
+        .where(
+          (m) =>
+              accountBalance == null ||
+              !otherBanks.contains(m.physicalAccountId),
+        )
+        .toList();
+    final dueTotal = due.fold<int>(0, (s, m) => s + mandateReserve(m));
 
     // Money in the spending account that the plan has promised elsewhere
     // (e.g. rent that is paid out of the same account), not spendable.
@@ -103,9 +116,7 @@ class StsBreakdown {
               );
     final budgetLeft = planned + carried - spent;
     final inAccount = accountBalance == null ? null : accountBalance - reserved;
-    final usable = inAccount == null || budgetLeft <= inAccount
-        ? budgetLeft
-        : inAccount;
+    final usable = inAccount ?? budgetLeft;
 
     final result = calculator.calculate(
       expenseBalance: usable,
@@ -164,8 +175,11 @@ class StsBreakdown {
 
   int get budgetLeft => planned + carriedOver - spent;
 
-  /// Spent more than planned.
-  bool get overBudget => budgetLeft < 0;
+  /// Planned + carried over: the "of" in "₹X left of ₹Y".
+  int get planTotal => planned + carriedOver;
+
+  /// Less than nothing left to spend (account overdrawn, or overspent).
+  bool get overBudget => usable < 0;
 
   /// What the account really holds for spending (balance minus money the
   /// plan has promised elsewhere), or null when no account is linked.
@@ -173,11 +187,10 @@ class StsBreakdown {
       ? null
       : spendingAccountBalance! - reservedInAccount;
 
-  /// The account holds less than the budget promises, so the account limits
-  /// Safe to spend rather than the budget.
-  bool get limitedByAccount =>
-      accountAvailable != null && accountAvailable! < budgetLeft;
+  /// Safe to spend follows the linked spending account's real balance.
+  bool get fromAccount => accountAvailable != null;
 
-  /// The money the calculation starts from.
-  int get usable => limitedByAccount ? accountAvailable! : budgetLeft;
+  /// What is left to spend: the account's free money, or (no account
+  /// linked) the budget left. Every screen shows this one number.
+  int get usable => accountAvailable ?? budgetLeft;
 }

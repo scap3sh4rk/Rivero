@@ -53,21 +53,26 @@ PhysicalAccount _account(
   updatedAt: _now,
 );
 
-Mandate _mandate(int amount, DateTime due, {int? cap, bool active = true}) =>
-    Mandate(
-      id: 'm$amount',
-      payee: 'Netflix',
-      amountMinorUnits: amount,
-      isVariableAmount: cap != null,
-      maxCapMinorUnits: cap,
-      frequency: MandateFrequency.monthly,
-      physicalAccountId: 'a',
-      startDate: _now,
-      nextExecutionDate: due,
-      status: active ? MandateStatus.active : MandateStatus.paused,
-      createdAt: _now,
-      updatedAt: _now,
-    );
+Mandate _mandate(
+  int amount,
+  DateTime due, {
+  int? cap,
+  bool active = true,
+  String account = 'a',
+}) => Mandate(
+  id: 'm$amount',
+  payee: 'Netflix',
+  amountMinorUnits: amount,
+  isVariableAmount: cap != null,
+  maxCapMinorUnits: cap,
+  frequency: MandateFrequency.monthly,
+  physicalAccountId: account,
+  startDate: _now,
+  nextExecutionDate: due,
+  status: active ? MandateStatus.active : MandateStatus.paused,
+  createdAt: _now,
+  updatedAt: _now,
+);
 
 StsBreakdown _sts({
   List<AllocationBucket> buckets = const [],
@@ -183,26 +188,27 @@ void main() {
       expect(b.result.dailySpendingPace, 0);
     });
 
-    test('mid-month start: the account balance caps the budget', () {
+    test('mid-month start: the account balance is what is left', () {
       final b = _sts(
         buckets: [
           _bucket('exp', AccountRole.expense, allocated: 4700000, account: 'a'),
         ],
         accounts: [_account('a', 1000000)], // only ₹10,000 really there
       );
-      expect(b.limitedByAccount, isTrue);
+      expect(b.fromAccount, isTrue);
+      expect(b.usable, 1000000);
       expect(b.result.effectiveSafeToSpend, 1000000);
     });
 
-    test('account holding more than the budget: the budget stays the cap', () {
+    test('the account is the truth even when it holds more than planned', () {
       final b = _sts(
         buckets: [
           _bucket('exp', AccountRole.expense, allocated: 1000000, account: 'a'),
         ],
         accounts: [_account('a', 9000000)],
       );
-      expect(b.limitedByAccount, isFalse);
-      expect(b.result.effectiveSafeToSpend, 1000000);
+      expect(b.usable, 9000000);
+      expect(b.result.effectiveSafeToSpend, 9000000);
     });
 
     test('money promised to plan-only categories is not spendable', () {
@@ -272,6 +278,24 @@ void main() {
         expect(b.result.effectiveSafeToSpend, 3000000);
       },
     );
+
+    test('an autopay from the salary account leaves spending money alone', () {
+      final b = _sts(
+        buckets: [
+          _bucket('exp', AccountRole.expense, allocated: 3000000, account: 'd'),
+        ],
+        accounts: [
+          _account('sal', 9000000, type: 'Salary'),
+          _account('d', 3000000),
+        ],
+        mandates: [
+          _mandate(500000, DateTime(2026, 11, 20), account: 'sal'), // SIP
+          _mandate(64900, DateTime(2026, 11, 21), account: 'd'), // Netflix
+        ],
+      );
+      expect(b.mandatesTotal, 64900);
+      expect(b.result.effectiveSafeToSpend, 3000000 - 64900);
+    });
 
     test('an overdrawn spending account is a deficit', () {
       final b = _sts(

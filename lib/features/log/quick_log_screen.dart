@@ -175,10 +175,10 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
       final held = CurrencyFormatter.format(account.balanceMinorUnits);
       reasons.add('more than the $held in ${account.name}');
     }
-    if (b != null && b.planned + b.carriedOver > 0 && minor > b.budgetLeft) {
-      if (b.budgetLeft > 0) {
-        final left = CurrencyFormatter.format(b.budgetLeft);
-        reasons.add('more than the $left left in your spending budget');
+    if (b != null && (b.fromAccount || b.planTotal > 0) && minor > b.usable) {
+      if (b.usable > 0) {
+        final left = CurrencyFormatter.format(b.usable);
+        reasons.add('more than the $left you have left to spend');
       } else {
         reasons.add('on top of a spending budget that is already used up');
       }

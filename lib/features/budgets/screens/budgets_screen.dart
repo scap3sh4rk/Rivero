@@ -86,6 +86,9 @@ class BudgetsScreen extends ConsumerWidget {
     final buckets = ref.watch(allAllocationBucketsProvider).value ?? const [];
     final salary = ref.watch(monthlySalaryProvider);
     final privacy = ref.watch(privacyModeProvider);
+    // Spending "left" is the same number Home uses (the account's real
+    // balance when one is linked), never a separate budget sum.
+    final sts = ref.watch(stsBreakdownProvider).value;
 
     String money(int v) => privacy ? '••••' : CurrencyFormatter.format(v);
 
@@ -172,6 +175,9 @@ class BudgetsScreen extends ConsumerWidget {
             _CategoryTile(
                   b,
                   money: money,
+                  spendingLeft: sts?.usable,
+                  spendingTotal: sts?.planTotal,
+                  fromAccount: sts?.fromAccount ?? false,
                   onTap: () => _markPaid(context, ref, b),
                 )
                 .animate()
@@ -184,7 +190,18 @@ class BudgetsScreen extends ConsumerWidget {
 }
 
 class _CategoryTile extends StatelessWidget {
-  const _CategoryTile(this.b, {required this.money, this.onTap});
+  const _CategoryTile(
+    this.b, {
+    required this.money,
+    this.onTap,
+    this.spendingLeft,
+    this.spendingTotal,
+    this.fromAccount = false,
+  });
+
+  final int? spendingLeft;
+  final int? spendingTotal;
+  final bool fromAccount;
 
   final VoidCallback? onTap;
 
@@ -194,16 +211,27 @@ class _CategoryTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final spending = b.role == AccountRole.expense;
-    final total = b.allocatedMinorUnits + b.carryOverMinorUnits;
-    final left = total - b.spentMinorUnits;
+    final total = spending
+        ? (spendingTotal ?? b.allocatedMinorUnits + b.carryOverMinorUnits)
+        : b.allocatedMinorUnits + b.carryOverMinorUnits;
+    final left =
+        spendingLeft ??
+        b.allocatedMinorUnits + b.carryOverMinorUnits - b.spentMinorUnits;
     // Spending shows what is left; set-aside categories show what is reserved
     // (and how much of it has been paid, for things like rent).
     final detail = spending
-        ? '${money(left)} left of ${money(total)}'
+        ? (left > total
+                  ? '${money(left)} left · ${money(total)} planned'
+                  : '${money(left)} left of ${money(total)}') +
+              (fromAccount ? ' · from your account balance' : '')
         : b.spentMinorUnits > 0
         ? '${money(b.spentMinorUnits)} paid of ${money(total)}'
         : '${money(total)} set aside';
-    final used = total > 0 ? (b.spentMinorUnits / total).clamp(0.0, 1.0) : 0.0;
+    final used = total <= 0
+        ? 0.0
+        : spending
+        ? (1 - left / total).clamp(0.0, 1.0)
+        : (b.spentMinorUnits / total).clamp(0.0, 1.0);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: RiveroSpacing.sm),

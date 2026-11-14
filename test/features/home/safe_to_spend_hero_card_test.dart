@@ -105,9 +105,9 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('How this is calculated'), findsOneWidget);
-    expect(find.text('Planned for spending this cycle'), findsOneWidget);
-    expect(find.text('Spent so far'), findsOneWidget);
-    expect(find.text('Budget left'), findsOneWidget);
+    // The demo spending budget is linked to an account: its balance rules.
+    expect(find.text('In your spending account now'), findsOneWidget);
+    expect(find.text('Left to spend'), findsOneWidget);
     expect(find.textContaining('Autopay due before payday'), findsOneWidget);
     expect(find.text('Credit card bills to pay'), findsOneWidget);
     expect(find.text('Days to payday'), findsOneWidget);
