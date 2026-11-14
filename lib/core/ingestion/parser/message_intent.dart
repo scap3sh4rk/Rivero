@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:rivero/core/utils/amount_parser.dart';
 
 /// What a bank / UPI message is *about*. Only [transaction] moves money.
 enum MessageIntent {
@@ -101,7 +102,14 @@ const _months = {
   'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12, //
 };
 
-/// Parses "16-Nov-26", "16/11/2026", "16 Nov 2026". Returns null if absent.
+/// A real calendar date, or null: "31-Feb" must not silently become 3 March.
+DateTime? _validDate(int y, int m, int d) {
+  final date = DateTime(y, m, d);
+  return date.year == y && date.month == m && date.day == d ? date : null;
+}
+
+/// Parses "16-Nov-26", "16/11/2026", "16 Nov 2026". Returns null if absent
+/// or not a real date.
 DateTime? extractNoticeDate(String text) {
   int year(String y) => y.length == 2 ? 2000 + int.parse(y) : int.parse(y);
 
@@ -111,7 +119,7 @@ DateTime? extractNoticeDate(String text) {
   if (named != null) {
     final m = _months[named.group(2)!.toLowerCase()];
     if (m != null) {
-      return DateTime(year(named.group(3)!), m, int.parse(named.group(1)!));
+      return _validDate(year(named.group(3)!), m, int.parse(named.group(1)!));
     }
   }
   final numeric = RegExp(r'\b(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})\b')
@@ -120,7 +128,7 @@ DateTime? extractNoticeDate(String text) {
     final d = int.parse(numeric.group(1)!);
     final m = int.parse(numeric.group(2)!);
     if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
-      return DateTime(year(numeric.group(3)!), m, d);
+      return _validDate(year(numeric.group(3)!), m, d);
     }
   }
   return null;
@@ -138,7 +146,11 @@ MandateNotice parseMandateNotice(String text, MessageIntent intent) {
     final frac = parts.length > 1
         ? parts[1].padRight(2, '0').substring(0, 2)
         : '00';
-    minor = int.parse(parts[0]) * 100 + int.parse(frac);
+    final whole = int.tryParse(parts[0]);
+    // An absurd figure is "no amount", never an exception or a wrapped value.
+    minor = whole == null || whole > maxAmountMinorUnits ~/ 100
+        ? null
+        : whole * 100 + int.parse(frac);
   }
 
   // Payee: "towards Netflix", "to Spotify", "for Netflix", "mandate for Netflix"

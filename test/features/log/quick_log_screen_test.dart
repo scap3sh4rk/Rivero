@@ -132,35 +132,68 @@ void main() {
     await finish(tester);
   });
 
-  testWidgets('rent can be paid from its own category', (tester) async {
+  testWidgets('no "comes out of" picker: Plan is not an action here', (
+    tester,
+  ) async {
     await pumpLog(tester);
-    final rentId = (await tester.runAsync(
+    await tester.runAsync(
       () => SalaryPlanService(db).addCustomCategory('Rent', 2500000),
-    ))!;
+    );
     await tester.pump(const Duration(milliseconds: 200));
+    expect(find.byKey(const ValueKey('pay-from')), findsNothing);
+    expect(find.text('Comes out of'), findsNothing);
+    await finish(tester);
+  });
 
-    for (final k in ['2', '5', '0', '0', '0']) {
+  testWidgets('a spend bigger than the account or budget asks first', (
+    tester,
+  ) async {
+    await pumpLog(tester);
+    // Seeded spending account holds ₹48,250: log ₹99,999.
+    for (final k in ['9', '9', '9', '9', '9']) {
       await press(tester, 'key-$k');
     }
-    await tester.tap(find.byKey(const ValueKey('pay-from')));
+    await tester.tap(find.text('Save'));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    await tester.tap(find.text('Rent').last);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Log this anyway?'), findsOneWidget);
 
-    final spendingBefore = (await tester.runAsync(
-      () => db.accountsDao.getBucketById('bucket-expense'),
-    ))!.spentMinorUnits;
-    await saveAndSettle(tester);
-    final rent = (await tester.runAsync(
-      () => db.accountsDao.getBucketById(rentId),
+    await tester.tap(find.text('Cancel'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    final none = (await tester.runAsync(
+      () => db.select(db.transactions).get(),
     ))!;
-    final spending = (await tester.runAsync(
-      () => db.accountsDao.getBucketById('bucket-expense'),
+    expect(none.any((t) => t.amountMinorUnits == -9999900), isFalse);
+
+    await tester.tap(find.text('Save'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.byKey(const ValueKey('log-anyway')));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 300)),
+    );
+    await tester.pump();
+    final saved = (await tester.runAsync(
+      () => db.select(db.transactions).get(),
     ))!;
-    expect(rent.spentMinorUnits, 2500000);
-    expect(spending.spentMinorUnits, spendingBefore);
+    expect(saved.any((t) => t.amountMinorUnits == -9999900), isTrue);
+    await tester.pump(const Duration(milliseconds: 1600));
+    await finish(tester);
+  });
+
+  testWidgets('a too-large amount is flagged and cannot be saved', (
+    tester,
+  ) async {
+    await pumpLog(tester);
+    for (var i = 0; i < 11; i++) {
+      await press(tester, 'key-9');
+    }
+    expect(find.byKey(const ValueKey('too-large')), findsOneWidget);
+    final save = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Save'),
+    );
+    expect(save.onPressed, isNull);
     await finish(tester);
   });
 

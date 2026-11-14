@@ -1,4 +1,5 @@
 import 'package:rivero/core/ingestion/parser/message_intent.dart';
+import 'package:rivero/core/utils/amount_parser.dart';
 
 /// What a scanned bill most likely says. Every field is a suggestion the
 /// user confirms before anything is saved.
@@ -33,7 +34,8 @@ int? _amountIn(String line) {
   int? best;
   for (final m in _money.allMatches(line)) {
     final whole = int.tryParse(m.group(1)!.replaceAll(',', ''));
-    if (whole == null) continue;
+    // Phone numbers, order ids and the like are not amounts.
+    if (whole == null || whole > maxAmountMinorUnits ~/ 100) continue;
     final frac = int.parse((m.group(2) ?? '').padRight(2, '0'));
     final v = whole * 100 + frac;
     if (best == null || v > best) best = v;

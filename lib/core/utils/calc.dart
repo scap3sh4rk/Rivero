@@ -1,3 +1,5 @@
+import 'package:rivero/core/utils/amount_parser.dart';
+
 /// Keypad calculator in integer paise (no floating point).
 ///
 /// Supports + − × ÷ with normal precedence and calculator-style %:
@@ -14,7 +16,9 @@ int? evaluateExpression(String input) {
   while (i < expr.length) {
     final m = number.firstMatch(expr.substring(i));
     if (m != null) {
-      final whole = int.parse(m.group(1)!);
+      final whole = int.tryParse(m.group(1)!);
+      // Absurdly large operands are rejected rather than allowed to wrap.
+      if (whole == null || whole > maxAmountMinorUnits ~/ 100) return null;
       final frac = int.parse((m.group(2) ?? '').padRight(2, '0'));
       tokens.add(_Num(whole * 100 + frac, percent: m.group(3) != null));
       i += m.group(0)!.length;
@@ -49,6 +53,7 @@ int? evaluateExpression(String input) {
     }
     if (value == null) return null;
     total = sign == '+' ? total + value : total - value;
+    if (total.abs() > maxAmountMinorUnits) return null;
     if (!atEnd) {
       sign = tokens[k] as String;
       start = k + 1;
@@ -58,16 +63,17 @@ int? evaluateExpression(String input) {
 }
 
 int? _evalProduct(List<Object> term) {
-  int value(_Num n) => n.percent ? _mulDiv(n.paise, 1, 100)! : n.paise;
+  int? value(_Num n) => n.percent ? _mulDiv(n.paise, 1, 100) : n.paise;
   var acc = value(term.first as _Num);
-  for (var k = 1; k < term.length; k += 2) {
+  for (var k = 1; k < term.length && acc != null; k += 2) {
     final op = term[k] as String;
     final rhs = value(term[k + 1] as _Num);
+    if (rhs == null) return null;
     if (op == '×') {
-      acc = _mulDiv(acc, rhs, 100)!;
+      acc = _mulDiv(acc, rhs, 100);
     } else {
       if (rhs == 0) return null;
-      acc = _mulDiv(acc, 100, rhs)!;
+      acc = _mulDiv(acc, 100, rhs);
     }
   }
   return acc;
@@ -81,7 +87,10 @@ int? _mulDiv(int a, int b, int d) {
   final r = n.remainder(BigInt.from(d)).abs() * BigInt.two;
   final roundUp = r >= BigInt.from(d.abs());
   final sign = (n.isNegative != d.isNegative) ? -1 : 1;
-  return (q + (roundUp ? BigInt.from(sign) : BigInt.zero)).toInt();
+  final result = q + (roundUp ? BigInt.from(sign) : BigInt.zero);
+  // Never let toInt() silently wrap: too big means "no answer".
+  if (result.abs() > BigInt.from(maxAmountMinorUnits)) return null;
+  return result.toInt();
 }
 
 class _Num {

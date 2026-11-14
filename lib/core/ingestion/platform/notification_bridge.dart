@@ -66,17 +66,25 @@ class NotificationBridge {
   /// Parses the native queue payload; separated from [drain] for testing.
   Future<int> ingestJson(String json) async {
     final items = (jsonDecode(json) as List).cast<Map<String, dynamic>>();
+    var processed = 0;
     for (final m in items) {
-      await _ingestion.processNotification(
-        RawNotification(
-          id: m['id'] as String,
-          body: m['body'] as String,
-          title: m['title'] as String?,
-          packageName: m['package'] as String?,
-          receivedAt: DateTime.fromMillisecondsSinceEpoch(m['time'] as int),
-        ),
-      );
+      // The native queue was already emptied, so one bad message must not
+      // lose the ones behind it.
+      try {
+        await _ingestion.processNotification(
+          RawNotification(
+            id: m['id'] as String,
+            body: m['body'] as String,
+            title: m['title'] as String?,
+            packageName: m['package'] as String?,
+            receivedAt: DateTime.fromMillisecondsSinceEpoch(m['time'] as int),
+          ),
+        );
+        processed++;
+      } on Object {
+        continue;
+      }
     }
-    return items.length;
+    return processed;
   }
 }

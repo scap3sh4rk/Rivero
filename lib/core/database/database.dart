@@ -71,7 +71,7 @@ class RiveroDatabase extends _$RiveroDatabase {
   });
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration {
@@ -106,6 +106,14 @@ class RiveroDatabase extends _$RiveroDatabase {
         }
         if (from < 7) {
           await m.addColumn(physicalAccounts, physicalAccounts.sortOrder);
+        }
+        if (from < 8) {
+          // Repair: before this version, re-applying a plan inside the same
+          // pay cycle counted the old budget as carried-over money again and
+          // inflated Safe-to-Spend. Reset those stored values.
+          await customStatement(
+            'UPDATE allocation_buckets SET carry_over_minor_units = 0',
+          );
         }
       },
       beforeOpen: (details) async {

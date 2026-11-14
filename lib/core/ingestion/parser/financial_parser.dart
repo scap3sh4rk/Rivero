@@ -237,6 +237,8 @@ class FinancialParser {
     try {
       final parts = amountStr.split('.');
       final whole = int.parse(parts[0]);
+      // A "balance" or reference number glued to Rs/INR must not overflow.
+      if (whole > 1000000000) return null;
       var fraction = 0;
       if (parts.length > 1) {
         final fracPart = parts[1].padRight(2, '0').substring(0, 2);

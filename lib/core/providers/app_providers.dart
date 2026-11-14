@@ -2,16 +2,15 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart' show OrderingTerm;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rivero/core/database/daos/mandates_dao.dart';
 import 'package:rivero/core/database/daos/settings_dao.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/database/database_seeder.dart';
-import 'package:rivero/core/domain/account_role.dart';
 import 'package:rivero/core/domain/custom_account_types.dart';
 import 'package:rivero/core/domain/log_category.dart';
 import 'package:rivero/core/dues/dues_service.dart';
 import 'package:rivero/core/engine/paycycle.dart';
 import 'package:rivero/core/engine/safe_to_spend_calculator.dart';
+import 'package:rivero/core/engine/sts_breakdown.dart';
 import 'package:rivero/core/engine/waterfall_allocator.dart';
 import 'package:rivero/core/ingestion/deduplication_engine.dart';
 import 'package:rivero/core/ingestion/ingestion_service.dart';
@@ -332,68 +331,50 @@ final allMandatesProvider = StreamProvider<List<Mandate>>((ref) {
   return ref.watch(databaseProvider).mandatesDao.watchAllMandates();
 });
 
-/// Live calculated Safe-to-Spend result dynamically computed from database streams and paycycle.
-final liveSafeToSpendResultProvider = Provider<AsyncValue<SafeToSpendResult>>((
-  ref,
-) {
+/// Safe-to-Spend with every input visible (see [StsBreakdown]).
+final stsBreakdownProvider = Provider<AsyncValue<StsBreakdown>>((ref) {
   final bucketsAsync = ref.watch(allAllocationBucketsProvider);
   final accountsAsync = ref.watch(activePhysicalAccountsProvider);
-  final paycycle = ref.watch(currentPaycycleProvider);
-  final calculator = ref.watch(safeToSpendCalculatorProvider);
-  final includeReimbursements = ref.watch(includePendingReimbursementsProvider);
-
   if (bucketsAsync.isLoading || accountsAsync.isLoading) {
     return const AsyncValue.loading();
   }
-
   if (bucketsAsync.hasError) {
     return AsyncValue.error(bucketsAsync.error!, bucketsAsync.stackTrace!);
   }
   if (accountsAsync.hasError) {
     return AsyncValue.error(accountsAsync.error!, accountsAsync.stackTrace!);
   }
+  final accounts = accountsAsync.value ?? const <PhysicalAccount>[];
+  final txns = ref.watch(allTransactionsStreamProvider).value ?? const [];
 
-  final buckets = bucketsAsync.value ?? [];
-  final accounts = accountsAsync.value ?? [];
-  final reserveCards = ref.watch(reserveCreditCardsProvider);
-
-  // 1. Expense bucket balance
-  var expenseBalance = 0;
-  for (final b in buckets) {
-    if (b.role == AccountRole.expense) {
-      expenseBalance +=
-          b.allocatedMinorUnits + b.carryOverMinorUnits - b.spentMinorUnits;
-    }
+  // How fresh the figures are: the newest balance update or logged entry.
+  DateTime? synced;
+  for (final a in accounts) {
+    if (synced == null || a.updatedAt.isAfter(synced)) synced = a.updatedAt;
+  }
+  for (final t in txns.take(1)) {
+    if (synced == null || t.createdAt.isAfter(synced)) synced = t.createdAt;
   }
 
-  // 2. CC liabilities (negative balances on liability accounts)
-  var ccLiability = 0;
-  for (final acc in accounts) {
-    if (reserveCards && acc.isLiability && acc.balanceMinorUnits < 0) {
-      ccLiability += acc.balanceMinorUnits.abs();
-    }
-  }
-
-  // 3. Active mandates due before the cycle ends
-  final upcomingMandates = sumUpcomingCommitments(
-    ref.watch(activeMandatesProvider).value ?? const [],
-    DateTime.now(),
-    paycycle.cycleEndDate,
-  );
-
-  final result = calculator.calculate(
-    expenseBalance: expenseBalance,
-    upcomingMandates: upcomingMandates,
-    unsettledCreditCardLiability: ccLiability,
-    pendingReimbursements: DuesService.totalOutstanding(
-      ref.watch(duesProvider).value ?? const [],
+  return AsyncValue.data(
+    StsBreakdown.compute(
+      buckets: bucketsAsync.value ?? const [],
+      accounts: accounts,
+      mandates: ref.watch(activeMandatesProvider).value ?? const [],
+      dues: ref.watch(duesProvider).value ?? const [],
+      cycle: ref.watch(currentPaycycleProvider),
+      reserveCards: ref.watch(reserveCreditCardsProvider),
+      includeOwed: ref.watch(includePendingReimbursementsProvider),
+      lastSyncedAt: synced,
     ),
-    daysRemainingInCycle: paycycle.daysRemaining,
-    lastSyncedAt: DateTime.now(),
-    includePendingReimbursements: includeReimbursements,
   );
+});
 
-  return AsyncValue.data(result);
+/// Live calculated Safe-to-Spend result.
+final liveSafeToSpendResultProvider = Provider<AsyncValue<SafeToSpendResult>>((
+  ref,
+) {
+  return ref.watch(stsBreakdownProvider).whenData((b) => b.result);
 });
 
 /// Active tab: 0 Accounts, 1 Plan, 2 Home (centre, default), 3 Log, 4 Activity.

@@ -201,4 +201,41 @@ void main() {
     );
     expect(found?.id, 'early');
   });
+
+  test('revising the plan inside the same cycle never adds money', () async {
+    final cycle = DateTime(2026, 11);
+    // ₹52,000 salary, ₹5,000 invested, rest to spending.
+    await plan.apply(
+      salary: 5200000,
+      allocations: {'exp': 4700000, 'inv': 500000, 'sav': 0},
+      cycleStart: cycle,
+    );
+    await db.accountsDao.recordBucketSpend('exp', 600000); // ₹6,000 spent
+
+    // The owner re-opens the plan and re-applies it twice.
+    for (var i = 0; i < 2; i++) {
+      await plan.apply(
+        salary: 5200000,
+        allocations: {'exp': 4700000, 'inv': 500000, 'sav': 0},
+        cycleStart: cycle,
+      );
+    }
+    final exp = (await db.accountsDao.getBucketById('exp'))!;
+    expect(exp.carryOverMinorUnits, 0); // was growing by the old budget
+    expect(exp.spentMinorUnits, 600000); // month's spending is kept
+    expect(
+      exp.allocatedMinorUnits + exp.carryOverMinorUnits - exp.spentMinorUnits,
+      4100000, // ₹41,000 left, never above the salary
+    );
+
+    // A genuinely new cycle does carry the unspent ₹41,000.
+    await plan.apply(
+      salary: 5200000,
+      allocations: {'exp': 4700000, 'inv': 500000, 'sav': 0},
+      cycleStart: DateTime(2026, 12),
+    );
+    final next = (await db.accountsDao.getBucketById('exp'))!;
+    expect(next.carryOverMinorUnits, 4100000);
+    expect(next.spentMinorUnits, 0);
+  });
 }

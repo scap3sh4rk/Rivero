@@ -82,6 +82,15 @@ class SalaryPlanService {
     }
     final buckets = await db.accountsDao.getAllBuckets();
     final now = DateTime.now();
+    // Editing the plan inside the pay cycle it was made for is a revision,
+    // not a new month: spending so far and the carry-in stay as they were.
+    // Only a plan for a later cycle carries unspent money forward.
+    final raw = await db.settingsDao.get(SettingKeys.lastPlannedCycleStart);
+    final lastPlanned = raw == null ? null : DateTime.tryParse(raw);
+    final sameCycle =
+        cycleStart != null &&
+        lastPlanned != null &&
+        lastPlanned.isAtSameMomentAs(cycleStart);
     await db.transaction(() async {
       for (final b in buckets) {
         final amount = allocations[b.id] ?? 0;
@@ -91,8 +100,10 @@ class SalaryPlanService {
             name: Value(b.name),
             role: Value(b.role),
             allocatedMinorUnits: Value(amount),
-            carryOverMinorUnits: Value(carryOver ? carryFor(b) : 0),
-            spentMinorUnits: const Value(0),
+            carryOverMinorUnits: Value(
+              sameCycle ? b.carryOverMinorUnits : (carryOver ? carryFor(b) : 0),
+            ),
+            spentMinorUnits: Value(sameCycle ? b.spentMinorUnits : 0),
             targetMinorUnits: rememberAsDefault && b.role != AccountRole.expense
                 ? Value(amount)
                 : Value(b.targetMinorUnits),

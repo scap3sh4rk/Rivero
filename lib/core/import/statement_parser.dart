@@ -1,4 +1,5 @@
 import 'package:rivero/core/ingestion/parser/message_intent.dart';
+import 'package:rivero/core/utils/amount_parser.dart';
 
 /// One line of a bank statement. Negative amount = money out.
 class StatementRow {
@@ -55,9 +56,11 @@ int? _paise(String raw) {
   }
   final m = RegExp(r'^(\d+)(?:\.(\d{1,2}))?$').firstMatch(s);
   if (m == null) return null;
-  return sign *
-      (int.parse(m.group(1)!) * 100 +
-          int.parse((m.group(2) ?? '').padRight(2, '0')));
+  // Absurdly large figures (corrupt file, wrong column) are skipped, not
+  // allowed to throw or wrap around.
+  final whole = int.tryParse(m.group(1)!);
+  if (whole == null || whole > maxAmountMinorUnits ~/ 100) return null;
+  return sign * (whole * 100 + int.parse((m.group(2) ?? '').padRight(2, '0')));
 }
 
 DateTime? _date(String raw) {

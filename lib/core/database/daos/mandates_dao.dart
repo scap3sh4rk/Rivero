@@ -91,27 +91,35 @@ class MandatesDao extends DatabaseAccessor<RiveroDatabase>
   }
 }
 
-/// Sum of active mandates executing between [now] and [cycleEnd] (inclusive of
-/// the whole end day). Variable mandates reserve their cap.
+/// Active mandates that will still debit from today (the whole of today
+/// counts, even if its time of day has passed) until the end of [cycleEnd].
 // ponytail: weekly mandates counted once per cycle; count each occurrence if needed.
-int sumUpcomingCommitments(
+List<Mandate> upcomingMandates(
   Iterable<Mandate> mandates,
   DateTime now,
   DateTime cycleEnd,
 ) {
+  final today = DateTime(now.year, now.month, now.day);
   final end = DateTime(cycleEnd.year, cycleEnd.month, cycleEnd.day + 1);
-  return mandates
-      .where((m) => m.status == MandateStatus.active)
-      .where((m) {
-        final d = m.nextExecutionDate;
-        return d != null && !d.isBefore(now) && d.isBefore(end);
-      })
-      .fold(
-        0,
-        (sum, m) =>
-            sum +
-            (m.isVariableAmount
-                ? (m.maxCapMinorUnits ?? m.amountMinorUnits)
-                : m.amountMinorUnits),
-      );
+  return mandates.where((m) => m.status == MandateStatus.active).where((m) {
+      final d = m.nextExecutionDate;
+      return d != null && !d.isBefore(today) && d.isBefore(end);
+    }).toList()
+    ..sort((a, b) => a.nextExecutionDate!.compareTo(b.nextExecutionDate!));
 }
+
+/// What one mandate reserves: its amount, or its cap when the amount varies.
+int mandateReserve(Mandate m) => m.isVariableAmount
+    ? (m.maxCapMinorUnits ?? m.amountMinorUnits)
+    : m.amountMinorUnits;
+
+/// Sum of [upcomingMandates].
+int sumUpcomingCommitments(
+  Iterable<Mandate> mandates,
+  DateTime now,
+  DateTime cycleEnd,
+) => upcomingMandates(
+  mandates,
+  now,
+  cycleEnd,
+).fold(0, (s, m) => s + mandateReserve(m));

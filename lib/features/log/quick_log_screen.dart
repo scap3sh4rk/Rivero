@@ -7,7 +7,9 @@ import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/account_role.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/providers/app_providers.dart';
+import 'package:rivero/core/utils/amount_parser.dart';
 import 'package:rivero/core/utils/calc.dart';
+import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/account_color.dart';
 import 'package:rivero/design_system/widgets/picker.dart';
@@ -33,7 +35,6 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
   bool _calcOpen = false;
   String? _category; // none until the user (or a remembered note) picks one
   late String? _accountId = ref.read(lastLogAccountProvider);
-  String? _bucketId; // null = spending; else a set-aside category (e.g. Rent)
   String? _savedLabel;
   Timer? _savedTimer;
   final _note = TextEditingController();
@@ -162,9 +163,54 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
         accounts.firstOrNull;
   }
 
+  /// Asks before logging a spend bigger than the account holds or than the
+  /// spending budget left. Returns true to go ahead.
+  Future<bool> _confirmLargeSpend(PhysicalAccount account, int minor) async {
+    if (_income) return true;
+    final b = ref.read(stsBreakdownProvider).value;
+    final reasons = <String>[];
+    if (!account.isLiability &&
+        account.balanceMinorUnits > 0 &&
+        minor > account.balanceMinorUnits) {
+      final held = CurrencyFormatter.format(account.balanceMinorUnits);
+      reasons.add('more than the $held in ${account.name}');
+    }
+    if (b != null && b.planned + b.carriedOver > 0 && minor > b.budgetLeft) {
+      if (b.budgetLeft > 0) {
+        final left = CurrencyFormatter.format(b.budgetLeft);
+        reasons.add('more than the $left left in your spending budget');
+      } else {
+        reasons.add('on top of a spending budget that is already used up');
+      }
+    }
+    if (reasons.isEmpty) return true;
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Log this anyway?'),
+        content: Text(
+          '${CurrencyFormatter.format(minor)} is ${reasons.join(' and ')}.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            key: const ValueKey('log-anyway'),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Log anyway'),
+          ),
+        ],
+      ),
+    );
+    return go ?? false;
+  }
+
   Future<void> _save(PhysicalAccount account) async {
     final minor = _amount;
     if (minor == 0) return;
+    if (!await _confirmLargeSpend(account, minor)) return;
     final category = _income ? 'Income' : (_category ?? 'Other');
     final note = _note.text.trim();
     await ref
@@ -179,7 +225,6 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
               : TransactionType.expense,
           merchant: note.isEmpty ? category : note,
           category: category,
-          bucketId: _income ? null : _bucketId,
         );
     ref.read(lastLogAccountProvider.notifier).state = account.id;
     unawaited(HapticFeedback.lightImpact());
@@ -208,11 +253,6 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
     final categories = _orderedCategories(txns, [
       ...{...ref.watch(logCategoriesProvider).map((c) => c.name), ?_category},
     ]);
-    final payFrom = buckets.where((b) => b.role == AccountRole.custom).toList();
-    final payFromName = buckets
-        .where((b) => b.id == _bucketId)
-        .firstOrNull
-        ?.name;
     final accountTint = account == null ? null : accountColor(account);
 
     return Scaffold(
@@ -324,6 +364,14 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
                                   color: RiveroColors.textSecondary,
                                 ),
                               ),
+                            if (isAmountTooLarge(_text))
+                              Text(
+                                'Amount too large',
+                                key: const ValueKey('too-large'),
+                                style: RiveroTypography.bodySmall.copyWith(
+                                  color: RiveroColors.danger,
+                                ),
+                              ),
                             FittedBox(
                               child: Text(
                                 privacy && _text.isNotEmpty
@@ -394,36 +442,6 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
                         },
                       ),
                     ),
-                    if (payFrom.isNotEmpty && !_income) ...[
-                      const SizedBox(width: RiveroSpacing.sm),
-                      Expanded(
-                        child: _Pill(
-                          key: const ValueKey('pay-from'),
-                          icon: Icons.call_split_rounded,
-                          label: payFromName ?? 'Spending',
-                          active: _bucketId != null,
-                          onTap: () async {
-                            final picked = await showPicker<String>(
-                              context,
-                              title: 'Comes out of',
-                              selected: _bucketId ?? '',
-                              options: [
-                                const PickerOption('', 'Spending'),
-                                for (final b in payFrom)
-                                  PickerOption(b.id, b.name),
-                              ],
-                            );
-                            if (picked != null) {
-                              setState(
-                                () => _bucketId = picked.value.isEmpty
-                                    ? null
-                                    : picked.value,
-                              );
-                            }
-                          },
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ),

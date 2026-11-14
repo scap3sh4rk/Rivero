@@ -84,4 +84,36 @@ void main() {
       );
     },
   );
+
+  testWidgets('tapping the card explains the calculation line by line', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [databaseProvider.overrideWithValue(db)],
+        child: const MaterialApp(home: Scaffold(body: SafeToSpendHeroCard())),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byKey(const ValueKey('sts-card')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('How this is calculated'), findsOneWidget);
+    expect(find.text('Planned for spending this cycle'), findsOneWidget);
+    expect(find.text('Spent so far'), findsOneWidget);
+    expect(find.text('Budget left'), findsOneWidget);
+    expect(find.textContaining('Autopay due before payday'), findsOneWidget);
+    expect(find.text('Credit card bills to pay'), findsOneWidget);
+    expect(find.text('Days to payday'), findsOneWidget);
+    expect(find.text('Per day'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 100));
+  });
 }

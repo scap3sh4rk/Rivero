@@ -155,13 +155,19 @@ class WaterfallAllocator {
         return rule.fixedAmount ?? 0;
 
       case AllocationType.percentageOfSalary:
-        final pct = rule.percentage ?? 0.0;
-        // Integer minor unit calculation with standard half-up rounding.
-        return (salaryReceived * (pct / 100.0)).round();
+        // Whole-number maths (hundredths of a percent), half-up rounding.
+        return _percentOf(salaryReceived, rule.percentage ?? 0);
 
       case AllocationType.percentageOfRemaining:
-        final pct = rule.percentage ?? 0.0;
-        return (remainingFunds * (pct / 100.0)).round();
+        return _percentOf(remainingFunds, rule.percentage ?? 0);
     }
+  }
+
+  /// [percent] of [amount] using integers only: percent is taken to two
+  /// decimals (12.5% = 1250), so no floating-point drift on large amounts.
+  static int _percentOf(int amount, double percent) {
+    final basis = BigInt.from((percent * 100).round());
+    final scaled = BigInt.from(amount) * basis + BigInt.from(5000);
+    return (scaled ~/ BigInt.from(10000)).toInt();
   }
 }

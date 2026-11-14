@@ -7,6 +7,7 @@ import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/financial_amount_text.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
+import 'package:rivero/features/home/widgets/sts_breakdown_sheet.dart';
 
 /// The single hero of the app: one large Safe-to-Spend number with a pill
 /// showing how much of the expense budget is left. The pill shifts from
@@ -34,6 +35,7 @@ class SafeToSpendHeroCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final stsAsync = ref.watch(liveSafeToSpendResultProvider);
+    final breakdown = ref.watch(stsBreakdownProvider).value;
     final buckets = ref.watch(allAllocationBucketsProvider).value ?? const [];
     final isPrivacy = ref.watch(privacyModeProvider);
     final paycycle = ref.watch(currentPaycycleProvider);
@@ -56,7 +58,9 @@ class SafeToSpendHeroCard extends ConsumerWidget {
     // Everything about today's number lives in one card: the figure, what is
     // left, and a thin bar of how much of the month's spending is used.
     return RiveroCard(
+      key: const ValueKey('sts-card'),
       isElevated: true,
+      onTap: () => StsBreakdownSheet.show(context),
       padding: const EdgeInsets.fromLTRB(
         RiveroSpacing.xl,
         RiveroSpacing.xl,
@@ -78,6 +82,12 @@ class SafeToSpendHeroCard extends ConsumerWidget {
                 ),
               ),
               _ReliabilityDot(reliability: sts.reliability),
+              const SizedBox(width: RiveroSpacing.xs),
+              Icon(
+                Icons.info_outline_rounded,
+                size: 16,
+                color: RiveroColors.textMuted,
+              ),
             ],
           ),
           const SizedBox(height: RiveroSpacing.sm),
@@ -94,8 +104,11 @@ class SafeToSpendHeroCard extends ConsumerWidget {
           const SizedBox(height: RiveroSpacing.xs),
           Text(
             sts.isDeficit
-                ? 'Bills due exceed what is left by '
-                      '${CurrencyFormatter.format(sts.deficitAmount)}'
+                ? (breakdown?.overBudget ?? false
+                      ? 'Over budget by '
+                            '${CurrencyFormatter.format(-breakdown!.budgetLeft)}'
+                      : 'Bills due exceed what is left by '
+                            '${CurrencyFormatter.format(sts.deficitAmount)}')
                 : '${isPrivacy ? '••••' : CurrencyFormatter.format(sts.effectiveSafeToSpend)}'
                       ' left · '
                       '${awaiting ? 'waiting for salary' : '${paycycle.daysRemaining} days to payday'}',
