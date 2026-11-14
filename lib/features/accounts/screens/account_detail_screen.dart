@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/providers/app_providers.dart';
+import 'package:rivero/core/utils/amount_parser.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/account_color.dart';
@@ -27,6 +28,54 @@ class AccountDetailScreen extends ConsumerWidget {
           builder: (_) => AccountDetailScreen(accountId: accountId),
         ),
       );
+
+  Future<void> _updateBalance(
+    BuildContext context,
+    WidgetRef ref,
+    PhysicalAccount a,
+  ) async {
+    final current = a.isLiability ? -a.balanceMinorUnits : a.balanceMinorUnits;
+    String shown(int v) => v % 100 == 0
+        ? '${v ~/ 100}'
+        : '${v ~/ 100}.${(v % 100).toString().padLeft(2, '0')}';
+    final controller = TextEditingController(
+      text: current > 0 ? shown(current) : '',
+    );
+    final value = await showDialog<int>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(a.isLiability ? 'Amount outstanding' : 'Current balance'),
+        content: TextField(
+          key: const ValueKey('balance-field'),
+          controller: controller,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: InputDecoration(
+            prefixText: '₹',
+            helperText: a.isLiability
+                ? 'What you owe on this card right now'
+                : 'What the account shows right now',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.pop(ctx, parseAmountMinorUnits(controller.text)),
+            child: const Text('Update'),
+          ),
+        ],
+      ),
+    );
+    // Not disposed here: the dialog is still animating out and uses it.
+    if (value == null) return;
+    await ref
+        .read(ledgerServiceProvider)
+        .setBalance(a.id, a.isLiability ? -value : value);
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -67,6 +116,12 @@ class AccountDetailScreen extends ConsumerWidget {
         showProfile: false,
         leading: BackButton(onPressed: () => Navigator.of(context).pop()),
         actions: [
+          IconButton(
+            key: const ValueKey('update-balance'),
+            tooltip: 'Update balance',
+            onPressed: () => _updateBalance(context, ref, account),
+            icon: const Icon(Icons.edit_note_rounded),
+          ),
           IconButton(
             tooltip: 'Edit account',
             onPressed: () =>

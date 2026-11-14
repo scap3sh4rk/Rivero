@@ -71,7 +71,7 @@ class RiveroDatabase extends _$RiveroDatabase {
   });
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration {
@@ -113,6 +113,15 @@ class RiveroDatabase extends _$RiveroDatabase {
           // inflated Safe-to-Spend. Reset those stored values.
           await customStatement(
             'UPDATE allocation_buckets SET carry_over_minor_units = 0',
+          );
+        }
+        if (from < 9) {
+          // Set-aside categories used to point at the salary account (as their
+          // source). A link now means "money also arrives in this account", so
+          // clear the old meaning.
+          await customStatement(
+            'UPDATE allocation_buckets SET linked_physical_account_id = NULL '
+            "WHERE role != 'expense'",
           );
         }
       },

@@ -5,6 +5,7 @@ import 'package:rivero/core/domain/account_role.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/engine/allocation_rule.dart';
 import 'package:rivero/core/engine/waterfall_allocator.dart';
+import 'package:rivero/core/plan/plan_transfer_service.dart';
 
 /// A user-facing validation problem (shown as a message, not a crash).
 class PlanValidationException implements Exception {
@@ -73,6 +74,7 @@ class SalaryPlanService {
     DateTime? cycleStart,
     bool rememberAsDefault = true,
     bool carryOver = true,
+    bool? moveMoney,
   }) async {
     final total = allocations.values.fold<int>(0, (a, b) => a + b);
     if (allocations.values.any((v) => v < 0) || total > salary) {
@@ -126,6 +128,38 @@ class SalaryPlanService {
           cycleStart.toIso8601String(),
         );
       }
+      // Money moves when a salary credit is being split, or when this
+      // cycle's money has already moved and the plan is being revised.
+      final transfers = PlanTransferService(db);
+      final move =
+          cycleStart != null &&
+          (moveMoney ??
+              (salaryTransactionId != null ||
+                  await transfers.hasMoves(cycleStart)));
+      if (move) {
+        final accounts = await db.accountsDao.getAllActivePhysicalAccounts();
+        final salary = PlanTransferService.salaryAccountOf(
+          accounts,
+          await db.settingsDao.get(SettingKeys.salaryAccount),
+        );
+        if (salary != null) {
+          final fresh = await db.accountsDao.getAllBuckets();
+          await transfers.sync(
+            cycleStart: cycleStart,
+            salary: salary,
+            moves: transfers.movesFor(
+              allocations: allocations,
+              buckets: fresh,
+              salary: salary,
+              spending: PlanTransferService.spendingAccountOf(
+                fresh,
+                accounts,
+                salary,
+              ),
+            ),
+          );
+        }
+      }
     });
   }
 
@@ -134,6 +168,31 @@ class SalaryPlanService {
     final raw = await db.settingsDao.get(SettingKeys.lastPlannedCycleStart);
     final last = raw == null ? null : DateTime.tryParse(raw);
     return last != null && last.isBefore(cycleStart);
+  }
+
+  /// Saves where money goes: the spending account, and for set-aside
+  /// categories an optional destination account (null = paid outside Rivero).
+  Future<void> setRouting({
+    String? spendingAccountId,
+    Map<String, String?> destinations = const {},
+  }) async {
+    final buckets = await db.accountsDao.getAllBuckets();
+    for (final b in buckets) {
+      String? link;
+      if (b.role == AccountRole.expense) {
+        if (spendingAccountId == null) continue;
+        link = spendingAccountId;
+      } else if (destinations.containsKey(b.id)) {
+        link = destinations[b.id];
+      } else {
+        continue;
+      }
+      await (db.update(
+        db.allocationBuckets,
+      )..where((t) => t.id.equals(b.id))).write(
+        AllocationBucketsCompanion(linkedPhysicalAccountId: Value(link)),
+      );
+    }
   }
 
   /// Adds a user category (e.g. Rent, Family) funded from salary each month.
@@ -150,9 +209,6 @@ class SalaryPlanService {
     if (buckets.any((b) => b.name.toLowerCase() == clean.toLowerCase())) {
       throw PlanValidationException('"$clean" already exists');
     }
-    final salaryAccount = (await db.accountsDao.getAllActivePhysicalAccounts())
-        .where((a) => !a.isLiability)
-        .firstOrNull;
     final now = DateTime.now();
     final id = 'bucket-${now.microsecondsSinceEpoch}';
     final order =
@@ -167,7 +223,9 @@ class SalaryPlanService {
         name: Value(clean),
         role: const Value(AccountRole.custom),
         targetMinorUnits: Value(monthlyAmount),
-        linkedPhysicalAccountId: Value(salaryAccount?.id),
+        // Null = paid outside Rivero (rent, family); set a destination
+        // account to have the money arrive there too.
+        linkedPhysicalAccountId: const Value(null),
         priorityOrder: Value(order),
         createdAt: Value(now),
         updatedAt: Value(now),

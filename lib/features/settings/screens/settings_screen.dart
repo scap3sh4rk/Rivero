@@ -266,7 +266,6 @@ class SettingsScreen extends ConsumerWidget {
         ),
       ),
     );
-    typed.dispose();
     if (ok != true || !context.mounted) return;
     Navigator.of(context).popUntil((r) => r.isFirst);
     await ref.read(databaseProvider).wipeAll();

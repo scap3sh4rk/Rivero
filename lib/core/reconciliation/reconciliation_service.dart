@@ -30,9 +30,14 @@ class ReconciliationService {
   }) async {
     // Only confirmed legs: unconfirmed ones have not touched balances yet and
     // must not be marked reconciled (that would skip their effects).
-    final recent = (await database.transactionsDao.getRecentTransactions(
-      limit: scanLimit,
-    )).where((t) => t.transactionState == TransactionState.confirmed).toList();
+    final recent =
+        (await database.transactionsDao.getRecentTransactions(limit: scanLimit))
+            .where(
+              (t) =>
+                  t.transactionState == TransactionState.confirmed &&
+                  !t.id.startsWith('plan-'),
+            )
+            .toList();
 
     final pairs = transferMatcher.findTransferPairs(
       unlinkedTransactions: recent,
@@ -67,9 +72,14 @@ class ReconciliationService {
   /// Scans active transactions, detects unlinked refunds or reversals,
   /// and links them back to their originating debit purchases.
   Future<List<RefundMatch>> reconcileRefunds({int scanLimit = 100}) async {
-    final recent = (await database.transactionsDao.getRecentTransactions(
-      limit: scanLimit,
-    )).where((t) => t.transactionState == TransactionState.confirmed).toList();
+    final recent =
+        (await database.transactionsDao.getRecentTransactions(limit: scanLimit))
+            .where(
+              (t) =>
+                  t.transactionState == TransactionState.confirmed &&
+                  !t.id.startsWith('plan-'),
+            )
+            .toList();
 
     final matches = refundMatcher.findRefundMatches(transactions: recent);
 

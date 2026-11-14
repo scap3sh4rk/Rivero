@@ -1,5 +1,7 @@
 import 'package:drift/drift.dart';
+import 'package:rivero/core/database/daos/settings_dao.dart';
 import 'package:rivero/core/database/database.dart';
+import 'package:rivero/core/domain/account_role.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/ingestion/deduplication_engine.dart';
 import 'package:rivero/core/ingestion/mandate_tracker.dart';
@@ -9,6 +11,7 @@ import 'package:rivero/core/ingestion/models/raw_notification.dart';
 import 'package:rivero/core/ingestion/parser/financial_parser.dart';
 import 'package:rivero/core/ingestion/parser/message_intent.dart';
 import 'package:rivero/core/ledger/ledger_service.dart';
+import 'package:rivero/core/plan/plan_transfer_service.dart';
 import 'package:rivero/core/reconciliation/reconciliation_service.dart';
 import 'package:uuid/uuid.dart';
 
@@ -138,9 +141,38 @@ class IngestionService {
     // 5. Resolve target physical account or create a fallback default
     final accountId = await _resolveOrCreatePhysicalAccount(parsed);
 
+    // 5b. Is this the bank's own message for a payment the salary plan
+    // already recorded (SIP, rent, the move to the spending account)? Then
+    // attach to that entry instead of counting the money twice.
+    final planned = await _matchPlanned(accountId, signedAmount);
+    if (planned != null) {
+      await (database.update(
+        database.transactions,
+      )..where((t) => t.id.equals(planned.id))).write(
+        TransactionsCompanion(
+          transactionState: const Value(TransactionState.reconciled),
+          referenceNumber: Value(parsed.referenceNumber),
+        ),
+      );
+      await _adoptReportedBalance(accountId, parsed.balanceMinorUnits);
+      return IngestionResult(
+        rawLogId: logId,
+        status: ParseStatus.parsed,
+        isDuplicate: true,
+        parsedTransaction: parsed,
+        persistedTransactionId: planned.id,
+      );
+    }
+
     final txnId = uuid.v4();
-    final state = parsed.isHighConfidence
+
+    // Is this the real payment for a plan-only category (rent, family...)?
+    // Exact planned amount, out of the salary account, category still unpaid.
+    final category = await _matchPlanCategory(accountId, signedAmount);
+
+    final state = category == null && parsed.isHighConfidence
         ? TransactionState.confirmed
+        // A guess about WHICH category is always the user's call to confirm.
         : TransactionState.needsReview;
 
     await database.transactionsDao.insertTransaction(
@@ -149,10 +181,15 @@ class IngestionService {
         ingestionLogId: Value(logId),
         physicalAccountId: Value(accountId),
         amountMinorUnits: Value(signedAmount),
-        transactionType: Value(parsed.suggestedTransactionType),
+        allocationBucketId: Value(category?.id),
+        transactionType: Value(
+          category != null
+              ? TransactionType.planTransfer
+              : parsed.suggestedTransactionType,
+        ),
         transactionState: Value(state),
         merchant: Value(parsed.merchant ?? 'Unknown Merchant'),
-        category: Value(parsed.category ?? 'General Expense'),
+        category: Value(category?.name ?? parsed.category ?? 'General Expense'),
         referenceNumber: Value(parsed.referenceNumber),
         transactionTimestamp: Value(parsed.timestamp),
         createdAt: Value(now),
@@ -237,6 +274,61 @@ class IngestionService {
       status: mandateRelated ? ParseStatus.parsed : ParseStatus.ignored,
       isDuplicate: false,
     );
+  }
+
+  /// The oldest still-unmatched plan entry on [accountId] with exactly this
+  /// signed amount, if any.
+  Future<LedgerTransaction?> _matchPlanned(
+    String accountId,
+    int signedAmount,
+  ) async {
+    final candidates =
+        await (database.select(database.transactions)
+              ..where(
+                (t) =>
+                    t.id.like('plan-%') &
+                    t.physicalAccountId.equals(accountId) &
+                    t.amountMinorUnits.equals(signedAmount) &
+                    t.transactionState.equals(TransactionState.confirmed.name) &
+                    t.referenceNumber.isNull(),
+              )
+              ..orderBy([(t) => OrderingTerm(expression: t.createdAt)]))
+            .get();
+    return candidates.firstOrNull;
+  }
+
+  /// A plan-only category whose planned amount equals this debit from the
+  /// salary account and that has not been paid yet this cycle, if exactly
+  /// one such category exists (ambiguous amounts are left alone).
+  Future<AllocationBucket?> _matchPlanCategory(
+    String accountId,
+    int signedAmount,
+  ) async {
+    if (signedAmount >= 0) return null;
+    final accounts = await database.accountsDao.getAllActivePhysicalAccounts();
+    final salary = PlanTransferService.salaryAccountOf(
+      accounts,
+      await database.settingsDao.get(SettingKeys.salaryAccount),
+    );
+    if (salary == null || salary.id != accountId) return null;
+    final hits = (await database.accountsDao.getAllBuckets()).where(
+      (b) =>
+          b.role != AccountRole.expense &&
+          (b.linkedPhysicalAccountId == null ||
+              b.linkedPhysicalAccountId == salary.id) &&
+          b.allocatedMinorUnits == -signedAmount &&
+          b.spentMinorUnits == 0,
+    );
+    return hits.length == 1 ? hits.single : null;
+  }
+
+  /// The bank's "available balance" is the truth for a bank account.
+  Future<void> _adoptReportedBalance(String accountId, int? reported) async {
+    if (reported == null) return;
+    final acc = await database.accountsDao.getPhysicalAccountById(accountId);
+    if (acc != null && !acc.isLiability) {
+      await database.accountsDao.updateAccountBalance(accountId, reported);
+    }
   }
 
   Future<String> _resolveOrCreatePhysicalAccount(

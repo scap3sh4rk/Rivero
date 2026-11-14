@@ -83,4 +83,47 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 100));
   });
+
+  testWidgets('the plan shows where money goes and what stays plan-only', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 3200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final db = RiveroDatabase.memory();
+    addTearDown(db.close);
+    await DatabaseSeeder(db).seedIfEmpty();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [databaseProvider.overrideWithValue(db)],
+        child: const MaterialApp(home: SalaryPlanScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.enterText(
+      find.byKey(const ValueKey('salary-field')),
+      '100000',
+    );
+    await tester.pump();
+
+    // Salary and spending accounts are chosen here...
+    expect(find.text('Salary arrives in'), findsOneWidget);
+    expect(find.text('Spending money goes to'), findsOneWidget);
+    // ...and nothing moves until a salary credit is being split.
+    expect(find.text('Will move when your salary arrives'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('moves-card')),
+        matching: find.textContaining('→'),
+      ),
+      findsOneWidget, // only salary -> spending is a self-transfer
+    );
+    expect(find.byKey(const ValueKey('dest-bucket-invest')), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 100));
+  });
 }

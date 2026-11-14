@@ -76,7 +76,7 @@ Future<void> completeOnboarding(RiveroDatabase db, OnboardingData d) async {
     String id,
     String name,
     AccountRole role,
-    String accountId,
+    String? accountId,
     int target,
     int order,
   ) => db.accountsDao.upsertBucket(
@@ -126,7 +126,7 @@ Future<void> completeOnboarding(RiveroDatabase db, OnboardingData d) async {
       'bucket-invest',
       'Investments',
       AccountRole.investment,
-      'acc-salary',
+      null,
       d.investMinor,
       2,
     );
@@ -136,17 +136,20 @@ Future<void> completeOnboarding(RiveroDatabase db, OnboardingData d) async {
       'bucket-savings',
       'Savings',
       AccountRole.savings,
-      'acc-salary',
+      null,
       d.savingsMinor,
       3,
     );
   }
 
+  await db.settingsDao.set(SettingKeys.salaryAccount, 'acc-salary');
   final plan = SalaryPlanService(db);
   final buckets = await db.accountsDao.getAllBuckets();
   await plan.apply(
     salary: d.salaryMinor,
     allocations: plan.preview(d.salaryMinor, buckets),
+    // Balances were entered as they are today: setup moves no money.
+    moveMoney: false,
     cycleStart: Paycycle.fromSalaryDay(salaryCreditDay: d.salaryDay)
         .cycleStartDate,
   );

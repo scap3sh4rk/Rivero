@@ -63,6 +63,24 @@ class LedgerService {
     return id;
   }
 
+  /// Sets an account's balance to what the user says it is (outstanding for
+  /// a card), recording the difference as a visible "Balance update" entry
+  /// so history stays explainable. Returns the change applied (0 = none).
+  Future<int> setBalance(String accountId, int newBalanceMinorUnits) async {
+    final acc = await db.accountsDao.getPhysicalAccountById(accountId);
+    if (acc == null) return 0;
+    final diff = newBalanceMinorUnits - acc.balanceMinorUnits;
+    if (diff == 0) return 0;
+    await recordManual(
+      accountId: accountId,
+      amountMinorUnits: diff,
+      type: TransactionType.balanceAdjustment,
+      merchant: 'Balance update',
+      category: 'Adjustment',
+    );
+    return diff;
+  }
+
   /// Deletes a transaction, first undoing its balance and budget effects if
   /// they were applied. A linked transfer/refund partner is unlinked.
   Future<void> remove(String transactionId) async {
@@ -85,6 +103,7 @@ class LedgerService {
         }
       }
     }
+    if (applied) await _markCategoryPaid(t, sign: -1);
     final partner = t.linkedTransactionId;
     if (partner != null) {
       await (db.update(
@@ -121,6 +140,7 @@ class LedgerService {
       t.physicalAccountId,
       t.amountMinorUnits,
     );
+    await _markCategoryPaid(t, sign: 1);
     final spend = await _budgetSpend(t);
     if (spend == 0) return;
     final bucketId = t.allocationBucketId ?? await _defaultExpenseBucketId();
@@ -157,6 +177,31 @@ class LedgerService {
       credit.id,
       TransactionType.internalTransfer,
     );
+  }
+
+  static const Set<TransactionType> _categoryPayments = {
+    TransactionType.planTransfer,
+    TransactionType.investmentContribution,
+    TransactionType.bucketFunding,
+    TransactionType.internalTransfer,
+  };
+
+  /// A money-out leg tagged with a plan category (investments, savings,
+  /// rent, family...) counts as that category being paid; undone on removal.
+  /// The everyday spending budget is the allocation itself, never "paid".
+  Future<void> _markCategoryPaid(
+    LedgerTransaction t, {
+    required int sign,
+  }) async {
+    final id = t.allocationBucketId;
+    if (id == null ||
+        t.amountMinorUnits >= 0 ||
+        !_categoryPayments.contains(t.transactionType)) {
+      return;
+    }
+    final b = await db.accountsDao.getBucketById(id);
+    if (b == null || b.role == AccountRole.expense) return;
+    await db.accountsDao.recordBucketSpend(id, sign * -t.amountMinorUnits);
   }
 
   /// Positive = budget consumed, negative = budget returned, 0 = no effect.

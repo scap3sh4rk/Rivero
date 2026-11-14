@@ -61,4 +61,59 @@ void main() {
       await tester.pump(const Duration(milliseconds: 50));
     },
   );
+
+  testWidgets(
+    'a plan-only category can be marked paid out of the salary account',
+    (tester) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final db = RiveroDatabase.memory();
+      addTearDown(db.close);
+      await DatabaseSeeder(db).seedIfEmpty();
+      final before = (await db.accountsDao.getPhysicalAccountById(
+        'acc-salary',
+      ))!.balanceMinorUnits;
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [databaseProvider.overrideWithValue(db)],
+          child: const MaterialApp(home: BudgetsScreen()),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      await tester.tap(find.text('Emergency Fund'));
+      // The handler reads the database first (real async), then opens a dialog.
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 300)),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(
+        find.textContaining('Mark Emergency Fund as paid'),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const ValueKey('mark-paid')));
+      for (var i = 0; i < 6; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 100)),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      final after = (await tester.runAsync(
+        () => db.accountsDao.getPhysicalAccountById('acc-salary'),
+      ))!.balanceMinorUnits;
+      expect(before - after, 3000000); // the category's ₹30,000 left salary
+      final bucket = (await tester.runAsync(
+        () => db.accountsDao.getBucketById('bucket-savings'),
+      ))!;
+      expect(bucket.spentMinorUnits, 3000000);
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(milliseconds: 100));
+    },
+  );
 }

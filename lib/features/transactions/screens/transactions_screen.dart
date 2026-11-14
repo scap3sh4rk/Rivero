@@ -51,6 +51,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     TransactionType.investmentRedemption,
     TransactionType.creditCardSettlement,
     TransactionType.walletTopup,
+    TransactionType.balanceAdjustment,
   };
 
   bool _matches(LedgerTransaction t) {

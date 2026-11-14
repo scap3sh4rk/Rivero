@@ -1,12 +1,15 @@
+import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/account_role.dart';
+import 'package:rivero/core/plan/plan_transfer_service.dart';
 import 'package:rivero/core/plan/salary_plan_service.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/amount_parser.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
+import 'package:rivero/design_system/widgets/picker.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
 
@@ -38,6 +41,12 @@ class _SalaryPlanScreenState extends ConsumerState<SalaryPlanScreen> {
   bool _carry = true;
   bool _saving = false;
 
+  // Where money goes (chosen here, saved on Apply).
+  String? _salaryId;
+  String? _spendingId;
+  final Map<String, String?> _dest = {};
+  bool _movesExist = false;
+
   @override
   void initState() {
     super.initState();
@@ -46,6 +55,12 @@ class _SalaryPlanScreenState extends ConsumerState<SalaryPlanScreen> {
         ? tx.amountMinorUnits
         : ref.read(monthlySalaryProvider);
     _salary = TextEditingController(text: minor > 0 ? _rupees(minor) : '');
+    ref
+        .read(planTransferServiceProvider)
+        .hasMoves(ref.read(currentPaycycleProvider).cycleStartDate)
+        .then((v) {
+          if (mounted) setState(() => _movesExist = v);
+        });
   }
 
   @override
@@ -156,16 +171,23 @@ class _SalaryPlanScreenState extends ConsumerState<SalaryPlanScreen> {
 
   Future<void> _apply(int salary, Map<String, int> split) async {
     setState(() => _saving = true);
-    await ref
-        .read(salaryPlanServiceProvider)
-        .apply(
-          salary: salary,
-          allocations: split,
-          salaryTransactionId: widget.salaryTransaction?.id,
-          cycleStart: ref.read(currentPaycycleProvider).cycleStartDate,
-          rememberAsDefault: _remember,
-          carryOver: _carry,
-        );
+    final planService = ref.read(salaryPlanServiceProvider);
+    if (_salaryId != null) {
+      await ref.read(planTransferServiceProvider).setSalaryAccount(_salaryId!);
+      ref.read(salaryAccountIdProvider.notifier).state = _salaryId;
+    }
+    await planService.setRouting(
+      spendingAccountId: _spendingId,
+      destinations: _dest,
+    );
+    await planService.apply(
+      salary: salary,
+      allocations: split,
+      salaryTransactionId: widget.salaryTransaction?.id,
+      cycleStart: ref.read(currentPaycycleProvider).cycleStartDate,
+      rememberAsDefault: _remember,
+      carryOver: _carry,
+    );
     // Planning without a credit sets the expected salary; a real credit
     // updates it only when this split becomes the default.
     if (widget.salaryTransaction == null || _remember) {
@@ -200,6 +222,46 @@ class _SalaryPlanScreenState extends ConsumerState<SalaryPlanScreen> {
     if (spending != null) split[spending.id] = over ? 0 : rest;
 
     String money(int v) => privacy ? '••••' : CurrencyFormatter.format(v);
+
+    // --- how the plan routes money between accounts ---
+    final accounts =
+        (ref.watch(activePhysicalAccountsProvider).value ?? const [])
+            .where((a) => !a.isLiability)
+            .toList();
+    final salaryAcc = PlanTransferService.salaryAccountOf(
+      accounts,
+      _salaryId ?? ref.watch(salaryAccountIdProvider),
+    );
+    final spendingAcc =
+        accounts.where((a) => a.id == _spendingId).firstOrNull ??
+        PlanTransferService.spendingAccountOf(buckets, accounts, salaryAcc);
+    final willMove = widget.salaryTransaction != null || _movesExist;
+    final moves = salaryAcc == null
+        ? const <PlannedMove>[]
+        : ref
+              .read(planTransferServiceProvider)
+              .movesFor(
+                allocations: split,
+                buckets: [
+                  for (final b in buckets)
+                    if (b.role == AccountRole.expense)
+                      b
+                    else if (_dest.containsKey(b.id))
+                      b.copyWith(
+                        linkedPhysicalAccountId: drift.Value(_dest[b.id]),
+                      )
+                    else
+                      b,
+                ],
+                salary: salaryAcc,
+                spending: spendingAcc,
+              );
+    final short = salaryAcc == null
+        ? 0
+        : PlanTransferService.shortfall(salaryAcc, moves);
+    String accountName(String? id) =>
+        accounts.where((a) => a.id == id).firstOrNull?.name ??
+        'Paid outside Rivero';
 
     return Scaffold(
       backgroundColor: RiveroColors.background,
@@ -237,6 +299,22 @@ class _SalaryPlanScreenState extends ConsumerState<SalaryPlanScreen> {
               filled: false,
             ),
           ),
+          if (accounts.length > 1) ...[
+            const SizedBox(height: RiveroSpacing.sm),
+            PickerField<String>(
+              label: 'Salary arrives in',
+              value: salaryAcc?.id,
+              options: [for (final a in accounts) PickerOption(a.id, a.name)],
+              onChanged: (v) => setState(() => _salaryId = v),
+            ),
+            const SizedBox(height: RiveroSpacing.md),
+            PickerField<String>(
+              label: 'Spending money goes to',
+              value: spendingAcc?.id,
+              options: [for (final a in accounts) PickerOption(a.id, a.name)],
+              onChanged: (v) => setState(() => _spendingId = v),
+            ),
+          ],
           const SizedBox(height: RiveroSpacing.lg),
           Text('Set aside first', style: RiveroTypography.titleMedium),
           const SizedBox(height: RiveroSpacing.xs),
@@ -253,6 +331,39 @@ class _SalaryPlanScreenState extends ConsumerState<SalaryPlanScreen> {
               tooBig: salary > 0 && (split[b.id] ?? 0) > salary,
               onChanged: () => setState(() {}),
               onRemove: b.role == AccountRole.custom ? () => _remove(b) : null,
+              destination: accounts.length > 1
+                  ? accountName(
+                      _dest.containsKey(b.id)
+                          ? _dest[b.id]
+                          : (b.linkedPhysicalAccountId == salaryAcc?.id
+                                ? null
+                                : b.linkedPhysicalAccountId),
+                    )
+                  : null,
+              onPickDestination: () async {
+                final current = _dest.containsKey(b.id)
+                    ? _dest[b.id]
+                    : b.linkedPhysicalAccountId;
+                final picked = await showPicker<String>(
+                  context,
+                  title: '${b.name} goes to',
+                  selected: current ?? '',
+                  options: [
+                    const PickerOption('', 'Paid outside Rivero'),
+                    for (final a in accounts.where(
+                      (a) => a.id != salaryAcc?.id,
+                    ))
+                      PickerOption(a.id, a.name),
+                  ],
+                );
+                if (picked != null) {
+                  setState(
+                    () => _dest[b.id] = picked.value.isEmpty
+                        ? null
+                        : picked.value,
+                  );
+                }
+              },
             ),
           Align(
             alignment: Alignment.centerLeft,
@@ -295,6 +406,56 @@ class _SalaryPlanScreenState extends ConsumerState<SalaryPlanScreen> {
               ],
             ),
           ),
+          if (salaryAcc != null && moves.isNotEmpty) ...[
+            const SizedBox(height: RiveroSpacing.md),
+            RiveroCard(
+              key: const ValueKey('moves-card'),
+              borderColor: willMove && short > 0 ? RiveroColors.warning : null,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    willMove
+                        ? 'Moves out of ${salaryAcc.name}'
+                        : 'Will move when your salary arrives',
+                    style: RiveroTypography.titleMedium,
+                  ),
+                  const SizedBox(height: RiveroSpacing.sm),
+                  for (final m in moves)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '${m.name} → ${accountName(m.toAccountId)}',
+                              style: RiveroTypography.bodyMedium,
+                            ),
+                          ),
+                          Text(
+                            money(m.amount),
+                            style: RiveroTypography.bodyLarge,
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (willMove && short > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(top: RiveroSpacing.sm),
+                      child: Text(
+                        '${salaryAcc.name} holds '
+                        '${money(salaryAcc.balanceMinorUnits)}; this takes it '
+                        '${money(short)} below zero. Has your salary arrived?',
+                        key: const ValueKey('moves-warning'),
+                        style: RiveroTypography.bodySmall.copyWith(
+                          color: RiveroColors.warning,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: RiveroSpacing.sm),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
@@ -334,7 +495,13 @@ class _CategoryRow extends StatelessWidget {
     required this.onChanged,
     super.key,
     this.onRemove,
+    this.destination,
+    this.onPickDestination,
   });
+
+  /// Where this category's money arrives ("Paid outside Rivero" if nowhere).
+  final String? destination;
+  final VoidCallback? onPickDestination;
 
   final AllocationBucket bucket;
   final TextEditingController controller;
@@ -352,7 +519,27 @@ class _CategoryRow extends StatelessWidget {
           Expanded(
             child: Padding(
               padding: const EdgeInsets.only(top: RiveroSpacing.md),
-              child: Text(bucket.name, style: RiveroTypography.bodyLarge),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(bucket.name, style: RiveroTypography.bodyLarge),
+                  if (destination != null)
+                    InkWell(
+                      key: ValueKey('dest-${bucket.id}'),
+                      borderRadius: RiveroRadii.borderSm,
+                      onTap: onPickDestination,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Text(
+                          '→ $destination',
+                          style: RiveroTypography.bodySmall.copyWith(
+                            color: RiveroColors.accent,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
           const SizedBox(width: RiveroSpacing.md),

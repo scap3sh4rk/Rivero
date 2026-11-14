@@ -19,6 +19,7 @@ abstract final class SettingKeys {
   static const appLock = 'app_lock';
   static const lastLogAccount = 'last_log_account';
   static const font = 'font_family';
+  static const salaryAccount = 'salary_account_id';
 }
 
 @DriftAccessor(tables: [AppSettings])

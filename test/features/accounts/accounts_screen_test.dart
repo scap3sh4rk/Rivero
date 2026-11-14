@@ -91,6 +91,27 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 600));
       expect(find.byType(AccountDetailScreen), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 400));
+
+      // Set the balance by hand with the number keyboard.
+      await tester.tap(find.byKey(const ValueKey('update-balance')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.enterText(
+        find.byKey(const ValueKey('balance-field')),
+        '2000',
+      );
+      await tester.tap(find.text('Update'));
+      for (var i = 0; i < 5; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 100)),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      final updated = (await tester.runAsync(
+        () => db.accountsDao.getPhysicalAccountById('acc-salary'),
+      ))!;
+      expect(updated.balanceMinorUnits, 200000);
       await tester.tap(find.byTooltip('Edit account'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
@@ -108,7 +129,7 @@ void main() {
         () => db.accountsDao.getPhysicalAccountById('acc-salary'),
       ))!;
       expect(renamed.name, 'HDFC Salary');
-      expect(renamed.balanceMinorUnits, 15000000); // untouched by the edit
+      expect(renamed.balanceMinorUnits, 200000); // the edit keeps the balance
 
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(milliseconds: 50));

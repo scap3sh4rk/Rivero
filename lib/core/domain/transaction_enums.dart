@@ -18,6 +18,11 @@ enum TransactionType {
 
   /// Money lent to someone: leaves the account, is not spending.
   lending,
+
+  /// A payment the salary plan makes out of the salary account for a
+  /// category such as Rent or Family. Real spending for reports, but it never
+  /// touches the everyday spending budget.
+  planTransfer,
 }
 
 /// Explicit lifecycle states for transactions in the ledger.

@@ -16,6 +16,7 @@ import 'package:rivero/core/ingestion/deduplication_engine.dart';
 import 'package:rivero/core/ingestion/ingestion_service.dart';
 import 'package:rivero/core/ingestion/parser/financial_parser.dart';
 import 'package:rivero/core/ledger/ledger_service.dart';
+import 'package:rivero/core/plan/plan_transfer_service.dart';
 import 'package:rivero/core/plan/salary_plan_service.dart';
 import 'package:rivero/core/reconciliation/balance_reconciler.dart';
 import 'package:rivero/core/reconciliation/internal_transfer_matcher.dart';
@@ -77,6 +78,9 @@ class SettingsSync {
         await dao.getInt(SettingKeys.monthlySalary) ?? 0;
     ref.read(reserveCreditCardsProvider.notifier).state =
         (await dao.get(SettingKeys.reserveCreditCards)) != '0';
+    ref.read(salaryAccountIdProvider.notifier).state = await dao.get(
+      SettingKeys.salaryAccount,
+    );
     final font = await dao.get(SettingKeys.font);
     if (font != null && RiveroFonts.families.contains(font)) {
       ref.read(fontFamilyProvider.notifier).state = font;
@@ -134,6 +138,9 @@ class SettingsSync {
         (_, v) => save(SettingKeys.reserveCreditCards, v ? '1' : '0'),
       )
       ..listen(fontFamilyProvider, (_, v) => save(SettingKeys.font, v))
+      ..listen(salaryAccountIdProvider, (_, v) {
+        if (v != null) save(SettingKeys.salaryAccount, v);
+      })
       ..listen(lastLogAccountProvider, (_, v) {
         if (v != null) save(SettingKeys.lastLogAccount, v);
       })
@@ -213,6 +220,10 @@ final ingestionServiceProvider = Provider<IngestionService>((ref) {
     parser: parser,
     deduplicator: deduplicator,
   );
+});
+
+final planTransferServiceProvider = Provider<PlanTransferService>((ref) {
+  return PlanTransferService(ref.watch(databaseProvider));
 });
 
 final salaryPlanServiceProvider = Provider<SalaryPlanService>((ref) {
@@ -388,6 +399,9 @@ final lastLogAccountProvider = StateProvider<String?>((ref) => null);
 final logCategoriesProvider = StateProvider<List<LogCategory>>(
   (ref) => LogCategory.defaults,
 );
+
+/// The account salary lands in (null = pick automatically).
+final salaryAccountIdProvider = StateProvider<String?>((ref) => null);
 
 /// The app's typeface (one of RiveroFonts.families).
 final fontFamilyProvider = StateProvider<String>(

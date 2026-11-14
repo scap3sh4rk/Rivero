@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rivero/core/database/daos/settings_dao.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/account_role.dart';
+import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/dues/dues_service.dart';
+import 'package:rivero/core/plan/plan_transfer_service.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
@@ -18,6 +21,65 @@ import 'package:rivero/features/plan/salary_plan_screen.dart';
 /// row per category. Editing happens on the Salary plan page.
 class BudgetsScreen extends ConsumerWidget {
   const BudgetsScreen({super.key});
+
+  /// A plan-only category (nothing moved yet): record that it was paid, out
+  /// of the salary account.
+  Future<void> _markPaid(
+    BuildContext context,
+    WidgetRef ref,
+    AllocationBucket b,
+  ) async {
+    if (b.role == AccountRole.expense ||
+        b.allocatedMinorUnits <= 0 ||
+        b.spentMinorUnits > 0) {
+      return;
+    }
+    // Read from the database, not a provider that may still be loading.
+    final db = ref.read(databaseProvider);
+    final accounts = (await db.accountsDao.getAllActivePhysicalAccounts())
+        .where((a) => !a.isLiability)
+        .toList();
+    final salary = PlanTransferService.salaryAccountOf(
+      accounts,
+      await db.settingsDao.get(SettingKeys.salaryAccount),
+    );
+    if (salary == null || !context.mounted) return;
+    // A category that pays into a tracked account is moved by the plan.
+    if (b.linkedPhysicalAccountId != null &&
+        b.linkedPhysicalAccountId != salary.id) {
+      return;
+    }
+    final amount = CurrencyFormatter.format(b.allocatedMinorUnits);
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Mark ${b.name} as paid?'),
+        content: Text('$amount is taken out of ${salary.name}.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Not yet'),
+          ),
+          FilledButton(
+            key: const ValueKey('mark-paid'),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Mark paid'),
+          ),
+        ],
+      ),
+    );
+    if (go != true) return;
+    await ref
+        .read(ledgerServiceProvider)
+        .recordManual(
+          accountId: salary.id,
+          amountMinorUnits: -b.allocatedMinorUnits,
+          type: TransactionType.planTransfer,
+          merchant: 'Plan: ${b.name}',
+          category: b.name,
+          bucketId: b.id,
+        );
+  }
 
   static Future<void> open(BuildContext context) =>
       Navigator.of(context)
@@ -137,7 +199,11 @@ class BudgetsScreen extends ConsumerWidget {
               style: RiveroTypography.bodySmall,
             ),
           for (final b in ordered)
-            _CategoryTile(b, money: money)
+            _CategoryTile(
+                  b,
+                  money: money,
+                  onTap: () => _markPaid(context, ref, b),
+                )
                 .animate()
                 .fadeIn(duration: 260.ms)
                 .slideY(begin: 0.05, curve: Curves.easeOutCubic),
@@ -148,7 +214,9 @@ class BudgetsScreen extends ConsumerWidget {
 }
 
 class _CategoryTile extends StatelessWidget {
-  const _CategoryTile(this.b, {required this.money});
+  const _CategoryTile(this.b, {required this.money, this.onTap});
+
+  final VoidCallback? onTap;
 
   final AllocationBucket b;
   final String Function(int) money;
@@ -170,6 +238,7 @@ class _CategoryTile extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: RiveroSpacing.sm),
       child: RiveroCard(
+        onTap: onTap,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -181,6 +250,13 @@ class _CategoryTile extends StatelessWidget {
                 color: spending && left < 0 ? RiveroColors.danger : null,
               ),
             ),
+            if (!spending &&
+                b.spentMinorUnits == 0 &&
+                b.allocatedMinorUnits > 0 &&
+                b.linkedPhysicalAccountId == null) ...[
+              const SizedBox(height: RiveroSpacing.xs),
+              Text('Tap when paid', style: RiveroTypography.bodySmall),
+            ],
             if (spending || b.spentMinorUnits > 0) ...[
               const SizedBox(height: RiveroSpacing.sm),
               ClipRRect(

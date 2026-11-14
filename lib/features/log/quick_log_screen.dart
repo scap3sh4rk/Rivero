@@ -245,6 +245,8 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Watched so the figures behind the large-spend warning are loaded.
+    ref.watch(stsBreakdownProvider);
     final accounts = ref.watch(activePhysicalAccountsProvider).value ?? [];
     final buckets = ref.watch(allAllocationBucketsProvider).value ?? const [];
     final account = _account(accounts, buckets);

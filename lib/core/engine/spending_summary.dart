@@ -70,5 +70,7 @@ class SpendingSummary {
     TransactionType.expense,
     TransactionType.cashExpenditure,
     TransactionType.creditCardPurchase,
+    // Rent, EMI, family: real money out even though the plan paid it.
+    TransactionType.planTransfer,
   };
 }
