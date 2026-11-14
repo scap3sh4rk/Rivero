@@ -55,7 +55,6 @@ class OwedScreen extends ConsumerWidget {
         .where((d) => d.status == DueStatus.open && d.kind == DueKind.borrowed)
         .toList();
     final net = owedToYou - youOwe;
-    final minH = MediaQuery.sizeOf(context).height * 0.30;
 
     Widget stat(String label, String value) => Padding(
       padding: const EdgeInsets.only(top: RiveroSpacing.xs),
@@ -87,105 +86,113 @@ class OwedScreen extends ConsumerWidget {
         tooltip: 'Add',
         onPressed: () => _chooseKind(context),
       ),
-      body: ListView(
-        padding: EdgeInsets.fromLTRB(
+      // Everything fits on one screen: the two frames share the height
+      // above the net line and the + button; nothing to scroll.
+      body: Padding(
+        padding: const EdgeInsets.fromLTRB(
           RiveroSpacing.xl,
           RiveroSpacing.sm,
           RiveroSpacing.xl,
-          RiveroSpacing.huge + 72 + MediaQuery.paddingOf(context).bottom,
+          88,
         ),
-        children: [
-          _Total(
-            key: const ValueKey('owed-card-to-you'),
-            minHeight: minH,
-            label: 'Owed to you',
-            value: money(owedToYou),
-            valueKey: const ValueKey('owed-total'),
-            color: RiveroColors.success,
-            details: [
-              stat(
-                'Owed by',
-                openToYou.isEmpty ? 'Nobody' : people(openToYou.length),
-              ),
-              if (oldestToYou != null)
-                stat(
-                  'Oldest',
-                  '${oldestToYou.person} · ${DateFormat('d MMM').format(oldestToYou.createdAt)}',
-                ),
-            ],
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const OwedToYouScreen()),
-            ),
-          ),
-          const SizedBox(height: RiveroSpacing.md),
-          _Total(
-            key: const ValueKey('owed-card-you-owe'),
-            minHeight: minH,
-            label: 'You owe people',
-            value: money(youOwe),
-            valueKey: const ValueKey('owe-total'),
-            color: youOwe > 0 ? RiveroColors.warning : null,
-            details: [
-              stat(
-                'Owed to',
-                openByYou.isEmpty ? 'Nobody' : people(openByYou.length),
-              ),
-              if (oldestByYou != null)
-                stat(
-                  'Oldest',
-                  '${oldestByYou.person} · ${DateFormat('d MMM').format(oldestByYou.createdAt)}',
-                ),
-              stat('Card bills', money(bills.cards + bills.loans)),
-              stat('Autopay before payday', money(bills.autopay)),
-            ],
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const YouOweScreen()),
-            ),
-          ),
-          const SizedBox(height: RiveroSpacing.md),
-          RiveroCard(
-            key: const ValueKey('owed-net'),
-            child: Row(
-              children: [
-                Icon(
-                  net == 0
-                      ? Icons.balance_rounded
-                      : net > 0
-                      ? Icons.south_west_rounded
-                      : Icons.north_east_rounded,
-                  color: net == 0
-                      ? RiveroColors.textSecondary
-                      : net > 0
-                      ? RiveroColors.success
-                      : RiveroColors.warning,
-                ),
-                const SizedBox(width: RiveroSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        net == 0
-                            ? 'All square'
-                            : net > 0
-                            ? 'Net: you are owed ${money(net)}'
-                            : 'Net: you owe ${money(-net)}',
-                        key: const ValueKey('owed-net-text'),
-                        style: RiveroTypography.titleMedium,
-                      ),
-                      Text(
-                        net < 0
-                            ? 'to settle after what people owe you'
-                            : 'between people, before bills',
-                        style: RiveroTypography.bodySmall,
-                      ),
-                    ],
+        child: Column(
+          children: [
+            Expanded(
+              child: _Total(
+                key: const ValueKey('owed-card-to-you'),
+                label: 'Owed to you',
+                value: money(owedToYou),
+                valueKey: const ValueKey('owed-total'),
+                color: RiveroColors.success,
+                details: [
+                  stat(
+                    'Owed by',
+                    openToYou.isEmpty ? 'Nobody' : people(openToYou.length),
+                  ),
+                  if (oldestToYou != null)
+                    stat(
+                      'Oldest',
+                      '${oldestToYou.person} · ${DateFormat('d MMM').format(oldestToYou.createdAt)}',
+                    ),
+                ],
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const OwedToYouScreen(),
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: RiveroSpacing.md),
+            Expanded(
+              child: _Total(
+                key: const ValueKey('owed-card-you-owe'),
+                label: 'You owe people',
+                value: money(youOwe),
+                valueKey: const ValueKey('owe-total'),
+                color: youOwe > 0 ? RiveroColors.warning : null,
+                details: [
+                  stat(
+                    'Owed to',
+                    openByYou.isEmpty ? 'Nobody' : people(openByYou.length),
+                  ),
+                  if (oldestByYou != null)
+                    stat(
+                      'Oldest',
+                      '${oldestByYou.person} · ${DateFormat('d MMM').format(oldestByYou.createdAt)}',
+                    ),
+                  stat('Card bills', money(bills.cards + bills.loans)),
+                  stat('Autopay before payday', money(bills.autopay)),
+                ],
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => const YouOweScreen()),
+                ),
+              ),
+            ),
+            const SizedBox(height: RiveroSpacing.md),
+            RiveroCard(
+              key: const ValueKey('owed-net'),
+              child: Row(
+                children: [
+                  Icon(
+                    net == 0
+                        ? Icons.balance_rounded
+                        : net > 0
+                        ? Icons.south_west_rounded
+                        : Icons.north_east_rounded,
+                    color: net == 0
+                        ? RiveroColors.textSecondary
+                        : net > 0
+                        ? RiveroColors.success
+                        : RiveroColors.warning,
+                  ),
+                  const SizedBox(width: RiveroSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          net == 0
+                              ? 'All square'
+                              : net > 0
+                              ? 'Net: you are owed ${money(net)}'
+                              : 'Net: you owe ${money(-net)}',
+                          key: const ValueKey('owed-net-text'),
+                          style: RiveroTypography.titleMedium,
+                        ),
+                        Text(
+                          net < 0
+                              ? 'to settle after what people owe you'
+                              : 'between people, before bills',
+                          style: RiveroTypography.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -348,7 +355,6 @@ class _Total extends StatelessWidget {
     required this.value,
     required this.valueKey,
     required this.onTap,
-    required this.minHeight,
     required this.details,
     super.key,
     this.color,
@@ -359,39 +365,41 @@ class _Total extends StatelessWidget {
   final Key valueKey;
   final VoidCallback onTap;
   final Color? color;
-  final double minHeight;
   final List<Widget> details;
 
   @override
   Widget build(BuildContext context) => RiveroCard(
     isElevated: true,
     onTap: onTap,
-    padding: const EdgeInsets.all(RiveroSpacing.xl),
-    child: ConstrainedBox(
-      constraints: BoxConstraints(minHeight: minHeight - 2 * RiveroSpacing.xl),
+    child: SizedBox.expand(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
             children: [
-              Expanded(child: Text(label, style: RiveroTypography.bodyMedium)),
+              Expanded(child: Text(label, style: RiveroTypography.titleMedium)),
               Icon(Icons.chevron_right_rounded, color: RiveroColors.textMuted),
             ],
           ),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              value,
-              key: valueKey,
-              style: RiveroTypography.financialLarge.copyWith(
-                color: color,
-                fontSize: 40,
+          // The amount takes the free space and shrinks only if it must.
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  value,
+                  key: valueKey,
+                  style: RiveroTypography.financialLarge.copyWith(
+                    color: color,
+                    fontSize: 46,
+                  ),
+                ),
               ),
             ),
           ),
-          Column(children: details),
+          ...details,
         ],
       ),
     ),
