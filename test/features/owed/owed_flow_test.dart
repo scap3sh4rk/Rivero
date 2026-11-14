@@ -78,6 +78,9 @@ void main() {
       ),
     );
     await settle();
+    // Two frames; the first opens everyone who owes you.
+    await tester.tap(find.byKey(const ValueKey('owed-card-to-you')));
+    await settle();
     expect(find.text('Ravi'), findsOneWidget);
     await tester.tap(find.text('Ravi'));
     await settle();
@@ -120,15 +123,13 @@ void main() {
     );
     await settle();
 
-    // Bills & commitments: the demo card shows with its due date, and the
-    // autopays due before payday are listed.
-    expect(find.text('Bills & commitments'), findsOneWidget);
-    expect(find.byKey(const ValueKey('commitments-total')), findsOneWidget);
-    expect(find.byKey(const ValueKey('commit-card-acc-cc')), findsOneWidget);
-    expect(find.textContaining('Pay by'), findsWidgets);
+    // The page is just two frames, nothing else.
+    expect(find.byKey(const ValueKey('owed-card-to-you')), findsOneWidget);
+    expect(find.byKey(const ValueKey('owed-card-you-owe')), findsOneWidget);
+    expect(find.text('Bills & commitments'), findsNothing);
 
-    // Borrow ₹5,000 from Meera into the salary account.
-    await tester.tap(find.byKey(const ValueKey('owed-add')));
+    // Borrow ₹5,000 from Meera into the salary account (the plus, bottom right).
+    await tester.tap(find.byTooltip('Add'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     await tester.tap(find.byKey(const ValueKey('add-borrowed')));
@@ -147,7 +148,16 @@ void main() {
       tester.widget<Text>(find.byKey(const ValueKey('owe-total'))).data,
       '₹5,000.00',
     );
+
+    // "You owe people": the debt, and Bills & commitments (the demo card
+    // with its due date, autopays due before payday).
+    await tester.tap(find.byKey(const ValueKey('owed-card-you-owe')));
+    await settle();
     expect(find.text('Meera'), findsOneWidget);
+    expect(find.text('Bills & commitments'), findsOneWidget);
+    expect(find.byKey(const ValueKey('commitments-total')), findsOneWidget);
+    expect(find.byKey(const ValueKey('commit-card-acc-cc')), findsOneWidget);
+    expect(find.textContaining('Pay by'), findsWidgets);
 
     // Pay it back in cash.
     await tester.tap(find.text('Meera'));

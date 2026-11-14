@@ -73,9 +73,9 @@ void main() {
       await tester.pump();
       expect(find.text('Primary HDFC Salary'), findsOneWidget);
 
-      // Adding an account is the button under the list.
-      final addAccount = find.byKey(const ValueKey('add-account'));
-      await tester.ensureVisible(addAccount);
+      // Adding an account is the plus at the bottom right.
+      final addAccount = find.byTooltip('Add account or card');
+      expect(addAccount, findsOneWidget);
       await tester.tap(addAccount);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));

@@ -4,6 +4,7 @@ import 'package:rivero/core/domain/custom_account_types.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
+import 'package:rivero/design_system/widgets/rivero_fab.dart';
 
 /// Account types live on their own page so a long list never crowds Settings.
 class AccountTypesScreen extends ConsumerWidget {
@@ -59,16 +60,13 @@ class AccountTypesScreen extends ConsumerWidget {
         title: 'Account types',
         showProfile: false,
         leading: BackButton(onPressed: () => Navigator.of(context).pop()),
-        actions: [
-          IconButton(
-            tooltip: 'Add account type',
-            onPressed: types.length >= maxTypes
-                ? null
-                : () => _add(context, ref),
-            icon: const Icon(Icons.add_rounded),
-          ),
-        ],
       ),
+      floatingActionButton: types.length >= maxTypes
+          ? null
+          : RiveroFab(
+              tooltip: 'Add account type',
+              onPressed: () => _add(context, ref),
+            ),
       body: ListView.builder(
         itemCount: types.length,
         itemBuilder: (_, i) {

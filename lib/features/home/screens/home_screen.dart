@@ -21,7 +21,6 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isPrivacy = ref.watch(privacyModeProvider);
     final paycycle = ref.watch(currentPaycycleProvider);
 
     return Scaffold(
@@ -44,17 +43,6 @@ class HomeScreen extends ConsumerWidget {
               icon: Icon(Icons.bolt_rounded, color: RiveroColors.textSecondary),
               onPressed: () => SimulateSmsSheet.show(context),
             ),
-          IconButton(
-            tooltip: 'Toggle Privacy Mode',
-            icon: Icon(
-              isPrivacy
-                  ? Icons.visibility_off_outlined
-                  : Icons.visibility_outlined,
-              color: RiveroColors.textSecondary,
-            ),
-            onPressed: () =>
-                ref.read(privacyModeProvider.notifier).state = !isPrivacy,
-          ),
         ],
       ),
       body: SafeArea(

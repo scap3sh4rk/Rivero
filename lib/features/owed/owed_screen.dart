@@ -12,6 +12,7 @@ import 'package:rivero/design_system/widgets/bank_badge.dart';
 import 'package:rivero/design_system/widgets/picker.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
+import 'package:rivero/design_system/widgets/rivero_fab.dart';
 import 'package:rivero/features/owed/bills_and_commitments.dart';
 
 /// Money in both directions: what people owe you, what you owe them, and
@@ -31,22 +32,8 @@ class OwedScreen extends ConsumerWidget {
     final dues = ref.watch(duesProvider).value ?? const [];
     final privacy = ref.watch(privacyModeProvider);
     String money(int v) => privacy ? '••••' : CurrencyFormatter.format(v);
-    bool isOpen(Due d) => d.status == DueStatus.open;
-    final toYou = dues.where((d) => d.kind != DueKind.borrowed).toList();
-    final byYou = dues.where((d) => d.kind == DueKind.borrowed).toList();
-    final toYouOpen = toYou.where(isOpen).toList();
-    final byYouOpen = byYou.where(isOpen).toList();
-    final closed = dues.where((d) => !isOpen(d)).toList();
     final owedToYou = DuesService.totalOutstanding(dues);
     final youOwe = DuesService.totalYouOwe(dues);
-
-    Widget header(String text) => Padding(
-      padding: const EdgeInsets.only(
-        top: RiveroSpacing.xl,
-        bottom: RiveroSpacing.sm,
-      ),
-      child: Text(text, style: RiveroTypography.titleMedium),
-    );
 
     return Scaffold(
       backgroundColor: RiveroColors.background,
@@ -56,124 +43,239 @@ class OwedScreen extends ConsumerWidget {
         leading: asTab
             ? null
             : BackButton(onPressed: () => Navigator.of(context).pop()),
-        actions: [
-          PopupMenuButton<bool>(
-            key: const ValueKey('owed-add'),
-            tooltip: 'Add',
-            icon: const Icon(Icons.add_rounded),
-            onSelected: (borrowing) =>
-                _MoneySheet.show(context, borrowing: borrowing),
-            itemBuilder: (_) => const [
-              PopupMenuItem(
-                key: ValueKey('add-lent'),
-                value: false,
-                child: Text('I lent money'),
+      ),
+      floatingActionButton: RiveroFab(
+        tooltip: 'Add',
+        onPressed: () => _chooseKind(context),
+      ),
+      body: ListView(
+        padding: EdgeInsets.fromLTRB(
+          RiveroSpacing.xl,
+          RiveroSpacing.sm,
+          RiveroSpacing.xl,
+          RiveroSpacing.huge + 72 + MediaQuery.paddingOf(context).bottom,
+        ),
+        children: [
+          _Total(
+            key: const ValueKey('owed-card-to-you'),
+            label: 'Owed to you',
+            value: money(owedToYou),
+            valueKey: const ValueKey('owed-total'),
+            color: RiveroColors.success,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const OwedToYouScreen()),
+            ),
+          ),
+          const SizedBox(height: RiveroSpacing.md),
+          _Total(
+            key: const ValueKey('owed-card-you-owe'),
+            label: 'You owe people',
+            value: money(youOwe),
+            valueKey: const ValueKey('owe-total'),
+            color: youOwe > 0 ? RiveroColors.warning : null,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const YouOweScreen()),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// The plus on the Owed page: which kind of entry to add.
+  static Future<void> _chooseKind(BuildContext context) =>
+      showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: RiveroColors.surface,
+        builder: (ctx) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                key: const ValueKey('add-lent'),
+                leading: const Icon(Icons.call_made_rounded),
+                title: const Text('I lent money'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _MoneySheet.show(context, borrowing: false);
+                },
               ),
-              PopupMenuItem(
-                key: ValueKey('add-borrowed'),
-                value: true,
-                child: Text('I borrowed money'),
+              ListTile(
+                key: const ValueKey('add-borrowed'),
+                leading: const Icon(Icons.call_received_rounded),
+                title: const Text('I borrowed money'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _MoneySheet.show(context, borrowing: true);
+                },
               ),
             ],
           ),
-        ],
+        ),
+      );
+}
+
+/// Everyone who owes you (split bills, loans). The plus adds a loan.
+class OwedToYouScreen extends ConsumerWidget {
+  const OwedToYouScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dues = ref.watch(duesProvider).value ?? const [];
+    final privacy = ref.watch(privacyModeProvider);
+    String money(int v) => privacy ? '••••' : CurrencyFormatter.format(v);
+    final mine = dues.where((d) => d.kind != DueKind.borrowed).toList();
+    final open = mine.where((d) => d.status == DueStatus.open).toList();
+    final closed = mine.where((d) => d.status != DueStatus.open).toList();
+    return Scaffold(
+      backgroundColor: RiveroColors.background,
+      appBar: RiveroAppBar(
+        title: 'Owed to you',
+        showProfile: false,
+        leading: BackButton(onPressed: () => Navigator.of(context).pop()),
+      ),
+      floatingActionButton: RiveroFab(
+        tooltip: 'I lent money',
+        onPressed: () => _MoneySheet.show(context, borrowing: false),
       ),
       body: ListView(
         padding: EdgeInsets.fromLTRB(
           RiveroSpacing.xl,
           0,
           RiveroSpacing.xl,
-          RiveroSpacing.huge + MediaQuery.paddingOf(context).bottom,
+          RiveroSpacing.huge + 72 + MediaQuery.paddingOf(context).bottom,
         ),
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: _Total(
-                  label: 'Owed to you',
-                  value: money(owedToYou),
-                  valueKey: const ValueKey('owed-total'),
-                  color: RiveroColors.success,
-                ),
-              ),
-              const SizedBox(width: RiveroSpacing.md),
-              Expanded(
-                child: _Total(
-                  label: 'You owe people',
-                  value: money(youOwe),
-                  valueKey: const ValueKey('owe-total'),
-                  color: youOwe > 0 ? RiveroColors.warning : null,
-                ),
-              ),
-            ],
+          Text(
+            money(DuesService.totalOutstanding(dues)),
+            style: RiveroTypography.financialLarge,
           ),
-          header('People who owe you'),
-          if (toYouOpen.isEmpty)
-            Text(
-              'Split a bill: open any payment in Activity and tap '
-              '"Split this bill". Lent money? Tap + above.',
-              style: RiveroTypography.bodySmall,
-            ),
-          for (final d in toYouOpen) _DueTile(d, money: money),
-          header('People you owe'),
-          if (byYouOpen.isEmpty)
-            Text(
-              'Borrowed from someone? Tap + above and note when you will '
-              'pay it back.',
-              style: RiveroTypography.bodySmall,
-            ),
-          for (final d in byYouOpen) _DueTile(d, money: money),
-          header('Bills & commitments'),
-          const BillsAndCommitments(),
-          if (closed.isNotEmpty)
-            Theme(
-              data: Theme.of(context)
-                  .copyWith(dividerColor: Colors.transparent),
-              child: ExpansionTile(
-                tilePadding: EdgeInsets.zero,
-                title: Text(
-                  'Settled & written off · ${closed.length}',
-                  style: RiveroTypography.bodyMedium,
-                ),
-                children: [for (final d in closed) _DueTile(d, money: money)],
-              ),
-            ),
+          const SizedBox(height: RiveroSpacing.lg),
+          for (final d in open) _DueTile(d, money: money),
+          if (closed.isNotEmpty) _ClosedList(closed, money: money),
         ],
       ),
     );
   }
 }
 
+/// Everything you owe: people you borrowed from, and every bill to pay
+/// (cards, loans, autopay). The plus records borrowed money.
+class YouOweScreen extends ConsumerWidget {
+  const YouOweScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dues = ref.watch(duesProvider).value ?? const [];
+    final privacy = ref.watch(privacyModeProvider);
+    String money(int v) => privacy ? '••••' : CurrencyFormatter.format(v);
+    final mine = dues.where((d) => d.kind == DueKind.borrowed).toList();
+    final open = mine.where((d) => d.status == DueStatus.open).toList();
+    final closed = mine.where((d) => d.status != DueStatus.open).toList();
+    Widget header(String text) => Padding(
+      padding: const EdgeInsets.only(
+        top: RiveroSpacing.xl,
+        bottom: RiveroSpacing.sm,
+      ),
+      child: Text(text, style: RiveroTypography.titleMedium),
+    );
+    return Scaffold(
+      backgroundColor: RiveroColors.background,
+      appBar: RiveroAppBar(
+        title: 'You owe people',
+        showProfile: false,
+        leading: BackButton(onPressed: () => Navigator.of(context).pop()),
+      ),
+      floatingActionButton: RiveroFab(
+        tooltip: 'I borrowed money',
+        onPressed: () => _MoneySheet.show(context, borrowing: true),
+      ),
+      body: ListView(
+        padding: EdgeInsets.fromLTRB(
+          RiveroSpacing.xl,
+          0,
+          RiveroSpacing.xl,
+          RiveroSpacing.huge + 72 + MediaQuery.paddingOf(context).bottom,
+        ),
+        children: [
+          Text(
+            money(DuesService.totalYouOwe(dues)),
+            style: RiveroTypography.financialLarge,
+          ),
+          if (open.isNotEmpty) header('People'),
+          for (final d in open) _DueTile(d, money: money),
+          header('Bills & commitments'),
+          const BillsAndCommitments(),
+          if (closed.isNotEmpty) _ClosedList(closed, money: money),
+        ],
+      ),
+    );
+  }
+}
+
+class _ClosedList extends StatelessWidget {
+  const _ClosedList(this.closed, {required this.money});
+
+  final List<Due> closed;
+  final String Function(int) money;
+
+  @override
+  Widget build(BuildContext context) => Theme(
+    data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+    child: ExpansionTile(
+      tilePadding: EdgeInsets.zero,
+      title: Text(
+        'Settled & written off · ${closed.length}',
+        style: RiveroTypography.bodyMedium,
+      ),
+      children: [for (final d in closed) _DueTile(d, money: money)],
+    ),
+  );
+}
+
+/// One of the two big frames on the Owed page.
 class _Total extends StatelessWidget {
   const _Total({
     required this.label,
     required this.value,
     required this.valueKey,
+    required this.onTap,
+    super.key,
     this.color,
   });
 
   final String label;
   final String value;
   final Key valueKey;
+  final VoidCallback onTap;
   final Color? color;
 
   @override
   Widget build(BuildContext context) => RiveroCard(
     isElevated: true,
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    onTap: onTap,
+    padding: const EdgeInsets.all(RiveroSpacing.xl),
+    child: Row(
       children: [
-        Text(label, style: RiveroTypography.bodySmall),
-        const SizedBox(height: 2),
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
-          child: Text(
-            value,
-            key: valueKey,
-            style: RiveroTypography.financialMedium.copyWith(color: color),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: RiveroTypography.bodyMedium),
+              const SizedBox(height: RiveroSpacing.xs),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  value,
+                  key: valueKey,
+                  style: RiveroTypography.financialLarge.copyWith(color: color),
+                ),
+              ),
+            ],
           ),
         ),
+        Icon(Icons.chevron_right_rounded, color: RiveroColors.textMuted),
       ],
     ),
   );

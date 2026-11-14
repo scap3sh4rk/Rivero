@@ -12,6 +12,7 @@ import 'package:rivero/design_system/widgets/account_color.dart';
 import 'package:rivero/design_system/widgets/bank_badge.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
+import 'package:rivero/design_system/widgets/rivero_fab.dart';
 import 'package:rivero/features/accounts/screens/account_detail_screen.dart';
 import 'package:rivero/features/accounts/widgets/create_account_sheet.dart';
 
@@ -88,22 +89,10 @@ class AccountsScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: RiveroColors.background,
-      appBar: RiveroAppBar(
-        title: 'Accounts',
-        actions: [
-          IconButton(
-            key: const ValueKey('toggle-balances'),
-            tooltip: privacy ? 'Show balances' : 'Hide balances',
-            icon: Icon(
-              privacy
-                  ? Icons.visibility_off_outlined
-                  : Icons.visibility_outlined,
-              color: RiveroColors.textSecondary,
-            ),
-            onPressed: () =>
-                ref.read(privacyModeProvider.notifier).state = !privacy,
-          ),
-        ],
+      appBar: const RiveroAppBar(title: 'Accounts'),
+      floatingActionButton: RiveroFab(
+        tooltip: 'Add account or card',
+        onPressed: () => CreateAccountSheet.show(context),
       ),
       body: ListView(
         physics: const BouncingScrollPhysics(),
@@ -111,7 +100,7 @@ class AccountsScreen extends ConsumerWidget {
           RiveroSpacing.xl,
           0,
           RiveroSpacing.xl,
-          RiveroSpacing.huge + MediaQuery.paddingOf(context).bottom,
+          RiveroSpacing.huge + 72 + MediaQuery.paddingOf(context).bottom,
         ),
         children: [
           RiveroCard(
@@ -153,17 +142,6 @@ class AccountsScreen extends ConsumerWidget {
               money: money,
             ),
           if (cards.isNotEmpty) section('Cards', cards),
-          const SizedBox(height: RiveroSpacing.lg),
-          SizedBox(
-            height: 52,
-            child: OutlinedButton.icon(
-              key: const ValueKey('add-account'),
-              onPressed: () => CreateAccountSheet.show(context),
-              style: OutlinedButton.styleFrom(shape: const StadiumBorder()),
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Add account or card'),
-            ),
-          ),
           if (accounts.length > 1)
             Padding(
               padding: const EdgeInsets.only(top: RiveroSpacing.md),

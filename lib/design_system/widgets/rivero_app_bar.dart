@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/features/settings/screens/settings_screen.dart';
 
@@ -14,6 +16,7 @@ class RiveroAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.actions,
     this.bottom,
     this.showProfile = true,
+    this.showEye = true,
   });
 
   final String title;
@@ -25,6 +28,9 @@ class RiveroAppBar extends StatelessWidget implements PreferredSizeWidget {
   final List<Widget>? actions;
   final PreferredSizeWidget? bottom;
   final bool showProfile;
+
+  /// The eye that hides or shows every amount (on every page).
+  final bool showEye;
 
   @override
   Size get preferredSize => Size.fromHeight(
@@ -44,10 +50,11 @@ class RiveroAppBar extends StatelessWidget implements PreferredSizeWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            title,
-            style: RiveroTypography.displayLarge.copyWith(fontSize: 30),
-          ),
+          titleWidget ??
+              Text(
+                title,
+                style: RiveroTypography.displayLarge.copyWith(fontSize: 30),
+              ),
           if (subtitle != null) ...[
             const SizedBox(height: 2),
             Text(subtitle!, style: RiveroTypography.bodySmall),
@@ -56,6 +63,7 @@ class RiveroAppBar extends StatelessWidget implements PreferredSizeWidget {
       ),
       actions: [
         ...?actions,
+        if (showEye) const _EyeButton(),
         if (showProfile)
           Padding(
             padding: const EdgeInsets.only(
@@ -84,6 +92,26 @@ class RiveroAppBar extends StatelessWidget implements PreferredSizeWidget {
           ),
       ],
       bottom: bottom,
+    );
+  }
+}
+
+/// Hides or shows every amount in the app. Same icon, same place, on every
+/// page.
+class _EyeButton extends ConsumerWidget {
+  const _EyeButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hidden = ref.watch(privacyModeProvider);
+    return IconButton(
+      key: const ValueKey('toggle-balances'),
+      tooltip: 'Toggle Privacy Mode',
+      icon: Icon(
+        hidden ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+        color: RiveroColors.textSecondary,
+      ),
+      onPressed: () => ref.read(privacyModeProvider.notifier).state = !hidden,
     );
   }
 }
