@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rivero/core/database/daos/settings_dao.dart';
 import 'package:rivero/core/database/database.dart';
+import 'package:rivero/core/database/database_seeder.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 
 import '../../test_helper.dart';
@@ -31,5 +32,16 @@ void main() {
     c.read(monthlySalaryProvider.notifier).state = 8000000;
     await Future<void>.delayed(const Duration(milliseconds: 50));
     expect(await db.settingsDao.getInt(SettingKeys.monthlySalary), 8000000);
+  });
+
+  test('wipeAll erases every table', () async {
+    final db = RiveroDatabase.memory();
+    addTearDown(db.close);
+    await DatabaseSeeder(db).seedIfEmpty();
+    await db.wipeAll();
+    expect(await db.accountsDao.getAllActivePhysicalAccounts(), isEmpty);
+    expect(await db.select(db.transactions).get(), isEmpty);
+    expect(await db.select(db.mandates).get(), isEmpty);
+    expect(await db.settingsDao.get(SettingKeys.onboarded), isNull);
   });
 }

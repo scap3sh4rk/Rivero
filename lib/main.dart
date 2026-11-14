@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/ingestion/platform/notification_bridge.dart';
 import 'package:rivero/core/providers/app_providers.dart';
+import 'package:rivero/core/security/app_lock.dart';
 import 'package:rivero/core/security/database_key_manager.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/features/main/main_screen.dart';
@@ -129,7 +130,7 @@ class _RiveroAppState extends ConsumerState<RiveroApp>
         theme: RiveroTheme.build(light: light),
         home: switch (ref.watch(onboardedProvider)) {
           null => Scaffold(backgroundColor: RiveroColors.background),
-          true => const MainScreen(),
+          true => const AppLockGate(child: MainScreen()),
           false => const OnboardingScreen(),
         },
       ),

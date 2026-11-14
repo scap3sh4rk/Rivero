@@ -22,6 +22,7 @@ import 'package:rivero/core/reconciliation/balance_reconciler.dart';
 import 'package:rivero/core/reconciliation/internal_transfer_matcher.dart';
 import 'package:rivero/core/reconciliation/reconciliation_service.dart';
 import 'package:rivero/core/reconciliation/refund_matcher.dart';
+import 'package:rivero/core/security/app_lock.dart';
 
 /// Provider holding the current Safe-to-Spend amount in minor units (paise).
 final safeToSpendProvider = StateProvider<int>((ref) => 4825000); // ₹48,250.00
@@ -76,6 +77,8 @@ class SettingsSync {
         await dao.getInt(SettingKeys.monthlySalary) ?? 0;
     ref.read(reserveCreditCardsProvider.notifier).state =
         (await dao.get(SettingKeys.reserveCreditCards)) != '0';
+    ref.read(appLockEnabledProvider.notifier).state =
+        (await dao.get(SettingKeys.appLock)) == '1';
     final catsJson = await dao.get(SettingKeys.logCategories);
     if (catsJson != null) {
       ref.read(logCategoriesProvider.notifier).state = [
@@ -122,6 +125,10 @@ class SettingsSync {
       ..listen(
         reserveCreditCardsProvider,
         (_, v) => save(SettingKeys.reserveCreditCards, v ? '1' : '0'),
+      )
+      ..listen(
+        appLockEnabledProvider,
+        (_, v) => save(SettingKeys.appLock, v ? '1' : '0'),
       )
       ..listen(
         logCategoriesProvider,

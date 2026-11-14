@@ -57,6 +57,19 @@ class RiveroDatabase extends _$RiveroDatabase {
     );
   }
 
+  /// Deletes every row in every table (developer "delete all data").
+  Future<void> wipeAll() => transaction(() async {
+    // Children before parents (foreign keys).
+    await delete(dues).go();
+    await delete(transactions).go();
+    await delete(mandates).go();
+    await delete(rawIngestionLogs).go();
+    await delete(allocationBuckets).go();
+    await delete(associatedTitles).go();
+    await delete(physicalAccounts).go();
+    await delete(appSettings).go();
+  });
+
   @override
   int get schemaVersion => 6;
 

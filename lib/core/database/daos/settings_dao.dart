@@ -16,6 +16,7 @@ abstract final class SettingKeys {
   static const accountTypes = 'account_types_json';
   static const countOwed = 'count_owed_in_sts';
   static const logCategories = 'log_categories_json';
+  static const appLock = 'app_lock';
 }
 
 @DriftAccessor(tables: [AppSettings])

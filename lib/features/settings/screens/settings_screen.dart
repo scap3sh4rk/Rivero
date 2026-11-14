@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivero/core/ingestion/platform/notification_bridge.dart';
 import 'package:rivero/core/providers/app_providers.dart';
+import 'package:rivero/core/security/app_lock.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/features/mandates/mandates_screen.dart';
@@ -117,13 +118,29 @@ class SettingsScreen extends ConsumerWidget {
                   ref.read(privacyModeProvider.notifier).state = v,
             ),
           ),
+          _Row(
+            icon: Icons.fingerprint_rounded,
+            title: 'App lock',
+            subtitle: 'Fingerprint, face or phone PIN to open',
+            trailing: Switch(
+              key: const ValueKey('app-lock-switch'),
+              value: ref.watch(appLockEnabledProvider),
+              onChanged: (v) => _setAppLock(context, ref, v),
+            ),
+          ),
           const _Row(
             icon: Icons.lock_outline_rounded,
             title: 'Encrypted on this phone',
             subtitle: 'No cloud, no SMS permission',
           ),
+          const _Header('Developer'),
+          _Row(
+            icon: Icons.delete_forever_outlined,
+            title: 'Delete all data',
+            subtitle: 'Erases everything and starts setup again',
+            onTap: () => _confirmWipe(context, ref),
+          ),
           if (kDebugMode) ...[
-            const _Header('Debug'),
             _Row(
               icon: Icons.science_outlined,
               title: 'Load demo data',
@@ -134,6 +151,73 @@ class SettingsScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _setAppLock(BuildContext context, WidgetRef ref, bool on) async {
+    // Verify the person first, both to turn it on and to turn it off.
+    final ok = await ref.read(authenticatorProvider)(
+      on ? 'Confirm to turn on app lock' : 'Confirm to turn off app lock',
+    );
+    if (ok) {
+      ref.read(appLockEnabledProvider.notifier).state = on;
+    } else if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Could not verify. Is a screen lock set on this phone?',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _confirmWipe(BuildContext context, WidgetRef ref) async {
+    final typed = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          title: const Text('Delete all data?'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Accounts, transactions, plans, autopays and settings are '
+                'erased from this phone. This cannot be undone.',
+              ),
+              const SizedBox(height: RiveroSpacing.md),
+              TextField(
+                key: const ValueKey('wipe-confirm'),
+                controller: typed,
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(hintText: 'Type DELETE'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: RiveroColors.danger,
+              ),
+              onPressed: typed.text.trim() == 'DELETE'
+                  ? () => Navigator.pop(ctx, true)
+                  : null,
+              child: const Text('Delete everything'),
+            ),
+          ],
+        ),
+      ),
+    );
+    typed.dispose();
+    if (ok != true || !context.mounted) return;
+    Navigator.of(context).popUntil((r) => r.isFirst);
+    await ref.read(databaseProvider).wipeAll();
+    await ref.read(settingsSyncProvider).load(); // -> back to setup
   }
 
   Future<void> _pickPayDay(BuildContext context, WidgetRef ref, int current) {
