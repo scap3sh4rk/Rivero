@@ -11,7 +11,8 @@ name: iOS build
 on:
   workflow_dispatch:
   push:
-    branches: [develop, main]
+    # main is built by the release workflow (and attached to the release).
+    branches: [develop]
     paths: ['ios/**', '.github/workflows/ios.yml']
 
 concurrency:
