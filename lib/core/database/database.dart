@@ -140,6 +140,7 @@ class RiveroDatabase extends _$RiveroDatabase {
         }
         if (from < 10) await _createIndexes();
         if (from < 12) {
+          await m.addColumn(dues, dues.attachmentPath);
           // Money accounts never go below zero.
           await customStatement(
             'UPDATE physical_accounts SET balance_minor_units = 0 '

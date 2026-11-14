@@ -127,6 +127,14 @@ void main() {
     expect(find.byKey(const ValueKey('owed-card-to-you')), findsOneWidget);
     expect(find.byKey(const ValueKey('owed-card-you-owe')), findsOneWidget);
     expect(find.text('Bills & commitments'), findsNothing);
+    // Each frame takes about a third of the screen height.
+    final h = tester
+        .getSize(find.byKey(const ValueKey('owed-card-to-you')))
+        .height;
+    expect(h, greaterThanOrEqualTo(3000 * 0.28));
+    // A small net line sits below them.
+    expect(find.byKey(const ValueKey('owed-net')), findsOneWidget);
+    expect(find.text('All square'), findsOneWidget);
 
     // Borrow ₹5,000 from Meera into the salary account (the plus, bottom right).
     await tester.tap(find.byTooltip('Add'));
@@ -147,6 +155,11 @@ void main() {
     expect(
       tester.widget<Text>(find.byKey(const ValueKey('owe-total'))).data,
       '₹5,000.00',
+    );
+    // Owed nothing, owe ₹5,000: the net line says so.
+    expect(
+      tester.widget<Text>(find.byKey(const ValueKey('owed-net-text'))).data,
+      'Net: you owe ₹5,000.00',
     );
 
     // "You owe people": the debt, and Bills & commitments (the demo card

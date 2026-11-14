@@ -28,6 +28,13 @@ class DuesService {
 
   int outstandingOf(Due d) => d.amountMinorUnits - d.receivedMinorUnits;
 
+  /// A date entered by the user must not be in the future.
+  static void _checkDate(DateTime? on) {
+    if (on != null && on.isAfter(DateTime.now().add(const Duration(days: 1)))) {
+      throw const DueValidationException('That date is in the future');
+    }
+  }
+
   /// Splits [total] equally between [people] (including you). Others get
   /// whole paise; any remainder stays with you. Returns the others' shares.
   static List<int> equalShares(int total, int people) {
@@ -90,8 +97,11 @@ class DuesService {
     required int amountMinorUnits,
     String? accountId,
     String? note,
+    DateTime? on,
+    String? attachmentPath,
   }) async {
     final name = person.trim();
+    _checkDate(on);
     if (name.isEmpty) {
       throw const DueValidationException('Who did you lend to?');
     }
@@ -107,6 +117,8 @@ class DuesService {
         merchant: 'Lent to $name',
         category: 'Lent',
         note: note,
+        at: on,
+        attachmentPath: attachmentPath,
       );
     }
     final now = DateTime.now();
@@ -120,8 +132,10 @@ class DuesService {
             kind: DueKind.lent,
             status: DueStatus.open,
             note: Value(note),
+            attachmentPath: Value(attachmentPath),
             sourceTransactionId: Value(sourceId),
-            createdAt: now,
+            // The day it really happened (it may be logged later).
+            createdAt: on ?? now,
             updatedAt: now,
           ),
         );
@@ -136,8 +150,11 @@ class DuesService {
     String? accountId,
     DateTime? dueDate,
     String? note,
+    DateTime? on,
+    String? attachmentPath,
   }) => db.transaction(() async {
     final name = person.trim();
+    _checkDate(on);
     if (name.isEmpty) {
       throw const DueValidationException('Who did you borrow from?');
     }
@@ -153,6 +170,8 @@ class DuesService {
         merchant: 'Borrowed from $name',
         category: 'Borrowed',
         note: note,
+        at: on,
+        attachmentPath: attachmentPath,
       );
     }
     final now = DateTime.now();
@@ -167,8 +186,9 @@ class DuesService {
             status: DueStatus.open,
             note: Value(note),
             dueDate: Value(dueDate),
+            attachmentPath: Value(attachmentPath),
             sourceTransactionId: Value(sourceId),
-            createdAt: now,
+            createdAt: on ?? now,
             updatedAt: now,
           ),
         );

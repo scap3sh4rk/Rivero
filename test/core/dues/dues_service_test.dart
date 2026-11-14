@@ -242,4 +242,40 @@ void main() {
       expect(DuesService.youOweDueBy(list, DateTime(2026, 12, 31)), 1300000);
     });
   });
+
+  group('logged later than it happened', () {
+    test('a loan keeps the day it really happened, and its photo', () async {
+      await db.accountsDao.updateAccountBalance('bank', 500000);
+      final n = DateTime.now().subtract(const Duration(days: 3));
+      final day = DateTime(n.year, n.month, n.day, 10);
+      await dues.lend(
+        person: 'Kiran',
+        amountMinorUnits: 100000,
+        accountId: 'bank',
+        on: day,
+        attachmentPath: '/tmp/proof.jpg',
+      );
+      final d = (await all()).single;
+      expect(d.createdAt, day);
+      expect(d.attachmentPath, '/tmp/proof.jpg');
+      final t = (await db.transactionsDao.getAllTransactions()).single;
+      expect(t.transactionTimestamp, day);
+      expect(t.attachmentPath, '/tmp/proof.jpg');
+    });
+
+    test('borrowing too, and a future date is refused', () async {
+      final n = DateTime.now().subtract(const Duration(days: 10));
+      final day = DateTime(n.year, n.month, n.day, 10);
+      await dues.borrow(person: 'Meera', amountMinorUnits: 50000, on: day);
+      expect((await all()).single.createdAt, day);
+      await expectLater(
+        dues.borrow(
+          person: 'Meera',
+          amountMinorUnits: 50000,
+          on: DateTime.now().add(const Duration(days: 30)),
+        ),
+        throwsA(isA<DueValidationException>()),
+      );
+    });
+  });
 }
