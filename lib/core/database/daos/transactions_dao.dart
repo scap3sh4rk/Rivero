@@ -124,6 +124,13 @@ class TransactionsDao extends DatabaseAccessor<RiveroDatabase>
     return rows > 0;
   }
 
+  /// Attach (or clear) a bill photo.
+  Future<bool> updateAttachment(String id, String? path) async {
+    final rows = await (update(transactions)..where((t) => t.id.equals(id)))
+        .write(TransactionsCompanion(attachmentPath: Value(path)));
+    return rows > 0;
+  }
+
   /// Change a transaction's type (e.g. expense -> internalTransfer).
   Future<bool> updateTransactionType(String id, TransactionType type) async {
     final rows = await (update(transactions)..where((t) => t.id.equals(id)))

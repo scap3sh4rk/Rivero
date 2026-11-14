@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Take a photo of a bill or for an account.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Attach a bill photo or an account picture.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Unlock Rivero to see your money.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>

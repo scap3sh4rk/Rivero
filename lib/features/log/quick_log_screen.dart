@@ -11,6 +11,7 @@ import 'package:rivero/core/utils/calc.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/account_color.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
+import 'package:rivero/features/log/scan_bill.dart';
 import 'package:rivero/features/settings/screens/categories_screen.dart';
 
 /// Quick log: what it was for (optional), an amount, Save. Category and
@@ -205,7 +206,17 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
 
     return Scaffold(
       backgroundColor: RiveroColors.background,
-      appBar: const RiveroAppBar(title: 'Log'),
+      appBar: RiveroAppBar(
+        title: 'Log',
+        actions: [
+          IconButton(
+            key: const ValueKey('scan-bill'),
+            tooltip: 'Scan a bill (experimental)',
+            onPressed: () => scanBill(context, ref),
+            icon: const Icon(Icons.document_scanner_outlined),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Column(
           children: [

@@ -4,11 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivero/core/ingestion/platform/notification_bridge.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/security/app_lock.dart';
+import 'package:rivero/core/storage/media_store.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/features/mandates/mandates_screen.dart';
 import 'package:rivero/features/settings/screens/account_types_screen.dart';
 import 'package:rivero/features/settings/screens/categories_screen.dart';
+import 'package:rivero/features/settings/screens/import_statement.dart';
 
 /// Settings as short rows: one line each, details one tap deeper.
 class SettingsScreen extends ConsumerWidget {
@@ -133,6 +135,13 @@ class SettingsScreen extends ConsumerWidget {
             title: 'Encrypted on this phone',
             subtitle: 'No cloud, no SMS permission',
           ),
+          const _Header('Experimental'),
+          _Row(
+            icon: Icons.upload_file_outlined,
+            title: 'Import bank statement (CSV)',
+            subtitle: 'Adds past transactions to an account',
+            onTap: () => importStatement(context, ref),
+          ),
           const _Header('Developer'),
           _Row(
             icon: Icons.delete_forever_outlined,
@@ -217,6 +226,7 @@ class SettingsScreen extends ConsumerWidget {
     if (ok != true || !context.mounted) return;
     Navigator.of(context).popUntil((r) => r.isFirst);
     await ref.read(databaseProvider).wipeAll();
+    await MediaStore.wipe();
     await ref.read(settingsSyncProvider).load(); // -> back to setup
   }
 

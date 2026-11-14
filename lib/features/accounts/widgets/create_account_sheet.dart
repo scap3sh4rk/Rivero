@@ -4,8 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/custom_account_types.dart';
 import 'package:rivero/core/providers/app_providers.dart';
+import 'package:rivero/core/storage/media_store.dart';
 import 'package:rivero/core/utils/amount_parser.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
+import 'package:rivero/design_system/widgets/bank_badge.dart';
+import 'package:rivero/design_system/widgets/photo_picker.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
 
 /// Sheet to add, or edit when [existing] is given, a bank, cash or card account.
@@ -39,6 +42,8 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
   String _selectedAccountType = StandardAccountTypes.savings;
   bool _isLiability = false;
   int? _color; // null = automatic colour from the bank name
+  String? _imagePath; // stored picture, or a freshly picked temp file
+  bool _imageChanged = false;
 
   static String _rupees(int minor) {
     final v = minor.abs();
@@ -60,6 +65,7 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
       _selectedAccountType = a.accountType;
       _isLiability = a.isLiability;
       _color = a.colorValue;
+      _imagePath = a.imagePath;
       final types = ref.read(customAccountTypesProvider);
       if (!types.contains(a.accountType)) {
         ref.read(customAccountTypesProvider.notifier).state = [
@@ -68,6 +74,19 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
         ];
       }
     }
+  }
+
+  /// Copies a newly picked picture into app storage; drops a removed one.
+  Future<String?> _storedImage(String accountId) async {
+    if (!_imageChanged) return _imagePath;
+    await MediaStore.remove(widget.existing?.imagePath);
+    final picked = _imagePath;
+    if (picked == null) return null;
+    return await MediaStore.keep(
+      picked,
+      folder: MediaStore.accountImages,
+      name: accountId,
+    );
   }
 
   Future<void> _remove() async {
@@ -210,7 +229,7 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
         isActive: const drift.Value(true),
         isLiability: drift.Value(_isLiability),
         colorValue: drift.Value(_color),
-        imagePath: drift.Value(widget.existing?.imagePath),
+        imagePath: drift.Value(await _storedImage(accountId)),
         createdAt: drift.Value(widget.existing?.createdAt ?? now),
         updatedAt: drift.Value(now),
       ),
@@ -512,6 +531,46 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
                     },
                   ),
                 ],
+                const SizedBox(height: RiveroSpacing.lg),
+                Row(
+                  children: [
+                    BankBadge(
+                      name: _institutionController.text.isEmpty
+                          ? (_nameController.text.isEmpty
+                                ? '?'
+                                : _nameController.text)
+                          : _institutionController.text,
+                      color: _color == null ? null : Color(_color!),
+                      imagePath: _imagePath,
+                      size: 48,
+                    ),
+                    const SizedBox(width: RiveroSpacing.md),
+                    TextButton.icon(
+                      key: const ValueKey('account-photo'),
+                      onPressed: () async {
+                        final path = await pickPhoto(context);
+                        if (path != null) {
+                          setState(() {
+                            _imagePath = path;
+                            _imageChanged = true;
+                          });
+                        }
+                      },
+                      icon: const Icon(Icons.add_a_photo_outlined),
+                      label: Text(
+                        _imagePath == null ? 'Add picture' : 'Change',
+                      ),
+                    ),
+                    if (_imagePath != null)
+                      TextButton(
+                        onPressed: () => setState(() {
+                          _imagePath = null;
+                          _imageChanged = true;
+                        }),
+                        child: const Text('Remove'),
+                      ),
+                  ],
+                ),
                 const SizedBox(height: RiveroSpacing.lg),
                 Text('Colour', style: RiveroTypography.bodyMedium),
                 const SizedBox(height: RiveroSpacing.sm),

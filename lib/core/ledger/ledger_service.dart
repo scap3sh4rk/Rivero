@@ -35,6 +35,8 @@ class LedgerService {
     required String category,
     String? bucketId,
     String? note,
+    DateTime? at,
+    String? attachmentPath,
   }) async {
     final now = DateTime.now();
     final id = 'txn-manual-${now.microsecondsSinceEpoch}';
@@ -51,7 +53,8 @@ class LedgerService {
         userNotes: Value(
           note == null || note.trim().isEmpty ? null : note.trim(),
         ),
-        transactionTimestamp: Value(now),
+        attachmentPath: Value(attachmentPath),
+        transactionTimestamp: Value(at ?? now),
         createdAt: Value(now),
       ),
     );

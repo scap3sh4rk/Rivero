@@ -1,11 +1,15 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/providers/app_providers.dart';
+import 'package:rivero/core/storage/media_store.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
+import 'package:rivero/design_system/widgets/photo_picker.dart';
 import 'package:rivero/features/settings/screens/categories_screen.dart';
 import 'package:rivero/features/transactions/widgets/split_sheet.dart';
 
@@ -39,6 +43,27 @@ class _TransactionDetailSheetState
     text: widget.transaction.userNotes ?? '',
   );
   late String _category = widget.transaction.category;
+  late String? _bill = widget.transaction.attachmentPath;
+
+  Future<void> _attachBill() async {
+    final picked = await pickPhoto(context);
+    if (picked == null) return;
+    final t = widget.transaction;
+    final stored = await MediaStore.keep(
+      picked,
+      folder: MediaStore.bills,
+      name: t.id,
+    );
+    await MediaStore.remove(_bill);
+    await _db.transactionsDao.updateAttachment(t.id, stored);
+    if (mounted) setState(() => _bill = stored);
+  }
+
+  Future<void> _removeBill() async {
+    await MediaStore.remove(_bill);
+    await _db.transactionsDao.updateAttachment(widget.transaction.id, null);
+    if (mounted) setState(() => _bill = null);
+  }
 
   @override
   void dispose() {
@@ -170,7 +195,45 @@ class _TransactionDetailSheetState
                 counterText: '',
               ),
             ),
-            const SizedBox(height: RiveroSpacing.md),
+            const SizedBox(height: RiveroSpacing.sm),
+            if (_bill != null && File(_bill!).existsSync())
+              Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => showPhoto(context, _bill!),
+                    child: ClipRRect(
+                      borderRadius: RiveroRadii.borderMd,
+                      child: Image.file(
+                        File(_bill!),
+                        key: const ValueKey('bill-thumb'),
+                        width: 64,
+                        height: 64,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: RiveroSpacing.md),
+                  TextButton(
+                    onPressed: _attachBill,
+                    child: const Text('Replace'),
+                  ),
+                  TextButton(
+                    onPressed: _removeBill,
+                    child: const Text('Remove'),
+                  ),
+                ],
+              )
+            else
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  key: const ValueKey('attach-bill'),
+                  onPressed: _attachBill,
+                  icon: const Icon(Icons.receipt_long_outlined),
+                  label: const Text('Attach bill photo'),
+                ),
+              ),
+            const SizedBox(height: RiveroSpacing.sm),
             if (!credit)
               Wrap(
                 spacing: RiveroSpacing.sm,
