@@ -174,6 +174,15 @@ class PlanTransferService {
     return all.any((t) => t.id.startsWith(prefix));
   }
 
+  /// Total already moved out of the salary account by this cycle's plan.
+  Future<int> movedOut(DateTime cycleStart) async {
+    final prefix = _prefix(cycleStart);
+    final all = await db.select(db.transactions).get();
+    return all
+        .where((t) => t.id.startsWith(prefix) && t.id.endsWith('-out'))
+        .fold<int>(0, (s, t) => s - t.amountMinorUnits);
+  }
+
   /// How far the salary account would go below zero if [moves] were made
   /// on top of today's balance (0 = it can afford them).
   static int shortfall(PhysicalAccount salary, List<PlannedMove> moves) {

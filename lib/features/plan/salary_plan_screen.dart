@@ -162,7 +162,68 @@ class _SalaryPlanScreenState extends ConsumerState<SalaryPlanScreen> {
     _fields.remove(b.id)?.dispose();
   }
 
-  Future<void> _apply(int salary, Map<String, int> split) async {
+  /// Asked once per cycle, before any money moves: set up mid-month, the
+  /// money may have moved already (and the balances entered show it).
+  /// Returns null to cancel, true when it already moved.
+  Future<bool?> _askAlreadyMoved(
+    List<PlannedMove> moves,
+    PhysicalAccount salaryAcc,
+  ) {
+    final total = moves.fold<int>(0, (t, m) => t + m.amount);
+    final canMove = salaryAcc.balanceMinorUnits >= total;
+    const f = CurrencyFormatter.format;
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Has this month's money already moved?"),
+        content: Text(
+          canMove
+              ? 'The plan moves ${f(total)} out of ${salaryAcc.name}. If you '
+                    'already did that this month, choose Already moved: '
+                    'nothing is moved again.'
+              : '${salaryAcc.name} holds ${f(salaryAcc.balanceMinorUnits)}, '
+                    'less than the ${f(total)} the plan moves, so it must '
+                    'have moved already. Nothing is moved; it is marked done.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          if (canMove)
+            TextButton(
+              key: const ValueKey('move-now'),
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Move now'),
+            ),
+          FilledButton(
+            key: const ValueKey('already-moved'),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Already moved'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _apply(
+    int salary,
+    Map<String, int> split,
+    List<PlannedMove> moves,
+    PhysicalAccount? salaryAcc,
+  ) async {
+    final cycleStart = ref.read(currentPaycycleProvider).cycleStartDate;
+    var alreadyMoved = false;
+    // A salary credit being split has just arrived: its money is there.
+    if (widget.salaryTransaction == null &&
+        salaryAcc != null &&
+        moves.isNotEmpty &&
+        !await ref.read(planTransferServiceProvider).hasMoves(cycleStart)) {
+      final answer = await _askAlreadyMoved(moves, salaryAcc);
+      if (answer == null) return;
+      alreadyMoved = answer;
+    }
+    if (!mounted) return;
     setState(() => _saving = true);
     final planService = ref.read(salaryPlanServiceProvider);
     if (_salaryId != null) {
@@ -173,17 +234,24 @@ class _SalaryPlanScreenState extends ConsumerState<SalaryPlanScreen> {
       spendingAccountId: _spendingId,
       destinations: _dest,
     );
-    await planService.apply(
-      salary: salary,
-      allocations: split,
-      salaryTransactionId: widget.salaryTransaction?.id,
-      cycleStart: ref.read(currentPaycycleProvider).cycleStartDate,
-      rememberAsDefault: _remember,
-      carryOver: _carry,
-      // Applying the plan moves money between the accounts you track,
-      // whether or not this cycle's salary was logged in Rivero.
-      moveMoney: true,
-    );
+    try {
+      await planService.apply(
+        salary: salary,
+        allocations: split,
+        salaryTransactionId: widget.salaryTransaction?.id,
+        cycleStart: cycleStart,
+        rememberAsDefault: _remember,
+        carryOver: _carry,
+        // Applying the plan moves money between the accounts you track,
+        // whether or not this cycle's salary was logged in Rivero.
+        moveMoney: true,
+        alreadyMoved: alreadyMoved,
+      );
+    } on PlanValidationException catch (e) {
+      if (mounted) setState(() => _saving = false);
+      _toast(e.message);
+      return;
+    }
     // Planning without a credit sets the expected salary; a real credit
     // updates it only when this split becomes the default.
     if (widget.salaryTransaction == null || _remember) {
@@ -538,7 +606,7 @@ class _SalaryPlanScreenState extends ConsumerState<SalaryPlanScreen> {
               style: FilledButton.styleFrom(shape: const StadiumBorder()),
               onPressed: salary == 0 || over || _saving
                   ? null
-                  : () => _apply(salary, split),
+                  : () => _apply(salary, split, moves, salaryAcc),
               child: Text(salary == 0 ? 'Enter your salary' : 'Apply'),
             ),
           ),

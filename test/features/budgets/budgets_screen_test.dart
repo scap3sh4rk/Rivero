@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/database/database_seeder.dart';
+import 'package:rivero/core/plan/salary_plan_service.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/features/budgets/screens/budgets_screen.dart';
 import 'package:rivero/features/plan/salary_plan_screen.dart';
@@ -63,6 +64,17 @@ void main() {
     },
   );
 
+  test('already paid (mid-month start) never touches the balance', () async {
+    final before = (await db.accountsDao.getPhysicalAccountById('acc-salary'))!
+        .balanceMinorUnits;
+    await SalaryPlanService(db).markAlreadyPaid('bucket-savings');
+    final after = (await db.accountsDao.getPhysicalAccountById('acc-salary'))!
+        .balanceMinorUnits;
+    expect(after, before);
+    final bucket = (await db.accountsDao.getBucketById('bucket-savings'))!;
+    expect(bucket.spentMinorUnits, bucket.allocatedMinorUnits);
+  });
+
   testWidgets(
     'a plan-only category can be marked paid out of the salary account',
     (tester) async {
@@ -93,11 +105,8 @@ void main() {
       );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
-      expect(
-        find.textContaining('Mark Emergency Fund as paid'),
-        findsOneWidget,
-      );
-      await tester.tap(find.byKey(const ValueKey('mark-paid')));
+      expect(find.text('Mark Emergency Fund as paid'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('pay-now')));
       for (var i = 0; i < 6; i++) {
         await tester.runAsync(
           () => Future<void>.delayed(const Duration(milliseconds: 100)),

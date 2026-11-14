@@ -63,6 +63,15 @@ void main() {
     );
     await tester.pump();
     await tester.tap(find.widgetWithText(FilledButton, 'Apply'));
+    // Set up mid-month: asked whether this month's money already moved.
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 200)),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text("Has this month's money already moved?"), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('already-moved')));
+    await tester.pump();
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 300)),
     );

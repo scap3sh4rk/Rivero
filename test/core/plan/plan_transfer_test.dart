@@ -266,6 +266,48 @@ void main() {
     },
   );
 
+  test('the plan never takes the salary account below zero', () async {
+    await db.accountsDao.updateAccountBalance('salary', 100000); // ₹1,000
+    await expectLater(
+      plan.apply(
+        salary: 5200000,
+        allocations: {'rent': 0, 'inv': 0, 'exp': 5200000},
+        cycleStart: cycle,
+        moveMoney: true,
+      ),
+      throwsA(isA<PlanValidationException>()),
+    );
+    expect(await bal('salary'), 100000);
+    expect(await planTxns(), isEmpty);
+  });
+
+  test(
+    'already moved (mid-month): nothing moves, categories marked done',
+    () async {
+      await account('invacc', 'Investments', 0, '7777');
+      await db.accountsDao.upsertBucket(
+        (await db.accountsDao.getBucketById('inv'))!
+            .copyWith(linkedPhysicalAccountId: const Value('invacc'))
+            .toCompanion(true),
+      );
+      await db.accountsDao.updateAccountBalance('salary', 100000);
+      await plan.apply(
+        salary: 5200000,
+        allocations: {'rent': 0, 'inv': 500000, 'exp': 4700000},
+        cycleStart: cycle,
+        moveMoney: true,
+        alreadyMoved: true,
+      );
+      expect(await bal('salary'), 100000);
+      expect(await bal('invacc'), 0);
+      expect(await planTxns(), isEmpty);
+      expect(
+        (await db.accountsDao.getBucketById('inv'))!.spentMinorUnits,
+        500000,
+      );
+    },
+  );
+
   test('removing an account stops plan categories routing into it', () async {
     await db.accountsDao.deactivatePhysicalAccount('spend');
     final exp = (await db.accountsDao.getBucketById('exp'))!;

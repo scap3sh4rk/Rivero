@@ -46,35 +46,59 @@ class BudgetsScreen extends ConsumerWidget {
       return;
     }
     final amount = CurrencyFormatter.format(b.allocatedMinorUnits);
-    final go = await showDialog<bool>(
+    // A bank account never goes below zero because of a plan: if the salary
+    // account cannot cover it, the money must have left before Rivero knew.
+    final canPayNow = salary.balanceMinorUnits >= b.allocatedMinorUnits;
+    final choice = await showDialog<_Paid>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Mark ${b.name} as paid?'),
-        content: Text('$amount is taken out of ${salary.name}.'),
+        title: Text('Mark ${b.name} as paid'),
+        content: Text(
+          canPayNow
+              ? 'Already paid: $amount left ${salary.name} before the '
+                    'balance you see, so nothing changes.\n'
+                    'Paying now: $amount is taken out of ${salary.name}.'
+              : '${salary.name} holds '
+                    '${CurrencyFormatter.format(salary.balanceMinorUnits)}, '
+                    'less than $amount, so this was paid before. It is marked '
+                    'paid without touching the balance.',
+        ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
+            onPressed: () => Navigator.pop(ctx),
             child: const Text('Not yet'),
           ),
+          if (canPayNow)
+            TextButton(
+              key: const ValueKey('pay-now'),
+              onPressed: () => Navigator.pop(ctx, _Paid.now),
+              child: const Text('Paying now'),
+            ),
           FilledButton(
-            key: const ValueKey('mark-paid'),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Mark paid'),
+            key: const ValueKey('already-paid'),
+            onPressed: () => Navigator.pop(ctx, _Paid.before),
+            child: const Text('Already paid'),
           ),
         ],
       ),
     );
-    if (go != true) return;
-    await ref
-        .read(ledgerServiceProvider)
-        .recordManual(
-          accountId: salary.id,
-          amountMinorUnits: -b.allocatedMinorUnits,
-          type: TransactionType.planTransfer,
-          merchant: 'Plan: ${b.name}',
-          category: b.name,
-          bucketId: b.id,
-        );
+    switch (choice) {
+      case null:
+        return;
+      case _Paid.before:
+        await ref.read(salaryPlanServiceProvider).markAlreadyPaid(b.id);
+      case _Paid.now:
+        await ref
+            .read(ledgerServiceProvider)
+            .recordManual(
+              accountId: salary.id,
+              amountMinorUnits: -b.allocatedMinorUnits,
+              type: TransactionType.planTransfer,
+              merchant: 'Plan: ${b.name}',
+              category: b.name,
+              bucketId: b.id,
+            );
+    }
   }
 
   static Future<void> open(BuildContext context) =>
@@ -188,6 +212,8 @@ class BudgetsScreen extends ConsumerWidget {
     );
   }
 }
+
+enum _Paid { before, now }
 
 class _CategoryTile extends StatelessWidget {
   const _CategoryTile(

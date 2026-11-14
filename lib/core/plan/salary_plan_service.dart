@@ -75,6 +75,7 @@ class SalaryPlanService {
     bool rememberAsDefault = true,
     bool carryOver = true,
     bool? moveMoney,
+    bool alreadyMoved = false,
   }) async {
     final total = allocations.values.fold<int>(0, (a, b) => a + b);
     if (allocations.values.any((v) => v < 0) || total > salary) {
@@ -133,9 +134,10 @@ class SalaryPlanService {
       final transfers = PlanTransferService(db);
       final move =
           cycleStart != null &&
-          (moveMoney ??
-              (salaryTransactionId != null ||
-                  await transfers.hasMoves(cycleStart)));
+          (alreadyMoved ||
+              (moveMoney ??
+                  (salaryTransactionId != null ||
+                      await transfers.hasMoves(cycleStart))));
       if (move) {
         final accounts = await db.accountsDao.getAllActivePhysicalAccounts();
         final salary = PlanTransferService.salaryAccountOf(
@@ -144,23 +146,57 @@ class SalaryPlanService {
         );
         if (salary != null) {
           final fresh = await db.accountsDao.getAllBuckets();
-          await transfers.sync(
-            cycleStart: cycleStart,
+          final moves = transfers.movesFor(
+            allocations: allocations,
+            buckets: fresh,
             salary: salary,
-            moves: transfers.movesFor(
-              allocations: allocations,
-              buckets: fresh,
-              salary: salary,
-              spending: PlanTransferService.spendingAccountOf(
-                fresh,
-                accounts,
-                salary,
-              ),
+            spending: PlanTransferService.spendingAccountOf(
+              fresh,
+              accounts,
+              salary,
             ),
           );
+          if (alreadyMoved) {
+            // Set up mid-month: the money moved before Rivero knew, and the
+            // balances entered already show it. Record it as done, move
+            // nothing.
+            for (final m in moves) {
+              if (m.role != AccountRole.expense) {
+                await markAlreadyPaid(m.bucketId);
+              }
+            }
+          } else {
+            // A bank account never goes below zero because of the plan.
+            final extra =
+                moves.fold<int>(0, (t, m) => t + m.amount) -
+                await transfers.movedOut(cycleStart);
+            if (extra > 0 && salary.balanceMinorUnits < extra) {
+              throw PlanValidationException(
+                '${salary.name} holds less than the plan moves. If this '
+                "month's money already moved, choose \"Already moved\".",
+              );
+            }
+            await transfers.sync(
+              cycleStart: cycleStart,
+              salary: salary,
+              moves: moves,
+            );
+          }
         }
       }
     });
+  }
+
+  /// Marks categories paid this cycle without touching any balance: the
+  /// money left the accounts before Rivero was set up (mid-month start).
+  Future<void> markAlreadyPaid(String bucketId) async {
+    final b = await db.accountsDao.getBucketById(bucketId);
+    if (b == null) return;
+    await (db.update(
+      db.allocationBuckets,
+    )..where((t) => t.id.equals(bucketId))).write(
+      AllocationBucketsCompanion(spentMinorUnits: Value(b.allocatedMinorUnits)),
+    );
   }
 
   /// True when a new pay cycle has started but its salary was not split yet.
