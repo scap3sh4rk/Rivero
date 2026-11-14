@@ -88,7 +88,7 @@ void main() {
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
-    expect(find.textContaining("couldn't be read"), findsOneWidget);
+    expect(find.textContaining('to check'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('unreadable-card')));
     await tester.pump();

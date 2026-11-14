@@ -25,15 +25,19 @@ class IngestionLogsDao extends DatabaseAccessor<RiveroDatabase>
   /// Reason stored when a money message could not be read at all.
   static const unreadable = 'No recognizable financial entities found';
 
-  /// Bank messages from the last 30 days that Rivero could not read (not
-  /// promotions, not dismissed), newest first: shown so nothing is lost.
+  /// Reason stored for a bank's "autopay failed" message.
+  static const autopayFailed = 'Autopay failed';
+
+  /// Bank messages from the last 30 days the user should see: ones Rivero
+  /// could not read (not promotions) and failed autopays; not dismissed.
+  /// Newest first.
   Stream<List<RawIngestionLog>> watchUnreadable() {
     final since = DateTime.now().subtract(const Duration(days: 30));
     return (select(rawIngestionLogs)
           ..where(
             (t) =>
                 t.parseStatus.equals(ParseStatus.failed.name) &
-                t.failureReason.equals(unreadable) &
+                t.failureReason.isIn([unreadable, autopayFailed]) &
                 t.receivedAt.isBiggerOrEqualValue(since),
           )
           ..orderBy([

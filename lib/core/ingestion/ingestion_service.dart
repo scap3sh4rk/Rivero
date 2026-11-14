@@ -271,11 +271,20 @@ class IngestionService {
         ),
         receivedAt: Value(notification.receivedAt),
         parseStatus: Value(
-          mandateRelated ? ParseStatus.parsed : ParseStatus.ignored,
+          mandateRelated
+              ? ParseStatus.parsed
+              // A failed autopay is shown to the user (money may be short).
+              : intent == MessageIntent.mandateFailed
+              ? ParseStatus.failed
+              : ParseStatus.ignored,
         ),
         confidenceScore: const Value(1),
         failureReason: Value(
-          mandateRelated ? null : 'Not a transaction: ${intent.name}',
+          mandateRelated
+              ? null
+              : intent == MessageIntent.mandateFailed
+              ? IngestionLogsDao.autopayFailed
+              : 'Not a transaction: ${intent.name}',
         ),
         createdAt: Value(now),
       ),
@@ -290,7 +299,11 @@ class IngestionService {
 
     return IngestionResult(
       rawLogId: logId,
-      status: mandateRelated ? ParseStatus.parsed : ParseStatus.ignored,
+      status: mandateRelated
+          ? ParseStatus.parsed
+          : intent == MessageIntent.mandateFailed
+          ? ParseStatus.failed
+          : ParseStatus.ignored,
       isDuplicate: false,
     );
   }

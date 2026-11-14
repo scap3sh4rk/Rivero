@@ -42,8 +42,8 @@ class ReviewInbox extends ConsumerWidget {
                   Expanded(
                     child: Text(
                       unreadable == 1
-                          ? "1 bank message couldn't be read"
-                          : "$unreadable bank messages couldn't be read",
+                          ? '1 bank message to check'
+                          : '$unreadable bank messages to check',
                       style: RiveroTypography.bodyLarge,
                     ),
                   ),

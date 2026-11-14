@@ -216,4 +216,21 @@ void main() {
     expect(r.status, ParseStatus.failed);
     expect(await all(), isEmpty);
   });
+
+  test('L1: a failed autopay message is shown, never dropped', () async {
+    final r = await capture.processNotification(
+      RawNotification(
+        id: 'fail',
+        sender: 'VM-HDFCBK',
+        body:
+            'Your autopay of Rs 649 to Netflix failed due to insufficient '
+            'balance.',
+        receivedAt: DateTime.now(),
+      ),
+    );
+    expect(r.status, ParseStatus.failed);
+    final shown = await db.ingestionLogsDao.watchUnreadable().first;
+    expect(shown.single.id, 'fail');
+    expect(await all(), isEmpty); // not a transaction
+  });
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:rivero/core/database/daos/ingestion_logs_dao.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
@@ -41,13 +42,11 @@ class UnreadableSheet extends ConsumerWidget {
           shrinkWrap: true,
           padding: const EdgeInsets.all(RiveroSpacing.xl),
           children: [
-            Text(
-              "Messages Rivero couldn't read",
-              style: RiveroTypography.titleLarge,
-            ),
+            Text('Bank messages to check', style: RiveroTypography.titleLarge),
             const SizedBox(height: RiveroSpacing.xs),
             Text(
-              'If one is a real payment, add it on the Log tab.',
+              "Ones Rivero couldn't read, and autopays that failed. If one "
+              'is a real payment, add it on the Log tab.',
               style: RiveroTypography.bodySmall,
             ),
             const SizedBox(height: RiveroSpacing.lg),
@@ -65,9 +64,15 @@ class UnreadableSheet extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
+                        '${l.failureReason == IngestionLogsDao.autopayFailed ? 'Autopay failed · ' : ''}'
                         '${l.senderHeader ?? 'Message'} · '
                         '${DateFormat('d MMM, h:mm a').format(l.receivedAt)}',
-                        style: RiveroTypography.bodySmall,
+                        style: RiveroTypography.bodySmall.copyWith(
+                          color:
+                              l.failureReason == IngestionLogsDao.autopayFailed
+                              ? RiveroColors.warning
+                              : null,
+                        ),
                       ),
                       const SizedBox(height: RiveroSpacing.xs),
                       Text(
