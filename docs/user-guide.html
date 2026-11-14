@@ -70,7 +70,7 @@
 <li>If the number shows "Short by", you have less spending money than you owe in bills before payday. Spending is not blocked; it is a warning.</li>
 </ul>
 <h3>To review</h3>
-<p>Every captured payment appears here first. <strong>Accept</strong> to count it, <strong>Ignore</strong> if it is not a payment. (You can switch to automatic acceptance in Settings → Capture; even then, Rivero still asks when it had to guess which account was meant, or the message was unclear.)</p>
+<p>Every captured payment appears here first. <strong>Accept</strong> to count it, <strong>Ignore</strong> if it is not a payment, or tap it to pick a category and add a note first. (You can switch to automatic acceptance in Settings → Capture; even then, Rivero still asks when it had to guess which account was meant, or the message was unclear.)</p>
 <h3>Bank messages to check</h3>
 <p>If a money message could not be read, or a bank reports a <strong>failed autopay</strong>, a card appears with the message text. Choose <strong>Add it</strong> to record it by hand on the Log tab, or <strong>Not a payment</strong> to dismiss it.</p>
 
@@ -96,7 +96,7 @@
 </table>
 <div class="warn"><p>A plan never takes an account below zero. If the salary account holds less than the plan moves, Apply refuses and tells you why.</p></div>
 <h3>Marking a category paid</h3>
-<p>Tap a plan-only category on the Plan tab. Choose <strong>Already paid</strong> (the money left before Rivero knew: no balance change) or <strong>Paying now</strong> (the amount comes out of the salary account).</p>
+<p>Tap a plan-only category on the Plan tab. Choose <strong>Already paid</strong> and pick the day you paid: the payment is added to Activity on that day and the category counts as paid, without changing the balance (it already shows the payment). Or choose <strong>Paying now</strong>: the amount comes out of the salary account today. Deleting that entry in Activity makes the category unpaid again.</p>
 <h3>When salary arrives</h3>
 <p>If a salary credit is captured, Home offers to split it. A salary that lands a few days early (weekends, holidays) is treated as the next cycle's salary. Bonuses and refunds are only offered when the bank calls them salary.</p>
 
@@ -122,13 +122,14 @@
 
 <h2 id="activity-and-analytics">Activity and analytics</h2>
 <ul>
-<li>Search by merchant or category. Filter: All, Spends, Income, Transfers.</li>
+<li>Search by merchant or category. The filter button sets the <strong>type</strong> (All, Expenses, Income, Transfers) and the <strong>date</strong>: today, yesterday, the last 7 days, this or last month, any of the last 12 months, a single day, or a from–to range. The chosen dates show as a chip you can clear.</li>
+<li>Each day starts with a heading (Today, Yesterday, Sat, 14 Nov) and what you spent that day.</li>
 <li>Tap an entry to edit the note and category, attach a bill photo, split the bill, confirm or ignore it, or delete it. Deleting undoes its effect on balances and budget.</li>
-<li>The overview at the top shows what you spent this cycle (everyday spending, not rent paid through the plan) with a daily chart and top categories. <strong>Analytics</strong> shows month by month and per account.</li>
+<li>The small overview at the top shows what you spent this cycle, or in the dates you picked; tap it for a daily chart and top categories. <strong>Analytics</strong> shows month by month and per account.</li>
 </ul>
 
 <h2 id="owed">Owed: money in both directions</h2>
-<p>The Owed tab is two frames, one below the other: <strong>Owed to you</strong> and <strong>You owe people</strong>. Tap a frame to open it. The <strong>+</strong> at the bottom right adds an entry (I lent money, or I borrowed money).</p>
+<p>The Owed tab fits on one screen: two frames, <strong>Owed to you</strong> and <strong>You owe people</strong>, each with its total, how many people, the oldest entry and (for what you owe) card bills and autopay due, and a <strong>Net</strong> line below (for example: owed ₹10,000, owe ₹12,000, so <em>Net: you owe ₹2,000</em>). Tap a frame to open it. The <strong>+</strong> at the bottom right adds an entry (I lent money, or I borrowed money): who, how much, the <strong>date it happened</strong> (it can be logged later), the account or cash, and an optional <strong>photo of the bill or proof</strong>.</p>
 <h3>Owed to you</h3>
 <ul>
 <li>Everyone who owes you: split bills and loans. Tap a person to record a part-payment or full repayment; if it arrives in your bank, Rivero offers matching credits and tags the one you pick as "Paid back", never as income.</li>
@@ -162,6 +163,8 @@
 <li><strong>Let it work</strong>Bank SMS (via your messaging app), bank apps and UPI apps are listened to. Only notifications that mention money are kept; chats and OTPs are not.</li>
 </ol>
 <div class="note"><p>Captured messages wait in an encrypted queue on the phone until Rivero opens, then are processed in order. Old raw message text is deleted after 90 days.</p></div>
+<h3>Add a payment from its notification</h3>
+<p>When Rivero captures a payment and you are not in the app, your phone shows a notification such as <em>₹450 spent</em>. Tap it (or <strong>Add</strong>) and a small popup opens over whatever you are doing: pick a category, type a note if you like, and press <strong>Add</strong> or <strong>Ignore</strong>. Rivero does not even need to open. <strong>Open Rivero</strong> instead opens the app on that payment. One-time passwords, reminders and statement notices never notify. On Android 13 and newer, allow Rivero to show notifications when asked.</p>
 <h3>Accept or ignore each payment</h3>
 <p>By default every captured payment waits on Home under <strong>To review</strong> for your <strong>Accept</strong> or <strong>Ignore</strong>. Nothing counts, or counts twice, until you say so, and duplicates are easy to spot. If you prefer, turn on Settings → Capture → <em>Accept payments automatically</em>; then only confident, certain captures go straight through.</p>
 <h3>When a payment does not show up</h3>

@@ -36,7 +36,7 @@
 <tr><th>Area</th><th>Choice</th></tr>
 <tr><td>Framework</td><td>Flutter 3.50 / Dart 3.14 (Android primary; iOS builds in CI, experimental)</td></tr>
 <tr><td>State</td><td>Riverpod (providers for streams, derived figures, settings)</td></tr>
-<tr><td>Storage</td><td>Drift over SQLite3 Multiple Ciphers (AES-256); schema version 11; key in Flutter Secure Storage</td></tr>
+<tr><td>Storage</td><td>Drift over SQLite3 Multiple Ciphers (AES-256); schema version 12; key in Flutter Secure Storage</td></tr>
 <tr><td>Money</td><td>Integer paise only; BigInt guards in the calculator</td></tr>
 <tr><td>Capture</td><td>Kotlin <code>NotificationListenerService</code> → Keystore-encrypted queue → Dart ingestion</td></tr>
 <tr><td>On-device ML</td><td>Google ML Kit text recognition (bill scan), no network</td></tr>
@@ -91,7 +91,7 @@ android/.../kotlin/          RiveroNotificationListener, CaptureQueue, MainActiv
 <tr><td><code>txn-manual-…</code></td><td>Entered by hand (eligible to absorb a later bank message)</td></tr>
 </table>
 <h3>Migrations</h3>
-<p>Versions 2–11 add columns and tables, repair data (v8 resets inflated carry-over, v9 clears obsolete bucket links), add indexes on transaction time, account, state and amount (v10), and add card billing days (<code>statement_day</code>, <code>payment_due_day</code>) and a debt <code>due_date</code> (v11). Restoring an older backup applies the same repairs.</p>
+<p>Versions 2–11 add columns and tables, repair data (v8 resets inflated carry-over, v9 clears obsolete bucket links), add indexes on transaction time, account, state and amount (v10), and add card billing days (<code>statement_day</code>, <code>payment_due_day</code>) and a debt <code>due_date</code> (v11), and a proof photo on debts while flooring every money account at zero (v12). Bank, wallet and cash balances never go below zero; cards and loans (debts) are stored as negative amounts owed. Restoring an older backup applies the same repairs.</p>
 
 <h2 id="the-ledger">The ledger</h2>
 <p><code>LedgerService</code> is the single writer of balance and budget effects. Every path (capture, confirm, manual entry, plan, import) goes through it.</p>
@@ -170,6 +170,7 @@ android/.../kotlin/          RiveroNotificationListener, CaptureQueue, MainActiv
 <h2 id="platform-layer-android">Platform layer (Android)</h2>
 <ul>
 <li><code>RiveroNotificationListener</code>: filters sources and money-like text, writes to <code>CaptureQueue</code>, nudges the live app.</li>
+<li><code>CaptureNotifier</code>: when a capture is queued and Rivero is not in the foreground, posts a notification (amount guessed from the text; OTPs, reminders and statements skipped). Tapping it opens <code>QuickAddActivity</code>, a native translucent popup (no Flutter engine) with the user's categories (synced from the app), an optional note and Add/Ignore. Choices are stored natively and applied by <code>CaptureDecisions</code> after the next drain (immediately if the app is alive). "Open Rivero" passes the capture id to <code>MainActivity</code>, and the app opens it in a quick-add sheet.</li>
 <li><code>Diagnostics</code>: counters only (heard, queued, no money, hidden text, last package and time; never message text) shown in Settings → Capture → Recent captures.</li>
 <li>The user's primary UPI app is stored natively (<code>setPrimaryApp</code>; the picker lists only installed apps that can open <code>upi://pay</code>, via <code>upiApps</code>) so the listener reads its notifications even when it is not in the built-in allow-list; in Dart it becomes an extra trusted package for the parser, which also reads the amount from the notification <em>title</em> when the body has none.</li>
 <li><code>CaptureQueue</code>: AES-256-GCM with a non-exportable Keystore key; migrates an older plain queue; cleared by "Delete all data".</li>
