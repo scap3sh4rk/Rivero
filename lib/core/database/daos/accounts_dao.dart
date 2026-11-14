@@ -91,11 +91,18 @@ class AccountsDao extends DatabaseAccessor<RiveroDatabase>
     String accountId,
     int deltaMinorUnits,
   ) async {
-    final account = await getPhysicalAccountById(accountId);
-    if (account == null) return false;
-
-    final updatedBalance = account.balanceMinorUnits + deltaMinorUnits;
-    return await updateAccountBalance(accountId, updatedBalance);
+    // One SQL statement, so two writers can never lose each other's change.
+    final rows = await customUpdate(
+      'UPDATE physical_accounts SET balance_minor_units = '
+      'balance_minor_units + ?, updated_at = ? WHERE id = ?',
+      variables: [
+        Variable.withInt(deltaMinorUnits),
+        Variable.withDateTime(DateTime.now()),
+        Variable.withString(accountId),
+      ],
+      updates: {physicalAccounts},
+    );
+    return rows > 0;
   }
 
   /// Deactivate (soft delete) a physical account.
@@ -171,21 +178,17 @@ class AccountsDao extends DatabaseAccessor<RiveroDatabase>
     String bucketId,
     int deltaSpendMinorUnits,
   ) async {
-    final bucket = await getBucketById(bucketId);
-    if (bucket == null) return false;
-
-    final updatedRows =
-        await (update(
-          allocationBuckets,
-        )..where((tbl) => tbl.id.equals(bucketId))).write(
-          AllocationBucketsCompanion(
-            spentMinorUnits: Value(
-              bucket.spentMinorUnits + deltaSpendMinorUnits,
-            ),
-            updatedAt: Value(DateTime.now()),
-          ),
-        );
-    return updatedRows > 0;
+    final rows = await customUpdate(
+      'UPDATE allocation_buckets SET spent_minor_units = '
+      'spent_minor_units + ?, updated_at = ? WHERE id = ?',
+      variables: [
+        Variable.withInt(deltaSpendMinorUnits),
+        Variable.withDateTime(DateTime.now()),
+        Variable.withString(bucketId),
+      ],
+      updates: {allocationBuckets},
+    );
+    return rows > 0;
   }
 
   /// Delete an allocation bucket.

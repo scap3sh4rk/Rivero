@@ -226,9 +226,9 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
           merchant: note.isEmpty ? category : note,
           category: category,
         );
+    if (!mounted) return;
     ref.read(lastLogAccountProvider.notifier).state = account.id;
     unawaited(HapticFeedback.lightImpact());
-    if (!mounted) return;
     // Inline confirmation: a snackbar would sit on top of the Save button.
     setState(() {
       _text = '';

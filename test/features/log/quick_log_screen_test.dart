@@ -51,10 +51,13 @@ void main() {
 
   Future<void> saveAndSettle(WidgetTester tester) async {
     await tester.tap(find.text('Save'));
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 300)),
-    );
-    await tester.pump();
+    // Saving is one database transaction: give it real time, in steps.
+    for (var i = 0; i < 4; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      await tester.pump(const Duration(milliseconds: 10));
+    }
   }
 
   Future<void> finish(WidgetTester tester) async {
@@ -82,6 +85,7 @@ void main() {
       () => db.accountsDao.getBucketById('bucket-expense'),
     ))!.spentMinorUnits;
     expect(after - before, 4500);
+    await tester.pump();
     expect(find.text('Saved to Other'), findsOneWidget);
     await tester.pump(const Duration(milliseconds: 1600));
     expect(find.text('₹0'), findsOneWidget);

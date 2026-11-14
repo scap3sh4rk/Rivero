@@ -40,55 +40,64 @@ class LedgerService {
   }) async {
     final now = DateTime.now();
     final id = 'txn-manual-${now.microsecondsSinceEpoch}';
-    await db.transactionsDao.insertTransaction(
-      TransactionsCompanion(
-        id: Value(id),
-        physicalAccountId: Value(accountId),
-        allocationBucketId: Value(bucketId),
-        amountMinorUnits: Value(amountMinorUnits),
-        transactionType: Value(type),
-        transactionState: const Value(TransactionState.confirmed),
-        merchant: Value(merchant),
-        category: Value(category),
-        userNotes: Value(
-          note == null || note.trim().isEmpty ? null : note.trim(),
+    return await db.transaction(() async {
+      await db.transactionsDao.insertTransaction(
+        TransactionsCompanion(
+          id: Value(id),
+          physicalAccountId: Value(accountId),
+          allocationBucketId: Value(bucketId),
+          amountMinorUnits: Value(amountMinorUnits),
+          transactionType: Value(type),
+          transactionState: const Value(TransactionState.confirmed),
+          merchant: Value(merchant),
+          category: Value(category),
+          userNotes: Value(
+            note == null || note.trim().isEmpty ? null : note.trim(),
+          ),
+          attachmentPath: Value(attachmentPath),
+          transactionTimestamp: Value(at ?? now),
+          createdAt: Value(now),
         ),
-        attachmentPath: Value(attachmentPath),
-        transactionTimestamp: Value(at ?? now),
-        createdAt: Value(now),
-      ),
-    );
-    final saved = await db.transactionsDao.getTransactionById(id);
-    if (saved != null) await applyEffects(saved);
-    return id;
+      );
+      final saved = await db.transactionsDao.getTransactionById(id);
+      if (saved != null) await applyEffects(saved);
+      return id;
+    });
   }
 
   /// Sets an account's balance to what the user says it is (outstanding for
   /// a card), recording the difference as a visible "Balance update" entry
   /// so history stays explainable. Returns the change applied (0 = none).
-  Future<int> setBalance(String accountId, int newBalanceMinorUnits) async {
-    final acc = await db.accountsDao.getPhysicalAccountById(accountId);
-    if (acc == null) return 0;
-    final diff = newBalanceMinorUnits - acc.balanceMinorUnits;
-    if (diff == 0) return 0;
-    await recordManual(
-      accountId: accountId,
-      amountMinorUnits: diff,
-      type: TransactionType.balanceAdjustment,
-      merchant: 'Balance update',
-      category: 'Adjustment',
-    );
-    return diff;
-  }
+  Future<int> setBalance(String accountId, int newBalanceMinorUnits) =>
+      db.transaction(() async {
+        final acc = await db.accountsDao.getPhysicalAccountById(accountId);
+        if (acc == null) return 0;
+        final diff = newBalanceMinorUnits - acc.balanceMinorUnits;
+        if (diff == 0) return 0;
+        await recordManual(
+          accountId: accountId,
+          amountMinorUnits: diff,
+          type: TransactionType.balanceAdjustment,
+          merchant: 'Balance update',
+          category: 'Adjustment',
+        );
+        return diff;
+      });
+
+  /// Rows that only record history (statement imports) never touched a
+  /// balance, so deleting them must not reverse anything.
+  static bool historyOnly(LedgerTransaction t) => t.id.startsWith('import-');
 
   /// Deletes a transaction, first undoing its balance and budget effects if
-  /// they were applied. A linked transfer/refund partner is unlinked.
-  Future<void> remove(String transactionId) async {
+  /// they were applied. A linked transfer/refund partner is unlinked, and a
+  /// split or loan made from it that nobody has paid back yet goes too.
+  Future<void> remove(String transactionId) => db.transaction(() async {
     final t = await db.transactionsDao.getTransactionById(transactionId);
     if (t == null) return;
     final applied =
-        t.transactionState == TransactionState.confirmed ||
-        t.transactionState == TransactionState.reconciled;
+        !historyOnly(t) &&
+        (t.transactionState == TransactionState.confirmed ||
+            t.transactionState == TransactionState.reconciled);
     if (applied) {
       await db.accountsDao.adjustAccountBalance(
         t.physicalAccountId,
@@ -102,8 +111,8 @@ class LedgerService {
           await db.accountsDao.recordBucketSpend(bucketId, -spend);
         }
       }
+      await _markCategoryPaid(t, sign: -1);
     }
-    if (applied) await _markCategoryPaid(t, sign: -1);
     final partner = t.linkedTransactionId;
     if (partner != null) {
       await (db.update(
@@ -115,34 +124,59 @@ class LedgerService {
         ),
       );
     }
+    // The bill or loan no longer exists: its open, unpaid dues go with it.
+    await (db.delete(db.dues)..where(
+          (d) =>
+              d.sourceTransactionId.equals(transactionId) &
+              d.receivedMinorUnits.equals(0),
+        ))
+        .go();
     await db.transactionsDao.deleteTransaction(transactionId);
-  }
+  });
 
-  /// Deletes a transaction; if it is one leg of a plan self-transfer, the
-  /// other leg goes too so the two accounts never disagree.
-  Future<void> removeWithPlanPartner(String transactionId) async {
-    final t = await db.transactionsDao.getTransactionById(transactionId);
-    final partner = t?.linkedTransactionId;
-    if (partner != null && transactionId.startsWith('plan-')) {
-      await remove(partner);
-    }
-    await remove(transactionId);
-  }
+  /// Ids of entries Rivero creates in pairs (plan moves, card-bill legs).
+  static bool _pairedByApp(String id) =>
+      id.startsWith('plan-') || id.startsWith('cc-');
+
+  /// Deletes a transaction; if it is one leg of a transfer Rivero created
+  /// (plan move, card bill), the other leg goes too so the two accounts
+  /// never disagree.
+  Future<void> removeWithPlanPartner(String transactionId) =>
+      db.transaction(() async {
+        final t = await db.transactionsDao.getTransactionById(transactionId);
+        final partner = t?.linkedTransactionId;
+        if (partner != null &&
+            (_pairedByApp(transactionId) || _pairedByApp(partner))) {
+          await remove(partner);
+        }
+        await remove(transactionId);
+      });
 
   /// Moves a pending transaction to confirmed and applies its effects once.
-  Future<void> confirm(String transactionId) async {
+  /// Safe against double taps: the state flips only once (a conditional
+  /// update), and only the caller that flipped it applies the effects.
+  /// Returns true when this call confirmed it.
+  Future<bool> confirm(String transactionId) => db.transaction(() async {
     final t = await db.transactionsDao.getTransactionById(transactionId);
-    if (t == null) return;
-    final applied =
-        t.transactionState == TransactionState.confirmed ||
-        t.transactionState == TransactionState.reconciled;
-    if (applied) return;
-    await db.transactionsDao.updateTransactionState(
-      transactionId,
-      TransactionState.confirmed,
-    );
+    if (t == null) return false;
+    final flipped =
+        await (db.update(db.transactions)..where(
+              (x) =>
+                  x.id.equals(transactionId) &
+                  x.transactionState.isNotIn([
+                    TransactionState.confirmed.name,
+                    TransactionState.reconciled.name,
+                  ]),
+            ))
+            .write(
+              const TransactionsCompanion(
+                transactionState: Value(TransactionState.confirmed),
+              ),
+            );
+    if (flipped == 0) return false;
     await applyEffects(t);
-  }
+    return true;
+  });
 
   /// Applies balance and budget effects of [t]. Call exactly once, when the
   /// transaction becomes confirmed.
@@ -166,7 +200,7 @@ class LedgerService {
   Future<void> convertToTransfer(
     LedgerTransaction debit,
     LedgerTransaction credit,
-  ) async {
+  ) => db.transaction(() async {
     final debitApplied =
         debit.transactionState == TransactionState.confirmed ||
         debit.transactionState == TransactionState.reconciled;
@@ -188,7 +222,7 @@ class LedgerService {
       credit.id,
       TransactionType.internalTransfer,
     );
-  }
+  });
 
   static const Set<TransactionType> _categoryPayments = {
     TransactionType.planTransfer,
