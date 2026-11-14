@@ -7,6 +7,7 @@ import 'package:rivero/design_system/widgets/account_color.dart';
 import 'package:rivero/design_system/widgets/bank_badge.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
+import 'package:rivero/features/accounts/screens/account_detail_screen.dart';
 import 'package:rivero/features/accounts/widgets/create_account_sheet.dart';
 import 'package:rivero/features/accounts/widgets/credit_utilization_card.dart';
 
@@ -83,8 +84,10 @@ class AccountsScreen extends ConsumerWidget {
                 vertical: RiveroSpacing.md,
               ),
               children: [
-                // 1. Portfolio Net Worth Summary Card
+                // 1. Net worth (tap for the breakdown)
                 RiveroCard(
+                  key: const ValueKey('networth-card'),
+                  onTap: () => NetWorthSheet.show(context),
                   isElevated: true,
                   padding: const EdgeInsets.all(RiveroSpacing.xl),
                   child: Column(
@@ -185,7 +188,7 @@ class AccountsScreen extends ConsumerWidget {
                       padding: const EdgeInsets.only(bottom: RiveroSpacing.md),
                       child: GestureDetector(
                         onTap: () =>
-                            CreateAccountSheet.show(context, existing: account),
+                            AccountDetailScreen.open(context, account.id),
                         child: CreditUtilizationCard(account: account),
                       ),
                     ),
@@ -230,7 +233,7 @@ class AccountsScreen extends ConsumerWidget {
                       padding: const EdgeInsets.only(bottom: RiveroSpacing.sm),
                       child: RiveroCard(
                         onTap: () =>
-                            CreateAccountSheet.show(context, existing: account),
+                            AccountDetailScreen.open(context, account.id),
                         child: Row(
                           children: [
                             BankBadge(

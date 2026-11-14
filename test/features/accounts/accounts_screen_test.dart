@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/database/database_seeder.dart';
 import 'package:rivero/core/providers/app_providers.dart';
+import 'package:rivero/features/accounts/screens/account_detail_screen.dart';
 import 'package:rivero/features/accounts/screens/accounts_screen.dart';
 import 'package:rivero/features/accounts/widgets/create_account_sheet.dart';
 import 'package:rivero/features/accounts/widgets/credit_utilization_card.dart';
@@ -73,10 +74,24 @@ void main() {
       Navigator.of(tester.element(find.byType(CreateAccountSheet))).pop();
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
-      await tester.tap(find.text('Primary HDFC Salary'));
+      // Net worth opens its breakdown.
+      await tester.tap(find.byKey(const ValueKey('networth-card')));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
-      expect(find.text('Edit account'), findsOneWidget);
+      expect(find.textContaining('Bank & cash'), findsOneWidget);
+      Navigator.of(tester.element(find.byType(NetWorthSheet))).pop();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      // Tapping an account opens its page; edit from there.
+      await tester.tap(find.text('Primary HDFC Salary'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(find.byType(AccountDetailScreen), findsOneWidget);
+      await tester.tap(find.byTooltip('Edit account'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('Edit account'), findsWidgets);
       await tester.enterText(
         find.widgetWithText(TextFormField, 'Primary HDFC Salary'),
         'HDFC Salary',
