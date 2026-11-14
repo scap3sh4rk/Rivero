@@ -8,6 +8,7 @@ import 'package:rivero/core/storage/media_store.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/picker.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
+import 'package:rivero/features/backup/backup_screen.dart';
 import 'package:rivero/features/mandates/mandates_screen.dart';
 import 'package:rivero/features/settings/screens/account_types_screen.dart';
 import 'package:rivero/features/settings/screens/categories_screen.dart';
@@ -141,6 +142,13 @@ class SettingsScreen extends ConsumerWidget {
             const _Header('Capture'),
             const _CaptureRows(),
           ],
+          const _Header('Backup'),
+          _Row(
+            icon: Icons.cloud_outlined,
+            title: 'Backup & restore',
+            subtitle: 'Google Drive or a file, encrypted',
+            onTap: () => BackupScreen.open(context),
+          ),
           const _Header('Privacy'),
           _Row(
             icon: Icons.visibility_off_outlined,
