@@ -41,7 +41,8 @@
 <tr><td>Capture</td><td>Kotlin <code>NotificationListenerService</code> → Keystore-encrypted queue → Dart ingestion</td></tr>
 <tr><td>On-device ML</td><td>Google ML Kit text recognition (bill scan), no network</td></tr>
 <tr><td>Backup</td><td>PBKDF2-HMAC-SHA256 (210,000 rounds) → AES-256-GCM; Google Drive appDataFolder or file</td></tr>
-<tr><td>Quality gate</td><td><code>tool/verify.sh</code>: format check, analyzer (very_good_analysis), 280+ tests</td></tr>
+<tr><td>PDF statements</td><td>PDFBox-Android (on device, Android only); password used once, never stored</td></tr>
+<tr><td>Quality gate</td><td><code>tool/verify.sh</code>: format check, analyzer (very_good_analysis), 330+ tests</td></tr>
 </table>
 
 <h2 id="architecture">Architecture</h2>
@@ -58,13 +59,20 @@
     engine/                  paycycle, safe-to-spend calculator, STS breakdown,
                              waterfall allocator, spending summary
     dues/                    owed money, splits, lending
-    import/                  statement CSV & bill text parsing
-    backup/                  codec (encrypt/restore), Drive client
+    import/                  statement CSV, statement PDF text & bill text parsing
+    export/                  CSV / .xlsx export (DataExport)
+    rules/                   capture rules (CaptureRules)
+    mandates/                subscription finder (repeat payments -> autopay)
+    goals/                   savings goals and progress
+    currency/                account currencies, user rates, rupee conversion
+    reminders/               ReminderPlanner (card bills, autopay, debts)
+    backup/                  codec (encrypt/restore), Drive client, AutoBackup
     security/                app lock, database key manager
     providers/               Riverpod wiring
   features/                  one folder per screen area (home, plan, accounts, log...)
   design_system/             tokens ("Ink &amp; Sky"), widgets, fonts, icons
-android/.../kotlin/          RiveroNotificationListener, CaptureQueue, MainActivity</code></pre>
+android/.../kotlin/          RiveroNotificationListener, CaptureQueue, MainActivity,
+                             CaptureNotifier, QuickAddActivity, Reminders, PdfText</code></pre>
 <p>Dependencies point inward: <code>features</code> → <code>providers</code> → <code>core</code>. Core services take a database and have no Flutter UI imports, which keeps nearly all behaviour unit-testable against an in-memory database.</p>
 
 <h2 id="data-model">Data model</h2>
@@ -164,6 +172,19 @@ android/.../kotlin/          RiveroNotificationListener, CaptureQueue, MainActiv
 <li>Bills &amp; commitments (Owed tab) composes cards (cycle, limit, available, can-pay), loan accounts and autopays due before payday from the same providers as Safe to spend.</li>
 </ul>
 
+<h2 id="rules-goals-currency">Rules, subscriptions, goals, currency, export</h2>
+<ul>
+<li><strong>Settings-backed features.</strong> Rules (<code>capture_rules_json</code>), goals (<code>goals_json</code>), dismissed subscription payees and exchange rates are JSON in <code>app_settings</code>, so they need no schema change and travel with backups.</li>
+<li><code>CaptureRules.match</code> runs in <code>IngestionService</code> after plan matching: a rule sets the category or ignores the capture (the raw log is marked ignored, no transaction). <code>shouldSuggest</code> is true after two captures from the same payee were filed in the same category and no rule covers it; the review sheet offers it.</li>
+<li><code>SubscriptionFinder.find</code>: confirmed expense / card-purchase debits in the last 183 days grouped by payee; three or more within 10% of the latest amount at 26–35 day (monthly) or 6–8 day (weekly) gaps, excluding existing mandate payees and dismissed ones. <code>accept</code> creates an active mandate.</li>
+<li><code>Goals.progress</code>: saved = the linked account's balance, or the sum of "out" legs carrying the plan category's bucket id since the goal start; per-month need rounded up to a rupee; behind = a straight line from start to target date minus saved.</li>
+<li><code>ExchangeRates</code>: paise per unit of a two-decimal currency; <code>toHome</code> rounds half away from zero, 0 without a rate. <code>inHome(accounts)</code> returns converted copies (never saved) for Safe to spend, totals, net worth, bills and reminders; <code>SpendingSummary.of(toHome:)</code> converts each spend. Cards are always in rupees.</li>
+<li><code>DataExport</code>: sheets of transactions, accounts, plan, owed and autopay; CSV (formula-injection guarded, UTF-8 BOM) zipped, or a minimal .xlsx written with <code>archive</code> (amount columns as numbers).</li>
+<li><code>parseStatementText</code> (PDF import): a line is a transaction when it starts with a date and holds an amount; direction comes from the running balance (delta equals the amount), else Dr/Cr, else wording. The Kotlin side uses PDFBox's position-sorted text so a table row stays on one line.</li>
+<li><code>redactMessage</code> (report an unreadable message): digits → 1, UPI IDs/emails → name@bank, capitalised words after to/from/by/at/VPA → NAME; the user edits before opening the prefilled GitHub issue form.</li>
+<li><code>tagsIn(note)</code>: #words in notes are tags; Activity shows chips and a <code>#tag</code> query matches exactly.</li>
+</ul>
+
 <h2 id="providers-and-refresh">Providers and refresh</h2>
 <p>Streams from Drift DAOs feed Riverpod providers. <code>stsBreakdownProvider</code> composes buckets, accounts, mandates, dues, the pay cycle and settings into one <code>StsBreakdown</code>; <code>liveSafeToSpendResultProvider</code> derives from it. <code>todayProvider</code> is refreshed at midnight and on resume; <code>currentPaycycleProvider</code> recomputes from it and from the last planned cycle (early salary).</p>
 
@@ -174,7 +195,10 @@ android/.../kotlin/          RiveroNotificationListener, CaptureQueue, MainActiv
 <li><code>Diagnostics</code>: counters only (heard, queued, no money, hidden text, last package and time; never message text) shown in Settings → Capture → Recent captures.</li>
 <li>The user's primary UPI app is stored natively (<code>setPrimaryApp</code>; the picker lists only installed apps that can open <code>upi://pay</code>, via <code>upiApps</code>) so the listener reads its notifications even when it is not in the built-in allow-list; in Dart it becomes an extra trusted package for the parser, which also reads the amount from the notification <em>title</em> when the body has none.</li>
 <li><code>CaptureQueue</code>: AES-256-GCM with a non-exportable Keystore key; migrates an older plain queue; cleared by "Delete all data".</li>
-<li><code>MainActivity</code> (FlutterFragmentActivity for biometrics): channel methods <code>isEnabled</code>, <code>openSettings</code>, <code>drain</code>, <code>clearQueue</code>, <code>setSecure</code>, <code>postTest</code>.</li>
+<li><code>Reminders</code>: the app plans reminders for the next 14 days (<code>ReminderPlanner</code>) and hands them over as JSON; they are kept natively, armed with <code>AlarmManager</code> (inexact, no exact-alarm permission), shown by <code>ReminderReceiver</code> and re-armed by <code>BootReceiver</code> after a restart.</li>
+<li><code>PdfText</code>: PDFBox-Android text extraction on a background thread; reports "password" for a protected file so the app can ask.</li>
+<li>Battery: <code>batteryUnrestricted</code> / <code>openBatterySettings</code>; a prominent disclosure dialog is shown before the notification-access settings page.</li>
+<li><code>MainActivity</code> (FlutterFragmentActivity for biometrics): channel methods <code>isEnabled</code>, <code>openSettings</code>, <code>drain</code>, <code>clearQueue</code>, <code>setSecure</code>, <code>postTest</code>, <code>scheduleReminders</code>, <code>pdfText</code>, <code>batteryUnrestricted</code>, <code>openBatterySettings</code>.</li>
 <li>Manifest: no <code>READ_SMS</code>; <code>allowBackup="false"</code> so the database can never be copied without its key.</li>
 </ul>
 
@@ -184,6 +208,7 @@ android/.../kotlin/          RiveroNotificationListener, CaptureQueue, MainActiv
 
 json = { schema, createdAt, physicalAccounts, allocationBuckets, transactions,
          mandates, associatedTitles, dues, appSettings, media[] }</code></pre>
+<p>Automatic backups (<code>AutoBackup</code>): daily or weekly, run from the app's daily upkeep with <code>DriveBackup.uploadSilently</code> (no sign-in UI; skipped if Drive access needs the user). The passphrase is kept in secure storage. Each upload first renames the previous file to <code>rivero-backup-previous.json</code>.</p>
 <p>Restore: authenticate and decrypt, refuse a newer schema, write pictures back and re-point their paths, wipe and insert parents before children inside one transaction, fill columns added since, then apply the v8/v9 repairs for older backups.</p>
 
 <h2 id="testing">Testing</h2>
@@ -195,6 +220,7 @@ json = { schema, createdAt, physicalAccounts, allocationBuckets, transactions,
 <tr><td>Plan</td><td>Moves, plan-only, mid-month, shortfall refusal, pay-day change, early salary, first-run defaults</td></tr>
 <tr><td>Autopay</td><td>Roll-forward, overdue, weekly, month-end, matching</td></tr>
 <tr><td>Backup</td><td>Round trip, wrong passphrase, schema checks, photos, no raw messages</td></tr>
+<tr><td>Features</td><td>Export (CSV/xlsx), auto-backup schedule, reminders plan, rules and suggestions, subscription finder, goals progress, currency conversion, PDF statement text, message redaction, tags</td></tr>
 <tr><td>Widgets</td><td>Home, Plan, Accounts, Log, review inbox, guided tour, capture log, owed (both directions), contrast checks for both themes</td></tr>
 </table>
 <p>Regression tests for every issue found in the audits live in <code>test/core/audit/</code> and <code>test/core/ingestion/capture_audit_test.dart</code>.</p>

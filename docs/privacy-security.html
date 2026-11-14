@@ -44,10 +44,12 @@
 <table>
 <tr><th>Permission or access</th><th>Why</th></tr>
 <tr><td>Notification access (user-granted in system settings)</td><td>Reads bank, UPI and SMS-app notifications to record payments. Only notifications that mention money are kept.</td></tr>
-<tr><td>Post notifications (Android 13+)</td><td>Only for the "Send a test notification" check.</td></tr>
+<tr><td>Post notifications (Android 13+)</td><td>"Add it" notifications for captured payments, the test notification, and reminders you turn on.</td></tr>
+<tr><td>Run at startup (<code>RECEIVE_BOOT_COMPLETED</code>)</td><td>Re-arms planned reminders after the phone restarts. Nothing else runs.</td></tr>
+<tr><td>Files you pick (statement import)</td><td>A PDF or CSV statement is read on the phone. A PDF password is used once to open the file and is never stored.</td></tr>
 <tr><td>Biometrics</td><td>Optional app lock.</td></tr>
 <tr><td>Camera / photos (when you choose)</td><td>Bill photos, account pictures, bill scanning (text recognised on the phone).</td></tr>
-<tr><td>Internet</td><td>Optional Google Drive backup only.</td></tr>
+<tr><td>Internet</td><td>Optional Google Drive backup only (manual or automatic). "Report this format" opens your browser; nothing is sent unless you submit the GitHub form yourself, after reviewing the redacted text.</td></tr>
 </table>
 
 <h2 id="how-data-is-protected">How data is protected</h2>
@@ -66,6 +68,9 @@
 <tr><td>Bill photos and account pictures</td><td>Until you remove them. Included in encrypted backups.</td></tr>
 <tr><td>Capture counters (Settings → Recent captures)</td><td>Counts, the last app heard from and its time. Package names only, never message text. Cleared by Delete all data.</td></tr>
 <tr><td>Capture queue</td><td>Until the app next opens (then processed and emptied). Cleared by Delete all data.</td></tr>
+<tr><td>Automatic backup passphrase</td><td>In the platform keystore-backed secure storage while automatic backup is on; removed when you turn it off.</td></tr>
+<tr><td>Planned reminders</td><td>The next 14 days of reminder texts (titles and amounts), in app-private storage, replaced each time Rivero plans them. Cleared by Delete all data.</td></tr>
+<tr><td>Rules, goals, exchange rates</td><td>In the encrypted database's settings, and in backups.</td></tr>
 </table>
 
 <h2 id="system-level-protections">System-level protections</h2>

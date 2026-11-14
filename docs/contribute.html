@@ -79,8 +79,10 @@ flutter run                                                # debug on a device</
 <tr><th>Area</th><th>Status</th></tr>
 <tr><td>iOS</td><td>Builds on a macOS CI runner (<code>ios.yml</code>) and is smoke-tested in the simulator on each iOS change; an unsigned <code>.ipa</code> is attached to releases. Not yet tested on a real device or signed for distribution (needs an Apple Developer account for TestFlight). No passive notification capture on iOS, so it relies on manual logging, bill scan and statement import.</td></tr>
 <tr><td>Google Drive sign-in</td><td>Needs a Drive OAuth client per signing key; verify on a release build.</td></tr>
-<tr><td>Statement import</td><td>CSV only, experimental; history only, balances unchanged.</td></tr>
-<tr><td>APK size</td><td>About 98 MB (bundled fonts and ML Kit text recognition); the App Bundle is smaller per device.</td></tr>
+<tr><td>Statement import</td><td>CSV, and PDF on Android (PDFBox, on device); experimental; history only, balances unchanged. PDF reading is generic (date + amount per line), so new bank layouts may need parser tweaks: share a redacted sample.</td></tr>
+<tr><td>Currencies</td><td>Two-decimal currencies only, for bank and cash accounts; rates are typed in (no network). Captured bank messages are assumed to be in rupees.</td></tr>
+<tr><td>Reminders</td><td>Android only; inexact alarms (may arrive a little late on battery saver).</td></tr>
+<tr><td>APK size</td><td>About 108 MB (bundled fonts and ML Kit text recognition); the App Bundle is smaller per device.</td></tr>
 <tr><td>Spends from the salary account</td><td>When the salary account is separate from the spending account, spends from it do not reduce Safe to spend (by design).</td></tr>
 <tr><td>Next</td><td>iOS device testing and more bank message formats.</td></tr>
 </table>
