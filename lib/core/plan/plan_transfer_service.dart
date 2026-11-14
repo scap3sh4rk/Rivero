@@ -167,19 +167,41 @@ class PlanTransferService {
         ),
   ];
 
+  /// This cycle's plan entries (read by id prefix, not the whole table).
+  Future<List<LedgerTransaction>> _entries(DateTime cycleStart) => (db.select(
+    db.transactions,
+  )..where((t) => t.id.like('${_prefix(cycleStart)}%'))).get();
+
   /// Whether this cycle already has plan entries (money has been moved).
-  Future<bool> hasMoves(DateTime cycleStart) async {
-    final prefix = _prefix(cycleStart);
-    final all = await db.select(db.transactions).get();
-    return all.any((t) => t.id.startsWith(prefix));
+  Future<bool> hasMoves(DateTime cycleStart) async =>
+      (await _entries(cycleStart)).isNotEmpty;
+
+  /// Pay day moved: this cycle's plan entries follow it to the new key so
+  /// they keep matching (and are never created twice).
+  Future<void> rekey(DateTime from, DateTime to) async {
+    final a = _prefix(from);
+    final b = _prefix(to);
+    await db.customUpdate(
+      'UPDATE transactions SET id = ? || substr(id, ?), '
+      'linked_transaction_id = CASE WHEN linked_transaction_id LIKE ? '
+      'THEN ? || substr(linked_transaction_id, ?) '
+      'ELSE linked_transaction_id END WHERE id LIKE ?',
+      variables: [
+        Variable.withString(b),
+        Variable.withInt(a.length + 1),
+        Variable.withString('$a%'),
+        Variable.withString(b),
+        Variable.withInt(a.length + 1),
+        Variable.withString('$a%'),
+      ],
+      updates: {db.transactions},
+    );
   }
 
   /// Total already moved out of the salary account by this cycle's plan.
   Future<int> movedOut(DateTime cycleStart) async {
-    final prefix = _prefix(cycleStart);
-    final all = await db.select(db.transactions).get();
-    return all
-        .where((t) => t.id.startsWith(prefix) && t.id.endsWith('-out'))
+    return (await _entries(cycleStart))
+        .where((t) => t.id.endsWith('-out'))
         .fold<int>(0, (s, t) => s - t.amountMinorUnits);
   }
 
@@ -209,9 +231,7 @@ class PlanTransferService {
     var changed = 0;
 
     await db.transaction(() async {
-      final existing = (await db.select(db.transactions).get())
-          .where((t) => t.id.startsWith(prefix))
-          .toList();
+      final existing = await _entries(cycleStart);
       final wanted = {for (final m in moves) '$prefix${m.bucketId}': m};
 
       // Debit legs by bucket (credit legs share the id with '-in').
@@ -227,10 +247,7 @@ class PlanTransferService {
         changed++;
       }
 
-      final kept = (await db.select(db.transactions).get())
-          .where((t) => t.id.startsWith(prefix))
-          .map((t) => t.id)
-          .toSet();
+      final kept = (await _entries(cycleStart)).map((t) => t.id).toSet();
       for (final e in wanted.entries) {
         if (kept.contains('${e.key}-out')) continue;
         await _create(ledger, e.key, e.value, salary);

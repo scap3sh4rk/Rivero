@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:rivero/core/database/daos/mandates_dao.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/providers/app_providers.dart';
@@ -34,14 +35,7 @@ class MandatesScreen extends ConsumerWidget {
         )
         .toList();
     final inactive = mandates.where((m) => !live.contains(m)).toList();
-    final reserved = live.fold<int>(
-      0,
-      (s, m) =>
-          s +
-          (m.isVariableAmount
-              ? (m.maxCapMinorUnits ?? m.amountMinorUnits)
-              : m.amountMinorUnits),
-    );
+    final reserved = live.fold<int>(0, (s, m) => s + mandateReserve(m));
 
     return Scaffold(
       backgroundColor: RiveroColors.background,
@@ -150,6 +144,9 @@ class _MandateTile extends ConsumerWidget {
                           ? m.status.name
                           : due == null
                           ? m.frequency.name
+                          : isOverdue(m, DateTime.now())
+                          ? 'Overdue since ${DateFormat('d MMM').format(due)}'
+                                ' · not seen yet'
                           : 'Next ${DateFormat('d MMM').format(due)}'
                                 ' · ${m.frequency.name}',
                       style: RiveroTypography.bodySmall,

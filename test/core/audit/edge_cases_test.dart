@@ -82,7 +82,11 @@ StsBreakdown _sts({
   DateTime? now,
 }) => StsBreakdown.compute(
   buckets: buckets,
-  accounts: accounts,
+  // The autopays' account ('a') always exists unless a test passes it.
+  accounts: [
+    ...accounts,
+    if (!accounts.any((x) => x.id == 'a')) _account('a', 0),
+  ],
   mandates: mandates,
   dues: const [],
   cycle: Paycycle.fromSalaryDay(salaryCreditDay: 1, asOf: now ?? _now),

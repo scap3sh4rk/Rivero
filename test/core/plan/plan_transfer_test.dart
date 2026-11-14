@@ -305,6 +305,16 @@ void main() {
         (await db.accountsDao.getBucketById('inv'))!.spentMinorUnits,
         500000,
       );
+      // M9: remembered. Applying again later (now with money) moves nothing.
+      await db.accountsDao.updateAccountBalance('salary', 9000000);
+      await plan.apply(
+        salary: 5200000,
+        allocations: {'rent': 0, 'inv': 500000, 'exp': 4700000},
+        cycleStart: cycle,
+        moveMoney: true,
+      );
+      expect(await planTxns(), isEmpty);
+      expect(await bal('invacc'), 0);
     },
   );
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:rivero/core/database/database.dart';
+import 'package:rivero/core/ingestion/mandate_tracker.dart';
 import 'package:rivero/core/ingestion/platform/notification_bridge.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/security/app_lock.dart';
@@ -72,6 +74,7 @@ class _RiveroAppState extends ConsumerState<RiveroApp>
       final sync = ref.read(settingsSyncProvider);
       sync.load().then((_) => sync.listen());
       _drain();
+      _maintain();
       if (NotificationBridge.supported) {
         NotificationBridge(ref.read(ingestionServiceProvider))
             .listenForCaptures();
@@ -106,15 +109,41 @@ class _RiveroAppState extends ConsumerState<RiveroApp>
   @override
   void didChangePlatformBrightness() => setState(() {});
 
+  Timer? _midnight;
+
   @override
   void dispose() {
+    _midnight?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _drain();
+    if (state == AppLifecycleState.resumed) {
+      _drain();
+      _maintain();
+    }
+  }
+
+  /// Daily upkeep, on start, on resume and at midnight: today's date (so
+  /// days-to-payday is never stale), autopays whose date passed unseen,
+  /// and raw bank messages older than 90 days (privacy).
+  Future<void> _maintain() async {
+    final now = DateTime.now();
+    ref.read(todayProvider.notifier).state = now;
+    _midnight?.cancel();
+    final next = DateTime(now.year, now.month, now.day + 1);
+    _midnight = Timer(next.difference(now), _maintain);
+    try {
+      final db = ref.read(databaseProvider);
+      await MandateTracker(db).rollOverdue(now);
+      await db.ingestionLogsDao.purgeLogsOlderThan(
+        now.subtract(const Duration(days: 90)),
+      );
+    } on Object {
+      // Upkeep must never stop the app from opening.
+    }
   }
 
   void _drain() {

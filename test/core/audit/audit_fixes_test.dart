@@ -1,12 +1,17 @@
 import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rivero/core/database/daos/mandates_dao.dart';
+import 'package:rivero/core/database/daos/settings_dao.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/account_role.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/dues/dues_service.dart';
+import 'package:rivero/core/engine/paycycle.dart';
 import 'package:rivero/core/import/statement_importer.dart';
 import 'package:rivero/core/import/statement_parser.dart';
+import 'package:rivero/core/ingestion/mandate_tracker.dart';
 import 'package:rivero/core/ledger/ledger_service.dart';
+import 'package:rivero/core/plan/salary_plan_service.dart';
 
 import '../../test_helper.dart';
 
@@ -112,5 +117,185 @@ void main() {
     await dues.splitExpense(transactionId: id, shares: {'Ravi': 20000});
     await ledger.remove(id);
     expect(await db.select(db.dues).get(), isEmpty);
+  });
+
+  group('autopay', () {
+    Future<void> mandate(
+      String id,
+      String payee,
+      int amount,
+      DateTime due, {
+      MandateFrequency f = MandateFrequency.monthly,
+    }) => db.mandatesDao.upsertMandate(
+      MandatesCompanion(
+        id: Value(id),
+        payee: Value(payee),
+        amountMinorUnits: Value(amount),
+        frequency: Value(f),
+        physicalAccountId: const Value('bank'),
+        startDate: Value(now),
+        nextExecutionDate: Value(due),
+        status: const Value(MandateStatus.active),
+        createdAt: Value(now),
+        updatedAt: Value(now),
+      ),
+    );
+    Future<DateTime?> next(String id) async =>
+        (await db.mandatesDao.getAllMandates())
+            .firstWhere((m) => m.id == id)
+            .nextExecutionDate;
+
+    test('M10: 31 Jan rolls to 28 Feb, not 3 Mar', () {
+      expect(addMonths(DateTime(2027, 1, 31), 1), DateTime(2027, 2, 28));
+      expect(addMonths(DateTime(2028, 1, 31), 1), DateTime(2028, 2, 29));
+      expect(addMonths(DateTime(2026, 11, 30), 3), DateTime(2027, 2, 28));
+      expect(addMonths(DateTime(2026, 12, 15), 1), DateTime(2027, 1, 15));
+    });
+
+    test('M12: payee matching is by whole words, never fragments', () {
+      expect(MandateTracker.samePayee('Netflix', 'NETFLIX.COM'), isTrue);
+      expect(MandateTracker.samePayee('Air', 'Airtel Broadband'), isFalse);
+      expect(MandateTracker.samePayee('Airtel', 'Airtel Broadband'), isTrue);
+    });
+
+    test('M11: an autopay paid by hand moves to its next date', () async {
+      await mandate('m', 'Netflix', 64900, now);
+      await ledger.recordManual(
+        accountId: 'bank',
+        amountMinorUnits: -64900,
+        type: TransactionType.expense,
+        merchant: 'Subscriptions', // typed name differs; amount is exact
+        category: 'Bills',
+        at: now,
+      );
+      expect(await next('m'), DateTime(2026, 12, 14));
+    });
+
+    test(
+      'M12: a different amount from the same shop does not roll it',
+      () async {
+        await mandate('m', 'Netflix', 64900, now);
+        await ledger.recordManual(
+          accountId: 'bank',
+          amountMinorUnits: -19900,
+          type: TransactionType.expense,
+          merchant: 'Netflix',
+          category: 'Fun',
+          at: now,
+        );
+        expect(await next('m'), now);
+      },
+    );
+
+    test('H6: overdue autopays stay reserved, then roll forward', () async {
+      await mandate('m', 'Gym', 100000, now.subtract(const Duration(days: 2)));
+      final cycleEnd = DateTime(2026, 11, 30, 23, 59);
+      // Two days late, never seen: still reserved and shown as overdue.
+      final up = upcomingMandates(
+        await db.mandatesDao.getAllMandates(),
+        now,
+        cycleEnd,
+      );
+      expect(up.map((m) => m.id), ['m']);
+      expect(isOverdue(up.single, now), isTrue);
+      // A week late: assumed paid, moved to next month.
+      await MandateTracker(db).rollOverdue(now.add(const Duration(days: 5)));
+      expect(await next('m'), DateTime(2026, 12, 12));
+    });
+
+    test('L1: a weekly autopay is reserved for every week left', () async {
+      await mandate(
+        'w',
+        'Milk',
+        10000,
+        DateTime(2026, 11, 15),
+        f: MandateFrequency.weekly,
+      );
+      final m = (await db.mandatesDao.getAllMandates()).single;
+      // 15, 22, 29 Nov before a 30 Nov cycle end.
+      expect(debitsUntil(m, DateTime(2026, 11, 30, 23, 59)), 3);
+      expect(reserveUntil(m, DateTime(2026, 11, 30, 23, 59)), 30000);
+    });
+  });
+
+  group('salary timing', () {
+    test('H5: salary two days early belongs to the next cycle', () {
+      final cycle = Paycycle.fromSalaryDay(
+        salaryCreditDay: 1,
+        asOf: DateTime(2026, 11, 29),
+      );
+      expect(
+        SalaryPlanService.cycleForSalary(cycle, DateTime(2026, 11, 29)),
+        DateTime(2026, 12),
+      );
+      expect(
+        SalaryPlanService.cycleForSalary(cycle, DateTime(2026, 11, 10)),
+        DateTime(2026, 11),
+      );
+      // Once split, the new cycle counts days to the pay day after.
+      final early = Paycycle.startedEarly(
+        salaryCreditDay: 1,
+        plannedStart: DateTime(2026, 12),
+        asOf: DateTime(2026, 11, 29),
+      );
+      expect(early.cycleStartDate, DateTime(2026, 12));
+      expect(early.daysRemaining, 33); // 29 Nov -> 1 Jan
+    });
+
+    test(
+      'M5: once split, a big non-salary credit does not ask again',
+      () async {
+        final plan = SalaryPlanService(db);
+        await db.settingsDao.set(
+          SettingKeys.lastPlannedCycleStart,
+          DateTime(2026, 11).toIso8601String(),
+        );
+        await ledger.recordManual(
+          accountId: 'bank',
+          amountMinorUnits: 4000000,
+          type: TransactionType.income,
+          merchant: 'Bonus',
+          category: 'Income',
+          at: now,
+        );
+        expect(
+          await plan.pendingSalary(
+            cycleStart: DateTime(2026, 11),
+            expectedSalary: 5000000,
+          ),
+          isNull,
+        );
+      },
+    );
+
+    test("M7: moving pay day keeps the month's plan and its moves", () async {
+      final plan = SalaryPlanService(db);
+      await db.settingsDao.set(
+        SettingKeys.lastPlannedCycleStart,
+        DateTime(2026, 11).toIso8601String(),
+      );
+      await db.transactionsDao.insertTransaction(
+        TransactionsCompanion(
+          id: const Value('plan-20261101-b-out'),
+          physicalAccountId: const Value('bank'),
+          amountMinorUnits: const Value(-100),
+          transactionType: const Value(TransactionType.internalTransfer),
+          transactionState: const Value(TransactionState.confirmed),
+          merchant: const Value('x'),
+          category: const Value('x'),
+          transactionTimestamp: Value(now),
+          createdAt: Value(now),
+          linkedTransactionId: const Value('plan-20261101-b-in'),
+        ),
+      );
+      await plan.moveCycle(from: DateTime(2026, 11), to: DateTime(2026, 11, 5));
+      final t = (await db.transactionsDao.getAllTransactions()).single;
+      expect(t.id, 'plan-20261105-b-out');
+      expect(t.linkedTransactionId, 'plan-20261105-b-in');
+      expect(
+        await db.settingsDao.get(SettingKeys.lastPlannedCycleStart),
+        DateTime(2026, 11, 5).toIso8601String(),
+      );
+    });
   });
 }

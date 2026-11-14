@@ -20,6 +20,10 @@ abstract final class SettingKeys {
   static const lastLogAccount = 'last_log_account';
   static const font = 'font_family';
   static const salaryAccount = 'salary_account_id';
+
+  /// Cycle (yyyy-mm-dd of its start) whose plan money already moved before
+  /// Rivero was set up: Apply never moves it again.
+  static const planMovedOutside = 'plan_moved_outside_cycle';
 }
 
 @DriftAccessor(tables: [AppSettings])
@@ -33,6 +37,11 @@ class SettingsDao extends DatabaseAccessor<RiveroDatabase>
     )..where((t) => t.key.equals(key))).getSingleOrNull();
     return row?.value;
   }
+
+  /// The value of [key], updated whenever it changes.
+  Stream<String?> watch(String key) => (select(
+    appSettings,
+  )..where((t) => t.key.equals(key))).watchSingleOrNull().map((r) => r?.value);
 
   Future<int?> getInt(String key) async => int.tryParse(await get(key) ?? '');
 

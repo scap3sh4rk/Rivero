@@ -4,6 +4,7 @@ import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/account_role.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/engine/allocation_rule.dart';
+import 'package:rivero/core/engine/paycycle.dart';
 import 'package:rivero/core/engine/waterfall_allocator.dart';
 import 'package:rivero/core/plan/plan_transfer_service.dart';
 
@@ -132,9 +133,21 @@ class SalaryPlanService {
       // Money moves when a salary credit is being split, or when this
       // cycle's money has already moved and the plan is being revised.
       final transfers = PlanTransferService(db);
+      // Already told "this month's money already moved": never again.
+      final movedOutside =
+          cycleStart != null &&
+          await db.settingsDao.get(SettingKeys.planMovedOutside) ==
+              cycleKey(cycleStart);
+      if (alreadyMoved && cycleStart != null) {
+        await db.settingsDao.set(
+          SettingKeys.planMovedOutside,
+          cycleKey(cycleStart),
+        );
+      }
+      final skipMoves = alreadyMoved || movedOutside;
       final move =
           cycleStart != null &&
-          (alreadyMoved ||
+          (skipMoves ||
               (moveMoney ??
                   (salaryTransactionId != null ||
                       await transfers.hasMoves(cycleStart))));
@@ -156,7 +169,7 @@ class SalaryPlanService {
               salary,
             ),
           );
-          if (alreadyMoved) {
+          if (skipMoves) {
             // Set up mid-month: the money moved before Rivero knew, and the
             // balances entered already show it. Record it as done, move
             // nothing.
@@ -186,6 +199,44 @@ class SalaryPlanService {
       }
     });
   }
+
+  /// yyyy-mm-dd of a cycle start (the key stored for "already moved").
+  static String cycleKey(DateTime start) =>
+      '${start.year}-${start.month}-${start.day}';
+
+  /// Whether this cycle's plan money was marked as moved before Rivero.
+  Future<bool> movedOutside(DateTime cycleStart) async =>
+      await db.settingsDao.get(SettingKeys.planMovedOutside) ==
+      cycleKey(cycleStart);
+
+  /// The cycle a salary credited at [credited] belongs to: one that lands
+  /// up to 5 days before pay day (weekend, holiday) is next cycle's salary.
+  static DateTime cycleForSalary(Paycycle current, DateTime credited) =>
+      credited.isBefore(
+        current.nextCycleStartDate.subtract(const Duration(days: 5)),
+      )
+      ? current.cycleStartDate
+      : current.nextCycleStartDate;
+
+  /// Pay day moved: this month's plan (and the money it moved) stays this
+  /// month's plan under the new cycle start, instead of looking like a new
+  /// month that resets spending and carry-over.
+  Future<void> moveCycle({required DateTime from, required DateTime to}) =>
+      db.transaction(() async {
+        if (from.isAtSameMomentAs(to)) return;
+        final raw = await db.settingsDao.get(SettingKeys.lastPlannedCycleStart);
+        final last = raw == null ? null : DateTime.tryParse(raw);
+        if (last == null || !last.isAtSameMomentAs(from)) return;
+        await db.settingsDao.set(
+          SettingKeys.lastPlannedCycleStart,
+          to.toIso8601String(),
+        );
+        if (await db.settingsDao.get(SettingKeys.planMovedOutside) ==
+            cycleKey(from)) {
+          await db.settingsDao.set(SettingKeys.planMovedOutside, cycleKey(to));
+        }
+        await PlanTransferService(db).rekey(from, to);
+      });
 
   /// Marks categories paid this cycle without touching any balance: the
   /// money left the accounts before Rivero was set up (mid-month start).
@@ -286,15 +337,29 @@ class SalaryPlanService {
     required int expectedSalary,
   }) async {
     final lastId = await db.settingsDao.get(SettingKeys.lastPlannedSalaryTxn);
-    final all = await db.transactionsDao.getAllTransactions();
+    // This cycle's salary was already split: a later big credit (bonus,
+    // refund, money from a friend) is only offered if the bank calls it
+    // salary.
+    final raw = await db.settingsDao.get(SettingKeys.lastPlannedCycleStart);
+    final planned = raw == null ? null : DateTime.tryParse(raw);
+    final alreadySplit = planned != null && !planned.isBefore(cycleStart);
+    final since = cycleStart.subtract(const Duration(days: 5));
+    final all =
+        await (db.select(db.transactions)..where(
+              (t) =>
+                  t.transactionType.equals(TransactionType.income.name) &
+                  t.transactionTimestamp.isBiggerOrEqualValue(since),
+            ))
+            .get();
     final candidates =
         all.where((t) {
           if (t.transactionType != TransactionType.income) return false;
           if (t.transactionState != TransactionState.confirmed) return false;
           if (t.amountMinorUnits <= 0 || t.id == lastId) return false;
+          if (t.isInternalTransfer) return false;
           // Salaries often land a day or two early (weekends, holidays).
           if (t.transactionTimestamp.isBefore(
-            cycleStart.subtract(const Duration(days: 3)),
+            cycleStart.subtract(const Duration(days: 5)),
           )) {
             return false;
           }
@@ -302,7 +367,9 @@ class SalaryPlanService {
               .toLowerCase()
               .contains('salary');
           return looksLikeSalary ||
-              (expectedSalary > 0 && t.amountMinorUnits * 2 >= expectedSalary);
+              (!alreadySplit &&
+                  expectedSalary > 0 &&
+                  t.amountMinorUnits * 2 >= expectedSalary);
         }).toList()..sort(
           (a, b) => b.transactionTimestamp.compareTo(a.transactionTimestamp),
         );

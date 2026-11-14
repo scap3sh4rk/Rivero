@@ -106,10 +106,25 @@ class SettingsSync {
     Future<void> save(String k, String v) =>
         ref.read(databaseProvider).settingsDao.set(k, v);
     ref
-      ..listen(
-        userSalaryDayProvider,
-        (_, v) => save(SettingKeys.salaryDay, '$v'),
-      )
+      ..listen(userSalaryDayProvider, (old, v) async {
+        await save(SettingKeys.salaryDay, '$v');
+        // Moving pay day keeps this month's plan as this month's plan.
+        if (old != null && old != v) {
+          final today = ref.read(todayProvider);
+          await ref
+              .read(salaryPlanServiceProvider)
+              .moveCycle(
+                from: Paycycle.fromSalaryDay(
+                  salaryCreditDay: old,
+                  asOf: today,
+                ).cycleStartDate,
+                to: Paycycle.fromSalaryDay(
+                  salaryCreditDay: v,
+                  asOf: today,
+                ).cycleStartDate,
+              );
+        }
+      })
       ..listen(
         monthlySalaryProvider,
         (_, v) => save(SettingKeys.monthlySalary, '$v'),
@@ -157,9 +172,39 @@ class SettingsSync {
 final settingsSyncProvider = Provider<SettingsSync>(SettingsSync.new);
 
 /// Current active monthly paycycle based on configured salary credit day.
+///
+/// Recomputed when the day changes ([todayProvider]) and when a salary that
+/// arrived early has been split for the coming cycle.
 final currentPaycycleProvider = Provider<Paycycle>((ref) {
   final salaryDay = ref.watch(userSalaryDayProvider);
-  return Paycycle.fromSalaryDay(salaryCreditDay: salaryDay);
+  final today = ref.watch(todayProvider);
+  final normal = Paycycle.fromSalaryDay(
+    salaryCreditDay: salaryDay,
+    asOf: today,
+  );
+  final planned = ref.watch(plannedCycleStartProvider).value;
+  if (planned != null &&
+      !planned.isBefore(normal.nextCycleStartDate) &&
+      planned.difference(today).inDays <= 5) {
+    return Paycycle.startedEarly(
+      salaryCreditDay: salaryDay,
+      plannedStart: planned,
+      asOf: today,
+    );
+  }
+  return normal;
+});
+
+/// Today's date; refreshed at midnight and whenever the app comes back, so
+/// days-to-payday never goes stale while the app stays open.
+final todayProvider = StateProvider<DateTime>((ref) => DateTime.now());
+
+/// Start of the cycle the latest plan was applied for.
+final plannedCycleStartProvider = StreamProvider<DateTime?>((ref) {
+  final db = ref.watch(databaseProvider);
+  return db.settingsDao
+      .watch(SettingKeys.lastPlannedCycleStart)
+      .map((v) => v == null ? null : DateTime.tryParse(v));
 });
 
 /// Preference whether to include pending unreceived reimbursements in Safe-to-Spend.

@@ -129,6 +129,34 @@ class Paycycle {
     );
   }
 
+  /// The cycle that starts at [plannedStart] when the salary arrived a few
+  /// days before pay day and has already been split: the new month's money
+  /// is in hand, so days are counted to the pay day after that.
+  factory Paycycle.startedEarly({
+    required int salaryCreditDay,
+    required DateTime plannedStart,
+    DateTime? asOf,
+  }) {
+    final base = Paycycle.fromSalaryDay(
+      salaryCreditDay: salaryCreditDay,
+      asOf: plannedStart,
+    );
+    final ref = asOf ?? DateTime.now();
+    final today = DateTime(ref.year, ref.month, ref.day);
+    final total = base.nextCycleStartDate.difference(today).inDays;
+    return Paycycle._(
+      salaryCreditDay: salaryCreditDay,
+      asOf: today,
+      cycleStartDate: base.cycleStartDate,
+      cycleEndDate: base.cycleEndDate,
+      nextCycleStartDate: base.nextCycleStartDate,
+      daysRemaining: math.max(1, total),
+      totalDaysInCycle: math.max(1, total),
+      elapsedDays: 0,
+      progress: 0,
+    );
+  }
+
   /// The configured day of the month when salary arrives (1..31).
   final int salaryCreditDay;
 

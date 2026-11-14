@@ -91,27 +91,56 @@ class MandatesDao extends DatabaseAccessor<RiveroDatabase>
   }
 }
 
-/// Active mandates that will still debit from today (the whole of today
-/// counts, even if its time of day has passed) until the end of [cycleEnd].
-// ponytail: weekly mandates counted once per cycle; count each occurrence if needed.
+/// Active mandates that will still debit before the end of [cycleEnd]:
+/// from today (the whole of today counts), plus ones up to 5 days overdue
+/// whose debit has not been seen yet (still reserved until it arrives or
+/// the date is rolled forward).
 List<Mandate> upcomingMandates(
   Iterable<Mandate> mandates,
   DateTime now,
   DateTime cycleEnd,
 ) {
   final today = DateTime(now.year, now.month, now.day);
+  final from = today.subtract(const Duration(days: 5));
   final end = DateTime(cycleEnd.year, cycleEnd.month, cycleEnd.day + 1);
   return mandates.where((m) => m.status == MandateStatus.active).where((m) {
       final d = m.nextExecutionDate;
-      return d != null && !d.isBefore(today) && d.isBefore(end);
+      return d != null && !d.isBefore(from) && d.isBefore(end);
     }).toList()
     ..sort((a, b) => a.nextExecutionDate!.compareTo(b.nextExecutionDate!));
 }
 
-/// What one mandate reserves: its amount, or its cap when the amount varies.
+/// Whether [m]'s date has passed without its debit being seen.
+bool isOverdue(Mandate m, DateTime now) {
+  final d = m.nextExecutionDate;
+  return d != null &&
+      d.isBefore(DateTime(now.year, now.month, now.day)) &&
+      m.status == MandateStatus.active;
+}
+
+/// What one debit of a mandate reserves: its amount, or its cap when the
+/// amount varies.
 int mandateReserve(Mandate m) => m.isVariableAmount
     ? (m.maxCapMinorUnits ?? m.amountMinorUnits)
     : m.amountMinorUnits;
+
+/// How many times [m] debits from its next date until [cycleEnd] (a weekly
+/// autopay can debit four or five times in one pay cycle).
+int debitsUntil(Mandate m, DateTime cycleEnd) {
+  final d = m.nextExecutionDate;
+  if (d == null) return 0;
+  if (m.frequency != MandateFrequency.weekly) return 1;
+  final end = DateTime(cycleEnd.year, cycleEnd.month, cycleEnd.day + 1);
+  var n = 0;
+  for (var x = d; x.isBefore(end); x = x.add(const Duration(days: 7))) {
+    n++;
+  }
+  return n < 1 ? 1 : n;
+}
+
+/// Everything [m] reserves until [cycleEnd].
+int reserveUntil(Mandate m, DateTime cycleEnd) =>
+    mandateReserve(m) * debitsUntil(m, cycleEnd);
 
 /// Sum of [upcomingMandates].
 int sumUpcomingCommitments(
@@ -122,4 +151,4 @@ int sumUpcomingCommitments(
   mandates,
   now,
   cycleEnd,
-).fold(0, (s, m) => s + mandateReserve(m));
+).fold(0, (s, m) => s + reserveUntil(m, cycleEnd));

@@ -31,6 +31,7 @@ class StsBreakdown {
     required this.reservedInAccount,
     required this.daysToPayday,
     required this.result,
+    required this.cycleEnd,
   });
   factory StsBreakdown.compute({
     required List<AllocationBucket> buckets,
@@ -80,13 +81,18 @@ class StsBreakdown {
         if (!a.isLiability && !linked.contains(a.id)) a.id,
     };
     final due = upcomingMandates(mandates, at, cycle.cycleEndDate)
+        // An autopay on a removed account cannot debit anything.
+        .where((m) => accounts.any((a) => a.id == m.physicalAccountId))
         .where(
           (m) =>
               accountBalance == null ||
               !otherBanks.contains(m.physicalAccountId),
         )
         .toList();
-    final dueTotal = due.fold<int>(0, (s, m) => s + mandateReserve(m));
+    final dueTotal = due.fold<int>(
+      0,
+      (s, m) => s + reserveUntil(m, cycle.cycleEndDate),
+    );
 
     // Money in the spending account that the plan has promised elsewhere
     // (e.g. rent that is paid out of the same account), not spendable.
@@ -143,6 +149,7 @@ class StsBreakdown {
       reservedInAccount: reserved,
       daysToPayday: result.daysRemainingInCycle,
       result: result,
+      cycleEnd: cycle.cycleEndDate,
     );
   }
 
@@ -171,6 +178,9 @@ class StsBreakdown {
   /// Part of that balance promised to plan-only categories.
   final int reservedInAccount;
   final int daysToPayday;
+
+  /// Last moment of this pay cycle.
+  final DateTime cycleEnd;
   final SafeToSpendResult result;
 
   int get budgetLeft => planned + carriedOver - spent;

@@ -93,6 +93,9 @@ class DeduplicationEngine {
             mergedReferenceNumber: existing.referenceNumber,
           );
         }
+        // Two different bank references are two different payments, even
+        // for the same amount at the same minute (two ₹20 teas).
+        continue;
       }
 
       // Priority 2: Amount + Direction + Time window match

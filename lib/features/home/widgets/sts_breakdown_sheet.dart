@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:rivero/core/database/daos/mandates_dao.dart';
 import 'package:rivero/core/engine/safe_to_spend_calculator.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
@@ -101,12 +102,10 @@ class StsBreakdownSheet extends ConsumerWidget {
               for (final m in b.mandates)
                 _sub(
                   '${m.payee} · '
-                  '${DateFormat('d MMM').format(m.nextExecutionDate!)}',
-                  money(
-                    m.isVariableAmount
-                        ? (m.maxCapMinorUnits ?? m.amountMinorUnits)
-                        : m.amountMinorUnits,
-                  ),
+                  '${isOverdue(m, DateTime.now()) ? 'overdue since ' : ''}'
+                  '${DateFormat('d MMM').format(m.nextExecutionDate!)}'
+                  '${debitsUntil(m, b.cycleEnd) > 1 ? ' · ×${debitsUntil(m, b.cycleEnd)}' : ''}',
+                  money(reserveUntil(m, b.cycleEnd)),
                 ),
               _line(
                 'Credit card bills to pay',

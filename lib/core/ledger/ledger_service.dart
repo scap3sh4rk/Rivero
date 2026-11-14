@@ -3,6 +3,7 @@ import 'package:rivero/core/database/daos/settings_dao.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/account_role.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
+import 'package:rivero/core/ingestion/mandate_tracker.dart';
 
 /// The one place where a transaction's money effects are applied:
 /// physical balance + expense-bucket spend. Every capture path (notification,
@@ -18,6 +19,12 @@ class LedgerService {
   LedgerService(this.db);
 
   final RiveroDatabase db;
+
+  static const Set<TransactionType> _autopayTypes = {
+    TransactionType.expense,
+    TransactionType.creditCardPurchase,
+    TransactionType.cashExpenditure,
+  };
 
   static const Set<TransactionType> _cashOutflows = {
     TransactionType.expense,
@@ -186,6 +193,17 @@ class LedgerService {
       t.amountMinorUnits,
     );
     await _markCategoryPaid(t, sign: 1);
+    // Paying an autopay (captured or typed in) moves it to its next date,
+    // so it is not reserved and spent at the same time.
+    if (t.amountMinorUnits < 0 &&
+        !t.isInternalTransfer &&
+        _autopayTypes.contains(t.transactionType)) {
+      await MandateTracker(db).onDebit(
+        merchant: t.merchant,
+        amountMinorUnits: -t.amountMinorUnits,
+        at: t.transactionTimestamp,
+      );
+    }
     final spend = await _budgetSpend(t);
     if (spend == 0) return;
     final bucketId = t.allocationBucketId ?? await _defaultExpenseBucketId();

@@ -212,20 +212,27 @@ class _SalaryPlanScreenState extends ConsumerState<SalaryPlanScreen> {
     List<PlannedMove> moves,
     PhysicalAccount? salaryAcc,
   ) async {
-    final cycleStart = ref.read(currentPaycycleProvider).cycleStartDate;
+    final cycle = ref.read(currentPaycycleProvider);
+    final credit = widget.salaryTransaction;
+    // A salary that lands a few days early is next cycle's salary.
+    final cycleStart = credit == null
+        ? cycle.cycleStartDate
+        : SalaryPlanService.cycleForSalary(cycle, credit.transactionTimestamp);
+    final planService = ref.read(salaryPlanServiceProvider);
     var alreadyMoved = false;
     // A salary credit being split has just arrived: its money is there.
-    if (widget.salaryTransaction == null &&
+    // Already answered "already moved" for this cycle: not asked again.
+    if (credit == null &&
         salaryAcc != null &&
         moves.isNotEmpty &&
-        !await ref.read(planTransferServiceProvider).hasMoves(cycleStart)) {
+        !await ref.read(planTransferServiceProvider).hasMoves(cycleStart) &&
+        !await planService.movedOutside(cycleStart)) {
       final answer = await _askAlreadyMoved(moves, salaryAcc);
       if (answer == null) return;
       alreadyMoved = answer;
     }
     if (!mounted) return;
     setState(() => _saving = true);
-    final planService = ref.read(salaryPlanServiceProvider);
     if (_salaryId != null) {
       await ref.read(planTransferServiceProvider).setSalaryAccount(_salaryId!);
       ref.read(salaryAccountIdProvider.notifier).state = _salaryId;

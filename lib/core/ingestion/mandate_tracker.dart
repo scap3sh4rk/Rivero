@@ -13,16 +13,10 @@ class MandateTracker {
 
   final RiveroDatabase db;
 
-  static bool _sameName(String a, String b) {
-    final x = a.toLowerCase().trim();
-    final y = b.toLowerCase().trim();
-    return x.isNotEmpty && y.isNotEmpty && (x.contains(y) || y.contains(x));
-  }
-
   Future<Mandate?> _find(String? payee) async {
     if (payee == null) return null;
     final all = await db.mandatesDao.getAllMandates();
-    final matches = all.where((m) => _sameName(m.payee, payee)).toList()
+    final matches = all.where((m) => samePayee(m.payee, payee)).toList()
       ..sort((a, b) {
         // Prefer live mandates over ended ones.
         int rank(Mandate m) => m.status == MandateStatus.active ? 0 : 1;
@@ -64,11 +58,7 @@ class MandateTracker {
             MandateStatus.active,
           );
         } else {
-          await _create(
-            n,
-            n.date ?? DateTime(at.year, at.month + 1, at.day),
-            at,
-          );
+          await _create(n, n.date ?? addMonths(at, 1), at);
         }
       case MessageIntent.mandateFailed:
       case MessageIntent.statementDue:
@@ -106,31 +96,106 @@ class MandateTracker {
     );
   }
 
-  /// A real debit arrived: if it belongs to a live mandate due around now,
-  /// roll its next debit date forward by one period.
+  /// How far either side of the due date a debit still counts as that
+  /// autopay, and how long an unmatched autopay stays "overdue" (still
+  /// reserved) before it is assumed paid and moved to its next date.
+  static const grace = Duration(days: 5);
+
+  /// The date after [due] for [f]. Month steps keep the day where it can and
+  /// clamp to the month's last day (31 Jan -> 28 Feb, not 3 Mar). Null for
+  /// "as presented" mandates, which have no schedule.
+  static DateTime? nextDue(DateTime due, MandateFrequency f) => switch (f) {
+    MandateFrequency.weekly => due.add(const Duration(days: 7)),
+    MandateFrequency.monthly => addMonths(due, 1),
+    MandateFrequency.quarterly => addMonths(due, 3),
+    MandateFrequency.semiAnnual => addMonths(due, 6),
+    MandateFrequency.annual => addMonths(due, 12),
+    MandateFrequency.asPresented => null,
+  };
+
+  static Set<String> _words(String s) => s
+      .toLowerCase()
+      .split(RegExp('[^a-z0-9]+'))
+      .where((w) => w.length >= 3)
+      .toSet();
+
+  /// Same payee: a shared whole word of 3+ letters ("Netflix" ~ "NETFLIX
+  /// COM"), never a fragment ("Air" is not "Airtel").
+  static bool samePayee(String a, String b) =>
+      _words(a).intersection(_words(b)).isNotEmpty;
+
+  static bool _amountFits(Mandate m, int amount) => m.isVariableAmount
+      ? amount <= (m.maxCapMinorUnits ?? m.amountMinorUnits)
+      : amount == m.amountMinorUnits;
+
+  /// A real debit was recorded (captured or typed in): if it is a live
+  /// autopay due around now, move that autopay to its next date so it is
+  /// not reserved again. Matches on payee AND amount, or on the exact
+  /// amount alone when only one autopay fits (a typed-in "Subscriptions").
   Future<void> onDebit({
     required String? merchant,
+    required int amountMinorUnits,
     required DateTime at,
   }) async {
-    final m = await _find(merchant);
-    final due = m?.nextExecutionDate;
-    if (m == null ||
-        due == null ||
-        m.status != MandateStatus.active ||
-        at.difference(due).inDays.abs() > 5) {
-      return;
-    }
-    final next = switch (m.frequency) {
-      MandateFrequency.weekly => due.add(const Duration(days: 7)),
-      MandateFrequency.monthly => DateTime(due.year, due.month + 1, due.day),
-      MandateFrequency.quarterly => DateTime(due.year, due.month + 3, due.day),
-      MandateFrequency.semiAnnual => DateTime(due.year, due.month + 6, due.day),
-      MandateFrequency.annual => DateTime(due.year + 1, due.month, due.day),
-      MandateFrequency.asPresented => due,
-    };
+    final live = (await db.mandatesDao.getAllMandates()).where((m) {
+      final due = m.nextExecutionDate;
+      return m.status == MandateStatus.active &&
+          due != null &&
+          at.difference(due).abs() <= grace &&
+          _amountFits(m, amountMinorUnits);
+    }).toList();
+    if (live.isEmpty) return;
+    final byName = merchant == null
+        ? const <Mandate>[]
+        : live.where((m) => samePayee(m.payee, merchant)).toList();
+    final exact = live
+        .where((m) => m.amountMinorUnits == amountMinorUnits)
+        .toList();
+    final m = byName.length == 1
+        ? byName.single
+        : (byName.isEmpty && exact.length == 1 ? exact.single : null);
+    if (m == null) return;
     await db.mandatesDao.patchMandate(
       m.id,
-      MandatesCompanion(nextExecutionDate: Value(next), updatedAt: Value(at)),
+      MandatesCompanion(
+        nextExecutionDate: Value(nextDue(m.nextExecutionDate!, m.frequency)),
+        updatedAt: Value(at),
+      ),
     );
   }
+
+  /// Autopays whose date passed more than [grace] ago without a matching
+  /// debit are moved to their next future date (assumed paid; the bank's
+  /// balance already shows it). Run on start and on resume.
+  Future<int> rollOverdue(DateTime now) async {
+    final today = DateTime(now.year, now.month, now.day);
+    var rolled = 0;
+    for (final m in await db.mandatesDao.getAllMandates()) {
+      var due = m.nextExecutionDate;
+      if (m.status != MandateStatus.active || due == null) continue;
+      if (!due.isBefore(today.subtract(grace))) continue;
+      while (due != null && due.isBefore(today)) {
+        due = nextDue(due, m.frequency);
+      }
+      await db.mandatesDao.patchMandate(
+        m.id,
+        MandatesCompanion(nextExecutionDate: Value(due), updatedAt: Value(now)),
+      );
+      rolled++;
+    }
+    return rolled;
+  }
+}
+
+/// [d] moved by [months], the day clamped to the target month's length.
+DateTime addMonths(DateTime d, int months) {
+  final first = DateTime(d.year, d.month + months);
+  final last = DateTime(first.year, first.month + 1, 0).day;
+  return DateTime(
+    first.year,
+    first.month,
+    d.day > last ? last : d.day,
+    d.hour,
+    d.minute,
+  );
 }
