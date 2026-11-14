@@ -14,6 +14,7 @@ import 'package:rivero/features/mandates/mandates_screen.dart';
 import 'package:rivero/features/settings/screens/account_types_screen.dart';
 import 'package:rivero/features/settings/screens/categories_screen.dart';
 import 'package:rivero/features/settings/screens/import_statement.dart';
+import 'package:rivero/features/tour/app_tour.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Settings as short rows: one line each, details one tap deeper.
@@ -186,11 +187,21 @@ class SettingsScreen extends ConsumerWidget {
             subtitle: 'Adds past transactions to an account',
             onTap: () => importStatement(context, ref),
           ),
+          const _Header('Help'),
+          _Row(
+            icon: Icons.tour_outlined,
+            title: 'Take the tour',
+            subtitle: 'A quick walk through every part of Rivero',
+            onTap: () {
+              final nav = Navigator.of(context)..pop();
+              AppTour.show(nav.context);
+            },
+          ),
           const _Header('Data'),
           _Row(
             icon: Icons.delete_forever_outlined,
             title: 'Delete all data',
-            subtitle: 'Erases everything and starts setup again',
+            subtitle: 'Erases everything and shows the tour again',
             onTap: () => _confirmWipe(context, ref),
           ),
           if (kDebugMode) ...[

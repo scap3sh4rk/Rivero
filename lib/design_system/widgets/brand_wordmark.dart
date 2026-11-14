@@ -7,9 +7,12 @@ import 'package:rivero/design_system/rivero_tokens.dart';
 const riveroTagline = 'Your Money - In Flow';
 
 class BrandWordmark extends StatefulWidget {
-  const BrandWordmark({super.key, this.fontSize = 30});
+  const BrandWordmark({super.key, this.fontSize = 30, this.replay = false});
 
   final double fontSize;
+
+  /// Always play the reveal (the launch intro), not just once per launch.
+  final bool replay;
 
   /// Reset by tests.
   static bool played = false;
@@ -28,7 +31,7 @@ class _BrandWordmarkState extends State<BrandWordmark>
   @override
   void initState() {
     super.initState();
-    if (BrandWordmark.played) {
+    if (BrandWordmark.played && !widget.replay) {
       _c.value = 1;
     } else {
       BrandWordmark.played = true;

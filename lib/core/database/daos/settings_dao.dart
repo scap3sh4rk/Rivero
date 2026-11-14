@@ -20,6 +20,8 @@ abstract final class SettingKeys {
   static const lastLogAccount = 'last_log_account';
   static const font = 'font_family';
   static const salaryAccount = 'salary_account_id';
+  static const tourDone = 'tour_done';
+  static const primaryUpi = 'primary_upi_package';
 
   /// Cycle (yyyy-mm-dd of its start) whose plan money already moved before
   /// Rivero was set up: Apply never moves it again.

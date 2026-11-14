@@ -15,6 +15,7 @@ import 'package:rivero/core/ingestion/deduplication_engine.dart';
 import 'package:rivero/core/ingestion/ingestion_service.dart';
 import 'package:rivero/core/ingestion/parser/financial_parser.dart';
 import 'package:rivero/core/ledger/ledger_service.dart';
+import 'package:rivero/core/plan/defaults.dart';
 import 'package:rivero/core/plan/plan_transfer_service.dart';
 import 'package:rivero/core/plan/salary_plan_service.dart';
 import 'package:rivero/core/reconciliation/balance_reconciler.dart';
@@ -43,8 +44,14 @@ final monthlySalaryProvider = StateProvider<int>((ref) => 0);
 /// Whether unsettled credit-card spend is reserved out of Safe-to-Spend.
 final reserveCreditCardsProvider = StateProvider<bool>((ref) => true);
 
-/// null = still loading, false = needs onboarding, true = ready.
+/// null = still loading, true = ready (there is no setup wizard).
 final onboardedProvider = StateProvider<bool?>((ref) => null);
+
+/// The first-run tour has not been completed yet.
+final tourPendingProvider = StateProvider<bool>((ref) => false);
+
+/// Package name of the UPI app the user pays with most (null = not chosen).
+final primaryUpiProvider = StateProvider<String?>((ref) => null);
 
 /// Loads persisted settings into providers and saves later changes back.
 class SettingsSync {
@@ -87,18 +94,16 @@ class SettingsSync {
         (await dao.get(SettingKeys.countOwed)) == '1';
     ref.read(openOnLogProvider.notifier).state =
         (await dao.get(SettingKeys.openOnLog)) == '1';
-    var onboarded = (await dao.get(SettingKeys.onboarded)) == '1';
-    if (!onboarded &&
-        (await ref
-                .read(databaseProvider)
-                .accountsDao
-                .getAllActivePhysicalAccounts())
-            .isNotEmpty) {
-      // Existing install that predates onboarding: don't make them redo setup.
-      onboarded = true;
-      await dao.set(SettingKeys.onboarded, '1');
-    }
-    ref.read(onboardedProvider.notifier).state = onboarded;
+    // No setup wizard: the app opens straight away, with a guided tour
+    // the first time. Everything else is added by the user in place.
+    await ensureDefaults(ref.read(databaseProvider));
+    await dao.set(SettingKeys.onboarded, '1');
+    ref.read(tourPendingProvider.notifier).state =
+        (await dao.get(SettingKeys.tourDone)) != '1';
+    ref.read(primaryUpiProvider.notifier).state = await dao.get(
+      SettingKeys.primaryUpi,
+    );
+    ref.read(onboardedProvider.notifier).state = true;
   }
 
   /// Persist every change to the three user-editable settings.
@@ -163,8 +168,8 @@ class SettingsSync {
         openOnLogProvider,
         (_, v) => save(SettingKeys.openOnLog, v ? '1' : '0'),
       )
-      ..listen(onboardedProvider, (_, v) {
-        if (v ?? false) save(SettingKeys.onboarded, '1');
+      ..listen(primaryUpiProvider, (_, v) {
+        if (v != null) save(SettingKeys.primaryUpi, v);
       });
   }
 }

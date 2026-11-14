@@ -133,6 +133,25 @@ class SalaryPlanService {
       // Money moves when a salary credit is being split, or when this
       // cycle's money has already moved and the plan is being revised.
       final transfers = PlanTransferService(db);
+      // Spending with no account chosen draws from the salary account, so
+      // Safe to spend follows a real balance from the very first plan.
+      final everyAccount = await db.accountsDao.getAllActivePhysicalAccounts();
+      final home = PlanTransferService.salaryAccountOf(
+        everyAccount,
+        await db.settingsDao.get(SettingKeys.salaryAccount),
+      );
+      if (home != null) {
+        await (db.update(db.allocationBuckets)..where(
+              (t) =>
+                  t.role.equals(AccountRole.expense.name) &
+                  t.linkedPhysicalAccountId.isNull(),
+            ))
+            .write(
+              AllocationBucketsCompanion(
+                linkedPhysicalAccountId: Value(home.id),
+              ),
+            );
+      }
       // Already told "this month's money already moved": never again.
       final movedOutside =
           cycleStart != null &&

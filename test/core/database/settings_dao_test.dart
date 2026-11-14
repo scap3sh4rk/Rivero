@@ -26,7 +26,10 @@ void main() {
     await c.read(settingsSyncProvider).load();
     expect(c.read(userSalaryDayProvider), 26);
     expect(c.read(reserveCreditCardsProvider), isFalse);
-    expect(c.read(onboardedProvider), isFalse);
+    // No setup wizard: the app is ready, with the tour still to show.
+    expect(c.read(onboardedProvider), isTrue);
+    expect(c.read(tourPendingProvider), isTrue);
+    expect(await db.accountsDao.getAllBuckets(), isNotEmpty);
 
     c.read(settingsSyncProvider).listen();
     c.read(monthlySalaryProvider.notifier).state = 8000000;
