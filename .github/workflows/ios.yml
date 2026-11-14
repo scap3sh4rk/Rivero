@@ -1,0 +1,49 @@
+name: iOS build
+
+# Builds the iOS app on a GitHub macOS runner (no Mac needed) and uploads an
+# UNSIGNED .ipa. It runs by hand (Actions -> "iOS build" -> Run workflow) and
+# when the iOS project changes. macOS minutes are billed at a higher rate on
+# private repositories, so it is not run on every push.
+#
+# An unsigned .ipa cannot be installed as is: sign it with a free Apple ID
+# (AltStore, Sideloadly; valid 7 days) or, with a paid Apple Developer
+# account, add signing secrets and a TestFlight upload step.
+on:
+  workflow_dispatch:
+  push:
+    branches: [develop, main]
+    paths: ['ios/**', '.github/workflows/ios.yml']
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.50.0
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: dart run build_runner build --delete-conflicting-outputs
+      - run: find lib -name '*.g.dart' -print0 | xargs -0 dart format
+
+      - name: Build (no code signing)
+        run: flutter build ios --release --no-codesign
+
+      - name: Package unsigned .ipa
+        run: |
+          rm -rf dist Payload && mkdir -p Payload dist
+          cp -R build/ios/iphoneos/Runner.app Payload/
+          zip -qry dist/rivero-ios-unsigned.ipa Payload
+          ls -la dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rivero-ios-unsigned
+          path: dist/rivero-ios-unsigned.ipa
