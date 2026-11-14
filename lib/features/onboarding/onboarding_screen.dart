@@ -95,20 +95,25 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     ref.read(onboardedProvider.notifier).state = true;
   }
 
-  Widget _page(String title, String subtitle, List<Widget> children) =>
-      ListView(
-        padding: const EdgeInsets.all(RiveroSpacing.xl),
-        children: [
-          Text(
-            title,
-            style: RiveroTypography.displayLarge.copyWith(fontSize: 30),
-          ),
-          const SizedBox(height: RiveroSpacing.sm),
-          Text(subtitle, style: RiveroTypography.bodyMedium),
-          const SizedBox(height: RiveroSpacing.xxl),
-          ...children,
-        ],
-      );
+  Widget _page(
+    String title,
+    String subtitle,
+    List<Widget> children, {
+    bool logo = false,
+  }) => ListView(
+    padding: const EdgeInsets.all(RiveroSpacing.xl),
+    children: [
+      if (logo) ...[
+        Image.asset('assets/icon/logo.png', width: 72, height: 72),
+        const SizedBox(height: RiveroSpacing.lg),
+      ],
+      Text(title, style: RiveroTypography.displayLarge.copyWith(fontSize: 30)),
+      const SizedBox(height: RiveroSpacing.sm),
+      Text(subtitle, style: RiveroTypography.bodyMedium),
+      const SizedBox(height: RiveroSpacing.xxl),
+      ...children,
+    ],
+  );
 
   Widget _field(
     TextEditingController c,
@@ -193,6 +198,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         onChanged: (v) => setState(() => _day = v.round()),
                       ),
                     ],
+                    logo: true,
                   ),
                   _page(
                     'Where does it land?',

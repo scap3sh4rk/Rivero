@@ -39,6 +39,7 @@ dev_dependencies:
   very_good_analysis: ^11.0.0
   build_runner: ^2.5.4
   drift_dev: ^2.35.3
+  flutter_launcher_icons: ^0.14.4
 
 hooks:
   user_defines:
@@ -47,6 +48,8 @@ hooks:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/icon/logo.png
   fonts:
     - family: Urbanist
       fonts:
@@ -104,3 +107,11 @@ flutter:
           weight: 400
         - asset: assets/fonts/JetBrainsMono-500.ttf
           weight: 500
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/icon/icon.png
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: assets/icon/icon_foreground.png
+  remove_alpha_ios: true

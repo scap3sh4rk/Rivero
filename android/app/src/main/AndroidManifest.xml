@@ -2,7 +2,7 @@
     <!-- Only for the in-app "test capture" notification. No SMS permissions. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
-        android:label="rivero"
+        android:label="Rivero"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

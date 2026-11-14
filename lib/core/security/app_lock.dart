@@ -94,11 +94,7 @@ class _AppLockGateState extends ConsumerState<AppLockGate>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.lock_outline_rounded,
-                size: 48,
-                color: RiveroColors.accent,
-              ),
+              Image.asset('assets/icon/logo.png', width: 96, height: 96),
               const SizedBox(height: RiveroSpacing.lg),
               Text('Rivero is locked', style: RiveroTypography.titleLarge),
               const SizedBox(height: RiveroSpacing.xl),
