@@ -30,9 +30,16 @@ class HomeScreen extends ConsumerWidget {
         titleWidget: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Image.asset('assets/icon/logo.png', width: 34, height: 34),
+            // Decoded at its display size with the best filter: crisp edges.
+            Image.asset(
+              'assets/icon/logo.png',
+              width: 38,
+              height: 38,
+              cacheWidth: 152,
+              filterQuality: FilterQuality.high,
+            ),
             const SizedBox(width: RiveroSpacing.sm),
-            const BrandWordmark(),
+            const BrandWordmark(fontSize: 34),
           ],
         ),
         subtitle: 'Paycycle · ${paycycle.daysRemaining} days left',

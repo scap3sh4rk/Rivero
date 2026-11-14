@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rivero/core/database/daos/settings_dao.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/providers/app_providers.dart';
-import 'package:rivero/design_system/widgets/launch_splash.dart';
 import 'package:rivero/features/home/widgets/get_started_card.dart';
 import 'package:rivero/main.dart';
 
@@ -43,8 +42,8 @@ void main() {
     expect(find.byType(GetStartedCard), findsOneWidget);
     expect(find.text('Add your accounts'), findsOneWidget);
 
-    // The tour starts after the intro, and walks the tabs.
-    await tester.pump(const Duration(milliseconds: 2700));
+    // The tour starts a moment after Home appears, and walks the tabs.
+    await tester.pump(const Duration(milliseconds: 1000));
     expect(find.byKey(const ValueKey('tour-card')), findsOneWidget);
     expect(find.text('Welcome to Rivero'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('tour-next')));
@@ -72,11 +71,5 @@ void main() {
 
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 100));
-  });
-
-  test('the launch intro is on by default in the app', () {
-    LaunchOverlay.enabled = true;
-    expect(LaunchOverlay.enabled, isTrue);
-    LaunchOverlay.enabled = false;
   });
 }

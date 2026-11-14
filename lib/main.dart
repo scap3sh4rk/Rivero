@@ -13,7 +13,6 @@ import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/security/app_lock.dart';
 import 'package:rivero/core/security/database_key_manager.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
-import 'package:rivero/design_system/widgets/launch_splash.dart';
 import 'package:rivero/features/main/main_screen.dart';
 
 Future<void> main() async {
@@ -175,7 +174,7 @@ class _RiveroAppState extends ConsumerState<RiveroApp>
         theme: RiveroTheme.build(light: light, font: font),
         home: switch (ref.watch(onboardedProvider)) {
           null => Scaffold(backgroundColor: RiveroColors.background),
-          _ => const LaunchOverlay(child: AppLockGate(child: MainScreen())),
+          _ => const AppLockGate(child: MainScreen()),
         },
       ),
     );

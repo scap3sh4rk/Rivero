@@ -57,9 +57,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       ref.read(selectedNavIndexProvider.notifier).state = _initial;
-      // First run: a guided tour, once the launch animation has played.
+      // First run: a guided tour, once Home has appeared.
       if (ref.read(tourPendingProvider)) {
-        _tourTimer = Timer(const Duration(milliseconds: 2600), () {
+        _tourTimer = Timer(const Duration(milliseconds: 900), () {
           if (mounted && ref.read(tourPendingProvider)) AppTour.show(context);
         });
       }

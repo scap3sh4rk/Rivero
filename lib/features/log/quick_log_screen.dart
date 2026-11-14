@@ -26,7 +26,8 @@ class QuickLogScreen extends ConsumerStatefulWidget {
   ConsumerState<QuickLogScreen> createState() => _QuickLogScreenState();
 }
 
-class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
+class _QuickLogScreenState extends ConsumerState<QuickLogScreen>
+    with WidgetsBindingObserver {
   static const _ops = '+-×÷';
   static const _maxExpression = 24;
 
@@ -40,8 +41,36 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
   final _note = TextEditingController();
   final _noteFocus = FocusNode();
 
+  /// The note is being typed: the on-screen keypad folds away so the two
+  /// keyboards never stack, and comes back when typing ends.
+  bool _typingNote = false;
+  bool _keyboardWasUp = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _noteFocus.addListener(() {
+      if (mounted && _typingNote != _noteFocus.hasFocus) {
+        setState(() => _typingNote = _noteFocus.hasFocus);
+      }
+    });
+  }
+
+  // The system keyboard closed (its down arrow or the back gesture) while
+  // the note still had focus: end typing so the keypad returns.
+  @override
+  void didChangeMetrics() {
+    if (!mounted) return;
+    final views = WidgetsBinding.instance.platformDispatcher.views;
+    final up = views.isNotEmpty && views.first.viewInsets.bottom > 0;
+    if (_keyboardWasUp && !up && _noteFocus.hasFocus) _noteFocus.unfocus();
+    _keyboardWasUp = up;
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _savedTimer?.cancel();
     _note.dispose();
     _noteFocus.dispose();
@@ -303,9 +332,6 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
 
     return Scaffold(
       backgroundColor: RiveroColors.background,
-      // The keypad stays exactly where it is when the keyboard opens for the
-      // note; the keyboard simply covers it.
-      resizeToAvoidBottomInset: false,
       appBar: RiveroAppBar(
         title: 'Log',
         actions: [
@@ -475,52 +501,66 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
                   ],
                 ),
               ),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: _Keypad(onKey: _key, calcOpen: _calcOpen),
-                ),
-                // Operator pane slides in from the right edge; the keypad
-                // narrows instead of being covered.
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 260),
-                  curve: Curves.easeOutCubic,
-                  width: _calcOpen ? 72 : 0,
-                  height: 256,
-                  clipBehavior: Clip.hardEdge,
-                  decoration: BoxDecoration(
-                    color: RiveroColors.surfaceElevated,
-                    borderRadius: const BorderRadius.horizontal(
-                      left: Radius.circular(20),
-                    ),
-                  ),
-                  child: OverflowBox(
-                    alignment: Alignment.centerLeft,
-                    minWidth: 72,
-                    maxWidth: 72,
-                    child: Column(
+            AnimatedSize(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              child: _typingNote
+                  ? const SizedBox(width: double.infinity)
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        for (final op in ['÷', '×', '-', '+', '%', '.', '='])
-                          Expanded(
-                            child: InkResponse(
-                              key: ValueKey('op-$op'),
-                              radius: 22,
-                              splashFactory: InkRipple.splashFactory,
-                              onTap: () => _key(op),
-                              child: Center(
-                                child: Text(
-                                  op == '-' ? '−' : op,
-                                  style: RiveroTypography.displayMedium,
-                                ),
-                              ),
+                        Expanded(
+                          child: _Keypad(onKey: _key, calcOpen: _calcOpen),
+                        ),
+                        // Operator pane slides in from the right edge; the keypad
+                        // narrows instead of being covered.
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 260),
+                          curve: Curves.easeOutCubic,
+                          width: _calcOpen ? 72 : 0,
+                          height: 256,
+                          clipBehavior: Clip.hardEdge,
+                          decoration: BoxDecoration(
+                            color: RiveroColors.surfaceElevated,
+                            borderRadius: const BorderRadius.horizontal(
+                              left: Radius.circular(20),
                             ),
                           ),
+                          child: OverflowBox(
+                            alignment: Alignment.centerLeft,
+                            minWidth: 72,
+                            maxWidth: 72,
+                            child: Column(
+                              children: [
+                                for (final op in [
+                                  '÷',
+                                  '×',
+                                  '-',
+                                  '+',
+                                  '%',
+                                  '.',
+                                  '=',
+                                ])
+                                  Expanded(
+                                    child: InkResponse(
+                                      key: ValueKey('op-$op'),
+                                      radius: 22,
+                                      splashFactory: InkRipple.splashFactory,
+                                      onTap: () => _key(op),
+                                      child: Center(
+                                        child: Text(
+                                          op == '-' ? '−' : op,
+                                          style: RiveroTypography.displayMedium,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ],
                     ),
-                  ),
-                ),
-              ],
             ),
             Padding(
               padding: const EdgeInsets.all(RiveroSpacing.lg),

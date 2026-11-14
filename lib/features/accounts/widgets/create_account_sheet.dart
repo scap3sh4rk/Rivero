@@ -381,24 +381,21 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
                 ),
                 const SizedBox(height: RiveroSpacing.md),
 
-                // Account Type Selector + Add Custom Type button
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Account Type', style: RiveroTypography.labelSmall),
-                    GestureDetector(
-                      onTap: _promptNewCustomType,
-                      child: Text(
-                        '+ Custom Type',
-                        style: RiveroTypography.labelSmall.copyWith(
-                          color: RiveroColors.salaryAccent,
-                          fontWeight: FontWeight.w600,
-                        ),
+                // Account type picker, with a small link to add your own type.
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: GestureDetector(
+                    onTap: _promptNewCustomType,
+                    child: Text(
+                      '+ Custom type',
+                      style: RiveroTypography.labelSmall.copyWith(
+                        color: RiveroColors.salaryAccent,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ],
+                  ),
                 ),
-                const SizedBox(height: RiveroSpacing.xs),
+                const SizedBox(height: RiveroSpacing.sm),
                 PickerField<String>(
                   label: 'Account type',
                   value: _selectedAccountType,
@@ -490,11 +487,6 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
                     },
                   ),
                   const SizedBox(height: RiveroSpacing.md),
-                  Text(
-                    'Billing cycle (each card has its own)',
-                    style: RiveroTypography.labelSmall,
-                  ),
-                  const SizedBox(height: RiveroSpacing.xs),
                   Row(
                     children: [
                       Expanded(
@@ -523,6 +515,11 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: RiveroSpacing.xs),
+                  Text(
+                    'Each card has its own billing cycle',
+                    style: RiveroTypography.bodySmall,
                   ),
                   const SizedBox(height: RiveroSpacing.md),
                   Text(
