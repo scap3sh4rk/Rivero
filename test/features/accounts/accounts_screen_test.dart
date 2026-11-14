@@ -7,7 +7,6 @@ import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/features/accounts/screens/account_detail_screen.dart';
 import 'package:rivero/features/accounts/screens/accounts_screen.dart';
 import 'package:rivero/features/accounts/widgets/create_account_sheet.dart';
-import 'package:rivero/features/accounts/widgets/credit_utilization_card.dart';
 
 import '../../test_helper.dart';
 
@@ -44,14 +43,12 @@ void main() {
       await tester.pump(const Duration(milliseconds: 150));
 
       expect(find.text('Accounts'), findsOneWidget);
-      expect(find.text('TOTAL NET WORTH'), findsOneWidget);
-      expect(find.text('CREDIT LINE USAGE'), findsOneWidget);
-      expect(find.text('BANK & CASH'), findsOneWidget);
+      expect(find.text('Net worth'), findsOneWidget);
+      expect(find.text('Bank & cash'), findsOneWidget);
+      expect(find.text('Cards'), findsOneWidget);
 
       // Verify credit card utilization card
-      expect(find.byType(CreditUtilizationCard), findsOneWidget);
       expect(find.text('ICICI Sapphiro Card'), findsOneWidget);
-      expect(find.text('Safe (<=10%)'), findsOneWidget);
 
       // Verify bank accounts
       expect(find.text('Primary HDFC Salary'), findsOneWidget);
@@ -78,7 +75,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('networth-card')));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
-      expect(find.textContaining('Bank & cash'), findsOneWidget);
+      expect(find.byKey(const ValueKey('networth-total')), findsOneWidget);
       Navigator.of(tester.element(find.byType(NetWorthSheet))).pop();
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));

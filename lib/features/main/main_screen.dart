@@ -44,6 +44,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   late final int _initial = ref.read(openOnLogProvider) ? logIndex : homeIndex;
   late int _settled = _initial;
   late final PageController _pager = PageController(initialPage: _initial);
+  int _dragStart = 0;
+  double _dragDx = 0;
 
   @override
   void initState() {
@@ -97,21 +99,41 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         ),
       ),
       bottomNavigationBar: SafeArea(
-        child: SizedBox(
-          height: 84,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              for (var i = 0; i < _tabs.length; i++)
-                _NavButton(
-                  key: ValueKey('nav-${_tabs[i].$3}'),
-                  icon: _tabs[i].$1,
-                  selectedIcon: _tabs[i].$2,
-                  label: _tabs[i].$3,
-                  selected: i == current,
-                  onTap: () => _goTo(i),
-                ),
-            ],
+        // Swiping along the bar scrubs between tabs, one tab per ~56px.
+        child: GestureDetector(
+          key: const ValueKey('nav-bar'),
+          behavior: HitTestBehavior.translucent,
+          onHorizontalDragStart: (_) {
+            _dragStart = ref.read(selectedNavIndexProvider);
+            _dragDx = 0;
+          },
+          onHorizontalDragUpdate: (d) {
+            _dragDx += d.delta.dx;
+            final target = (_dragStart + (_dragDx / 56).round()).clamp(
+              0,
+              _tabs.length - 1,
+            );
+            if (target != ref.read(selectedNavIndexProvider)) {
+              HapticFeedback.selectionClick();
+              _goTo(target);
+            }
+          },
+          child: SizedBox(
+            height: 84,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                for (var i = 0; i < _tabs.length; i++)
+                  _NavButton(
+                    key: ValueKey('nav-${_tabs[i].$3}'),
+                    icon: _tabs[i].$1,
+                    selectedIcon: _tabs[i].$2,
+                    label: _tabs[i].$3,
+                    selected: i == current,
+                    onTap: () => _goTo(i),
+                  ),
+              ],
+            ),
           ),
         ),
       ),

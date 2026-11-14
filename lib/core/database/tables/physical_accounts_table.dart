@@ -39,6 +39,9 @@ class PhysicalAccounts extends Table {
   /// Colour the user picked for this account (ARGB), if any.
   IntColumn get colorValue => integer().nullable()();
 
+  /// User-chosen position in lists (long-press to reorder).
+  IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+
   /// Path to a picture/thumbnail the user chose for this account.
   TextColumn get imagePath => text().nullable()();
 

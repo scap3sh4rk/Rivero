@@ -19,11 +19,22 @@ class AccountsDao extends DatabaseAccessor<RiveroDatabase>
     return (select(physicalAccounts)
           ..where((tbl) => tbl.isActive.equals(true))
           ..orderBy([
+            (t) => OrderingTerm(expression: t.sortOrder),
             (t) => OrderingTerm(expression: t.institution),
             (t) => OrderingTerm(expression: t.name),
           ]))
         .watch();
   }
+
+  /// Saves a new order: [orderedIds] get positions 0, 1, 2...
+  Future<void> reorderAccounts(List<String> orderedIds) =>
+      transaction(() async {
+        for (var i = 0; i < orderedIds.length; i++) {
+          await (update(physicalAccounts)
+                ..where((t) => t.id.equals(orderedIds[i])))
+              .write(PhysicalAccountsCompanion(sortOrder: Value(i)));
+        }
+      });
 
   /// Get all active physical accounts.
   Future<List<PhysicalAccount>> getAllActivePhysicalAccounts() {

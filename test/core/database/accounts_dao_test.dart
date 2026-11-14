@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart' hide isNotNull;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rivero/core/database/database.dart';
+import 'package:rivero/core/database/database_seeder.dart';
 import 'package:rivero/core/domain/account_role.dart';
 
 import '../../test_helper.dart';
@@ -96,5 +97,16 @@ void main() {
       bucket = await db.accountsDao.getBucketById('bucket-expense-01');
       expect(bucket!.spentMinorUnits, equals(0));
     });
+  });
+
+  test('reorderAccounts sets the list order', () async {
+    final db = RiveroDatabase.memory();
+    addTearDown(db.close);
+    await DatabaseSeeder(db).seedIfEmpty();
+    final before = await db.accountsDao.watchActivePhysicalAccounts().first;
+    final reversed = before.reversed.map((a) => a.id).toList();
+    await db.accountsDao.reorderAccounts(reversed);
+    final after = await db.accountsDao.watchActivePhysicalAccounts().first;
+    expect(after.map((a) => a.id).toList(), reversed);
   });
 }

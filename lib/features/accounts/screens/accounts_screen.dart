@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
@@ -9,334 +11,225 @@ import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
 import 'package:rivero/features/accounts/screens/account_detail_screen.dart';
 import 'package:rivero/features/accounts/widgets/create_account_sheet.dart';
-import 'package:rivero/features/accounts/widgets/credit_utilization_card.dart';
 
-/// Screen presenting the user's physical bank accounts, cash wallets,
-/// and credit accounts with real-time credit score utilization tracking.
+/// Accounts: net worth, then bank & cash and cards as short rows.
+/// Long-press a row to drag it up or down; tap to open it.
 class AccountsScreen extends ConsumerWidget {
   const AccountsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final accountsAsync = ref.watch(activePhysicalAccountsProvider);
-    final isPrivacy = ref.watch(privacyModeProvider);
+    final accounts =
+        ref.watch(activePhysicalAccountsProvider).value ?? const [];
+    final privacy = ref.watch(privacyModeProvider);
+    String money(int v) => privacy ? '••••' : CurrencyFormatter.format(v);
+    final banks = accounts.where((a) => !a.isLiability).toList();
+    final cards = accounts.where((a) => a.isLiability).toList();
+    final bankTotal = banks.fold<int>(0, (s, a) => s + a.balanceMinorUnits);
+    final debt = cards.fold<int>(
+      0,
+      (s, a) => s + (a.balanceMinorUnits < 0 ? -a.balanceMinorUnits : 0),
+    );
+
+    Future<void> reorder(List<PhysicalAccount> group, int from, int to) async {
+      final ids = group.map((a) => a.id).toList();
+      final moved = ids.removeAt(from);
+      ids.insert(to > from ? to - 1 : to, moved);
+      // Keep the other group's positions after this one's.
+      final others = accounts
+          .where((a) => !ids.contains(a.id))
+          .map((a) => a.id);
+      final dao = ref.read(databaseProvider).accountsDao;
+      await dao.reorderAccounts(
+        group.first.isLiability ? [...others, ...ids] : [...ids, ...others],
+      );
+    }
+
+    Widget section(String title, List<PhysicalAccount> group) => Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(
+            top: RiveroSpacing.xl,
+            bottom: RiveroSpacing.sm,
+          ),
+          child: Text(title, style: RiveroTypography.titleMedium),
+        ),
+        ReorderableListView(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          buildDefaultDragHandles: false,
+          proxyDecorator: (child, _, _) => Material(
+            color: Colors.transparent,
+            elevation: 6,
+            borderRadius: RiveroRadii.borderLg,
+            child: child,
+          ),
+          onReorderStart: (_) => HapticFeedback.mediumImpact(),
+          onReorder: (from, to) => reorder(group, from, to),
+          children: [
+            for (var i = 0; i < group.length; i++)
+              ReorderableDelayedDragStartListener(
+                key: ValueKey(group[i].id),
+                index: i,
+                child: _AccountRow(group[i], money: money),
+              ),
+          ],
+        ),
+      ],
+    );
 
     return Scaffold(
       backgroundColor: RiveroColors.background,
       appBar: RiveroAppBar(
         title: 'Accounts',
-        subtitle: 'Balances and credit lines',
         actions: [
           IconButton(
             tooltip: 'Add Account',
-            icon: const Icon(
-              Icons.add_circle_outline_rounded,
-              color: RiveroColors.investmentAccent,
-            ),
+            icon: const Icon(Icons.add_rounded),
             onPressed: () => CreateAccountSheet.show(context),
           ),
         ],
       ),
-      body: accountsAsync.when(
-        loading: () => const Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(
-              RiveroColors.investmentAccent,
-            ),
-          ),
+      body: ListView(
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(
+          RiveroSpacing.xl,
+          0,
+          RiveroSpacing.xl,
+          RiveroSpacing.huge,
         ),
-        error: (err, _) => Center(
-          child: Text(
-            'Failed to load accounts: $err',
-            style: RiveroTypography.bodyMedium.copyWith(
-              color: RiveroColors.danger,
-            ),
-          ),
-        ),
-        data: (accounts) {
-          final creditAccounts = accounts.where((a) => a.isLiability).toList();
-          final bankAccounts = accounts.where((a) => !a.isLiability).toList();
-
-          // Compute aggregate totals
-          var totalBankMinorUnits = 0;
-          for (final a in bankAccounts) {
-            totalBankMinorUnits += a.balanceMinorUnits;
-          }
-
-          var totalDebtMinorUnits = 0;
-          for (final a in creditAccounts) {
-            if (a.balanceMinorUnits < 0) {
-              totalDebtMinorUnits += a.balanceMinorUnits.abs();
-            }
-          }
-
-          final netWorthMinorUnits = totalBankMinorUnits - totalDebtMinorUnits;
-
-          return RefreshIndicator(
-            color: RiveroColors.investmentAccent,
-            backgroundColor: RiveroColors.surfaceElevated,
-            onRefresh: () async {
-              ref.invalidate(activePhysicalAccountsProvider);
-            },
-            child: ListView(
-              padding: const EdgeInsets.symmetric(
-                horizontal: RiveroSpacing.lg,
-                vertical: RiveroSpacing.md,
-              ),
+        children: [
+          RiveroCard(
+            key: const ValueKey('networth-card'),
+            onTap: () => NetWorthSheet.show(context),
+            isElevated: true,
+            padding: const EdgeInsets.all(RiveroSpacing.xl),
+            child: Row(
               children: [
-                // 1. Net worth (tap for the breakdown)
-                RiveroCard(
-                  key: const ValueKey('networth-card'),
-                  onTap: () => NetWorthSheet.show(context),
-                  isElevated: true,
-                  padding: const EdgeInsets.all(RiveroSpacing.xl),
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Text('Net worth', style: RiveroTypography.bodyMedium),
                       Text(
-                        'TOTAL NET WORTH',
-                        style: RiveroTypography.labelSmall.copyWith(
-                          letterSpacing: 1.2,
-                          color: RiveroColors.textMuted,
-                        ),
+                        money(bankTotal - debt),
+                        style: RiveroTypography.financialLarge,
                       ),
-                      const SizedBox(height: RiveroSpacing.xs),
-                      if (isPrivacy)
-                        Text('••••••••', style: RiveroTypography.financialLarge)
-                      else
-                        Text(
-                          CurrencyFormatter.format(netWorthMinorUnits),
-                          style: RiveroTypography.financialLarge.copyWith(
-                            color: netWorthMinorUnits >= 0
-                                ? RiveroColors.textPrimary
-                                : RiveroColors.danger,
-                          ),
-                        ),
-                      const SizedBox(height: RiveroSpacing.md),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          _SummaryPill(
-                            label: 'Bank & Cash',
-                            amountMinorUnits: totalBankMinorUnits,
-                            color: RiveroColors.investmentAccent,
-                            isPrivacy: isPrivacy,
-                          ),
-                          _SummaryPill(
-                            label: 'Credit Outstanding',
-                            amountMinorUnits: totalDebtMinorUnits,
-                            color: RiveroColors.liabilityAccent,
-                            isPrivacy: isPrivacy,
-                          ),
-                        ],
+                      Text(
+                        'Bank ${money(bankTotal)}'
+                        '${cards.isEmpty ? '' : ' · Cards −${money(debt)}'}',
+                        style: RiveroTypography.bodySmall,
                       ),
                     ],
                   ),
                 ),
-
-                const SizedBox(height: RiveroSpacing.xl),
-
-                // 2. Credit Lines & Utilization Section
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'CREDIT LINE USAGE',
-                      style: RiveroTypography.labelSmall.copyWith(
-                        letterSpacing: 1.5,
-                        color: RiveroColors.textMuted,
-                      ),
-                    ),
-                    Text(
-                      '10% Safe · 30% Score Alert',
-                      style: RiveroTypography.labelSmall.copyWith(
-                        color: RiveroColors.salaryAccent,
-                        fontSize: 10,
-                      ),
-                    ),
-                  ],
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: RiveroColors.textMuted,
                 ),
-                const SizedBox(height: RiveroSpacing.sm),
-
-                if (creditAccounts.isEmpty)
-                  RiveroCard(
-                    child: Center(
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.credit_card_off_rounded,
-                            color: RiveroColors.textMuted,
-                            size: 28,
-                          ),
-                          const SizedBox(height: RiveroSpacing.xs),
-                          Text(
-                            'No Credit Accounts',
-                            style: RiveroTypography.titleMedium,
-                          ),
-                          Text(
-                            'Add a credit card or credit line to track your 10%/30% utilization.',
-                            style: RiveroTypography.bodySmall,
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                else
-                  ...creditAccounts.map(
-                    (account) => Padding(
-                      padding: const EdgeInsets.only(bottom: RiveroSpacing.md),
-                      child: GestureDetector(
-                        onTap: () =>
-                            AccountDetailScreen.open(context, account.id),
-                        child: CreditUtilizationCard(account: account),
-                      ),
-                    ),
-                  ),
-
-                const SizedBox(height: RiveroSpacing.lg),
-
-                // 3. Bank & Cash Accounts Section
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'BANK & CASH',
-                      style: RiveroTypography.labelSmall.copyWith(
-                        letterSpacing: 1.5,
-                        color: RiveroColors.textMuted,
-                      ),
-                    ),
-                    Text(
-                      '${bankAccounts.length} Active',
-                      style: RiveroTypography.labelSmall.copyWith(
-                        color: RiveroColors.textMuted,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: RiveroSpacing.sm),
-
-                if (bankAccounts.isEmpty)
-                  RiveroCard(
-                    child: Center(
-                      child: Text(
-                        'No custodial bank accounts added yet.',
-                        style: RiveroTypography.bodySmall,
-                      ),
-                    ),
-                  )
-                else
-                  ...bankAccounts.map((account) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: RiveroSpacing.sm),
-                      child: RiveroCard(
-                        onTap: () =>
-                            AccountDetailScreen.open(context, account.id),
-                        child: Row(
-                          children: [
-                            BankBadge(
-                              name: account.institution,
-                              color: accountColor(account),
-                              imagePath: account.imagePath,
-                            ),
-                            const SizedBox(width: RiveroSpacing.md),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    account.name,
-                                    style: RiveroTypography.bodyLarge,
-                                  ),
-                                  Text(
-                                    '${account.institution} '
-                                    '••${account.accountMask}',
-                                    style: RiveroTypography.bodySmall,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: RiveroSpacing.sm),
-                            Text(
-                              isPrivacy
-                                  ? '••••'
-                                  : CurrencyFormatter.format(
-                                      account.balanceMinorUnits,
-                                    ),
-                              style: RiveroTypography.titleMedium,
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }),
-
-                const SizedBox(height: RiveroSpacing.md),
-                SizedBox(
-                  height: 52,
-                  child: OutlinedButton.icon(
-                    key: const ValueKey('add-account'),
-                    onPressed: () => CreateAccountSheet.show(context),
-                    style: OutlinedButton.styleFrom(
-                      shape: const StadiumBorder(),
-                    ),
-                    icon: const Icon(Icons.add_rounded),
-                    label: const Text('Add account or card'),
-                  ),
-                ),
-                const SizedBox(height: RiveroSpacing.huge),
               ],
             ),
-          );
-        },
+          ),
+          if (banks.isNotEmpty) section('Bank & cash', banks),
+          if (cards.isNotEmpty) section('Cards', cards),
+          const SizedBox(height: RiveroSpacing.lg),
+          SizedBox(
+            height: 52,
+            child: OutlinedButton.icon(
+              key: const ValueKey('add-account'),
+              onPressed: () => CreateAccountSheet.show(context),
+              style: OutlinedButton.styleFrom(shape: const StadiumBorder()),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Add account or card'),
+            ),
+          ),
+          if (accounts.length > 1)
+            Padding(
+              padding: const EdgeInsets.only(top: RiveroSpacing.md),
+              child: Center(
+                child: Text(
+                  'Long-press an account to reorder',
+                  style: RiveroTypography.bodySmall,
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
 }
 
-class _SummaryPill extends StatelessWidget {
-  const _SummaryPill({
-    required this.label,
-    required this.amountMinorUnits,
-    required this.color,
-    required this.isPrivacy,
-  });
+/// One account or card in a single calm row. Cards add a thin usage bar.
+class _AccountRow extends StatelessWidget {
+  const _AccountRow(this.a, {required this.money});
 
-  final String label;
-  final int amountMinorUnits;
-  final Color color;
-  final bool isPrivacy;
+  final PhysicalAccount a;
+  final String Function(int) money;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+    final tint = accountColor(a);
+    final owed = a.balanceMinorUnits < 0 ? -a.balanceMinorUnits : 0;
+    final usage = a.isLiability && a.creditLimitMinorUnits > 0
+        ? (owed / a.creditLimitMinorUnits).clamp(0.0, 1.0)
+        : null;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: RiveroSpacing.sm),
+      child: RiveroCard(
+        onTap: () => AccountDetailScreen.open(context, a.id),
+        child: Column(
           children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            Row(
+              children: [
+                BankBadge(
+                  name: a.institution,
+                  color: tint,
+                  imagePath: a.imagePath,
+                  size: 40,
+                ),
+                const SizedBox(width: RiveroSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        a.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: RiveroTypography.bodyLarge,
+                      ),
+                      Text(
+                        '••${a.accountMask}',
+                        style: RiveroTypography.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  a.isLiability ? money(owed) : money(a.balanceMinorUnits),
+                  style: RiveroTypography.titleMedium,
+                ),
+              ],
             ),
-            const SizedBox(width: RiveroSpacing.xs),
-            Text(label, style: RiveroTypography.bodySmall),
+            if (usage != null) ...[
+              const SizedBox(height: RiveroSpacing.sm),
+              ClipRRect(
+                borderRadius: RiveroRadii.borderFull,
+                child: LinearProgressIndicator(
+                  value: usage,
+                  minHeight: 4,
+                  backgroundColor: RiveroColors.surfaceInteractive,
+                  // Score-friendly under 30% of the limit.
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    usage > 0.3 ? RiveroColors.warning : tint,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
-        const SizedBox(height: 2),
-        if (isPrivacy)
-          Text('••••••••', style: RiveroTypography.bodyMedium)
-        else
-          Text(
-            CurrencyFormatter.format(amountMinorUnits),
-            style: RiveroTypography.titleMedium.copyWith(
-              color: RiveroColors.textPrimary,
-              fontSize: 14,
-            ),
-          ),
-      ],
+      ),
     );
   }
 }

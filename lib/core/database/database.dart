@@ -71,7 +71,7 @@ class RiveroDatabase extends _$RiveroDatabase {
   });
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration {
@@ -103,6 +103,9 @@ class RiveroDatabase extends _$RiveroDatabase {
           await m.addColumn(physicalAccounts, physicalAccounts.colorValue);
           await m.addColumn(physicalAccounts, physicalAccounts.imagePath);
           await m.addColumn(transactions, transactions.attachmentPath);
+        }
+        if (from < 7) {
+          await m.addColumn(physicalAccounts, physicalAccounts.sortOrder);
         }
       },
       beforeOpen: (details) async {

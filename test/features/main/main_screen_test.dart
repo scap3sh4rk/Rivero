@@ -43,6 +43,18 @@ void main() {
 
     expect(find.text('SAFE TO SPEND PER DAY'), findsOneWidget);
 
+    // Dragging along the bottom bar scrubs tabs: Home -> two to the right.
+    await tester.drag(
+      find.byKey(const ValueKey('nav-bar')),
+      const Offset(120, 0),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(MainScreen)),
+    );
+    expect(container.read(selectedNavIndexProvider), 4);
+
     Future<void> open(String tab) async {
       await tester.tap(nav(tab));
       await tester.pump();
@@ -50,7 +62,7 @@ void main() {
     }
 
     await open('Accounts');
-    expect(find.text('BANK & CASH'), findsOneWidget);
+    expect(find.text('Bank & cash'), findsOneWidget);
 
     await open('Log');
     expect(find.byKey(const ValueKey('key-5')), findsOneWidget);
