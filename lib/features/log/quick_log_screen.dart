@@ -287,7 +287,7 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen>
   /// A small fixed-size note field under the amount. It never grows: the text
   /// scrolls inside it, since a note is typed and saved, not read.
   Widget _notePill(List<LedgerTransaction> txns) => Container(
-    width: 230,
+    width: 190,
     height: 38,
     padding: const EdgeInsets.symmetric(horizontal: RiveroSpacing.md),
     decoration: BoxDecoration(
@@ -446,6 +446,7 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen>
                                   style: RiveroTypography.financialHero
                                       .copyWith(
                                         fontSize: 64,
+                                        fontWeight: FontWeight.w800,
                                         color: _income
                                             ? RiveroColors.success
                                             : RiveroColors.textPrimary,
@@ -455,8 +456,13 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen>
                             ],
                           ),
                   ),
-                  const SizedBox(height: RiveroSpacing.md),
-                  _notePill(txns),
+                  // The note appears once there is an amount to note.
+                  if (_text.isNotEmpty ||
+                      _note.text.isNotEmpty ||
+                      _typingNote) ...[
+                    const SizedBox(height: RiveroSpacing.md),
+                    _notePill(txns),
+                  ],
                 ],
               ),
             ),

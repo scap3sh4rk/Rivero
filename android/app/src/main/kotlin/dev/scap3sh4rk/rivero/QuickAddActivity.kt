@@ -4,12 +4,14 @@ import android.app.Activity
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
 import android.os.Bundle
 import android.text.InputType
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowInsets
 import android.view.inputmethod.EditorInfo
 import android.widget.EditText
 import android.widget.FrameLayout
@@ -165,6 +167,20 @@ class QuickAddActivity : Activity() {
         )
         card.addView(buttons)
 
+        // Keep the card above the keyboard (and the navigation bar). On
+        // Android 15 apps draw edge to edge, so adjustResize alone does not
+        // move it: lift it by the keyboard's height ourselves.
+        root.setOnApplyWindowInsetsListener { _, insets ->
+            val bottom = if (Build.VERSION.SDK_INT >= 30) {
+                insets.getInsets(WindowInsets.Type.ime() or WindowInsets.Type.navigationBars()).bottom
+            } else {
+                @Suppress("DEPRECATION")
+                insets.systemWindowInsetBottom
+            }
+            (card.layoutParams as FrameLayout.LayoutParams).bottomMargin = bottom
+            card.requestLayout()
+            insets
+        }
         setContentView(root)
     }
 

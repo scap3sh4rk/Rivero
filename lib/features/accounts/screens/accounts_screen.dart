@@ -117,7 +117,9 @@ class AccountsScreen extends ConsumerWidget {
                       Text('Net worth', style: RiveroTypography.bodyMedium),
                       Text(
                         money(bankTotal - debt),
-                        style: RiveroTypography.financialLarge,
+                        style: RiveroTypography.financialLarge.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                       Text(
                         'Bank ${money(bankTotal)}'

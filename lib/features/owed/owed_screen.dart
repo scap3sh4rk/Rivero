@@ -263,7 +263,9 @@ class OwedToYouScreen extends ConsumerWidget {
         children: [
           Text(
             money(DuesService.totalOutstanding(dues)),
-            style: RiveroTypography.financialLarge,
+            style: RiveroTypography.financialLarge.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
           ),
           const SizedBox(height: RiveroSpacing.lg),
           for (final d in open) _DueTile(d, money: money),
@@ -315,7 +317,9 @@ class YouOweScreen extends ConsumerWidget {
         children: [
           Text(
             money(DuesService.totalYouOwe(dues)),
-            style: RiveroTypography.financialLarge,
+            style: RiveroTypography.financialLarge.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
           ),
           if (open.isNotEmpty) header('People'),
           for (final d in open) _DueTile(d, money: money),
@@ -394,6 +398,7 @@ class _Total extends StatelessWidget {
                   style: RiveroTypography.financialLarge.copyWith(
                     color: color,
                     fontSize: 46,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ),

@@ -50,7 +50,11 @@ class FinancialAmountText extends StatelessWidget {
   TextStyle _resolveStyle(Color color) {
     switch (size) {
       case FinancialAmountSize.hero:
-        return RiveroTypography.financialHero.copyWith(color: color);
+        // The headline figure: extra bold.
+        return RiveroTypography.financialHero.copyWith(
+          color: color,
+          fontWeight: FontWeight.w800,
+        );
       case FinancialAmountSize.large:
         return RiveroTypography.financialLarge.copyWith(color: color);
       case FinancialAmountSize.medium:
