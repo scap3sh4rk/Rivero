@@ -19,6 +19,7 @@ import 'package:rivero/features/settings/screens/capture_log_screen.dart';
 import 'package:rivero/features/settings/screens/categories_screen.dart';
 import 'package:rivero/features/settings/screens/export_data.dart';
 import 'package:rivero/features/settings/screens/import_statement.dart';
+import 'package:rivero/features/settings/screens/rules_screen.dart';
 import 'package:rivero/features/settings/widgets/capture_disclosure.dart';
 import 'package:rivero/features/tour/app_tour.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -142,6 +143,12 @@ class SettingsScreen extends ConsumerWidget {
             title: 'Categories',
             subtitle: 'Used by Log and Activity',
             onTap: () => CategoriesScreen.open(context),
+          ),
+          _Row(
+            icon: Icons.rule_rounded,
+            title: 'Rules',
+            subtitle: 'Sort captured payments automatically',
+            onTap: () => RulesScreen.open(context),
           ),
           _Row(
             icon: Icons.category_outlined,

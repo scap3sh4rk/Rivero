@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/providers/app_providers.dart';
+import 'package:rivero/core/rules/capture_rules.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 
@@ -59,6 +60,25 @@ class _QuickReviewSheetState extends ConsumerState<QuickReviewSheet> {
       );
       await ledger.confirm(t.id);
       await ref.read(reconciliationServiceProvider).reconcileAll();
+      final category = _category;
+      final rules = CaptureRules(db);
+      if (category != null &&
+          await rules.shouldSuggest(t.merchant, category) &&
+          mounted) {
+        // Filed the same payee the same way twice: offer a rule.
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(
+            content: Text('Always put ${t.merchant} in $category?'),
+            duration: const Duration(seconds: 8),
+            action: SnackBarAction(
+              label: 'Make a rule',
+              onPressed: () => rules.add(
+                CaptureRule(contains: t.merchant, category: category),
+              ),
+            ),
+          ),
+        );
+      }
     } else {
       await ledger.ignore(t.id);
     }

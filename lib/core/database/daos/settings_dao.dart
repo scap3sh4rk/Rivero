@@ -34,6 +34,9 @@ abstract final class SettingKeys {
   /// '1' = confident captures count straight away; '0' (the app default) =
   /// every capture waits on Home for Accept or Ignore.
   static const captureAutoAccept = 'capture_auto_accept';
+
+  /// Capture rules as JSON (see CaptureRules).
+  static const captureRules = 'capture_rules_json';
   static const primaryUpi = 'primary_upi_package';
   static const primaryUpiName = 'primary_upi_name';
 
