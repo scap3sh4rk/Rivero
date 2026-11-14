@@ -37,9 +37,16 @@ class MainActivity : FlutterFragmentActivity() {
                     CaptureQueue.clear(this)
                     result.success(json)
                 }
+                // The UPI app the user pays with most: its notifications are always read.
+                "setPrimaryApp" -> {
+                    RiveroNotificationListener.setPrimaryApp(this, call.argument<String>("package"))
+                    result.success(null)
+                }
+                "diagnostics" -> result.success(Diagnostics.read(this))
                 // "Delete all data": nothing captured may survive it.
                 "clearQueue" -> synchronized(RiveroNotificationListener.LOCK) {
                     CaptureQueue.clear(this)
+                    Diagnostics.clear(this)
                     result.success(null)
                 }
                 // Blocks screenshots and blanks the recent-apps preview.

@@ -14,6 +14,8 @@ import 'package:rivero/core/engine/sts_breakdown.dart';
 import 'package:rivero/core/ingestion/deduplication_engine.dart';
 import 'package:rivero/core/ingestion/ingestion_service.dart';
 import 'package:rivero/core/ingestion/parser/financial_parser.dart';
+import 'package:rivero/core/ingestion/platform/notification_bridge.dart';
+import 'package:rivero/core/ingestion/trai_dlt_validator.dart';
 import 'package:rivero/core/ledger/ledger_service.dart';
 import 'package:rivero/core/plan/defaults.dart';
 import 'package:rivero/core/plan/plan_transfer_service.dart';
@@ -100,9 +102,9 @@ class SettingsSync {
     await dao.set(SettingKeys.onboarded, '1');
     ref.read(tourPendingProvider.notifier).state =
         (await dao.get(SettingKeys.tourDone)) != '1';
-    ref.read(primaryUpiProvider.notifier).state = await dao.get(
-      SettingKeys.primaryUpi,
-    );
+    final upi = await dao.get(SettingKeys.primaryUpi);
+    ref.read(primaryUpiProvider.notifier).state = upi;
+    await NotificationBridge.setPrimaryApp(upi);
     ref.read(onboardedProvider.notifier).state = true;
   }
 
@@ -169,7 +171,9 @@ class SettingsSync {
         (_, v) => save(SettingKeys.openOnLog, v ? '1' : '0'),
       )
       ..listen(primaryUpiProvider, (_, v) {
-        if (v != null) save(SettingKeys.primaryUpi, v);
+        if (v == null) return;
+        save(SettingKeys.primaryUpi, v);
+        NotificationBridge.setPrimaryApp(v);
       });
   }
 }
@@ -232,8 +236,15 @@ final databaseSeederProvider = Provider<DatabaseSeeder>((ref) {
 });
 
 /// Financial parser provider.
+///
+/// The user's primary UPI app is always trusted as a payment source, so its
+/// notifications are recognised even when it is not a known bank or app.
 final financialParserProvider = Provider<FinancialParser>((ref) {
-  return const FinancialParser();
+  final primary = ref.watch(primaryUpiProvider);
+  if (primary == null || primary.isEmpty) return const FinancialParser();
+  return FinancialParser(
+    dltValidator: TraiDltValidator(extraPackages: {primary}),
+  );
 });
 
 /// Deduplication engine provider.
@@ -354,6 +365,14 @@ final pendingReviewTransactionsProvider =
       final db = ref.watch(databaseProvider);
       return db.transactionsDao.watchPendingReviewTransactions();
     });
+
+/// The last notifications Rivero received and what it did with each.
+final recentCaptureLogsProvider = StreamProvider<List<RawIngestionLog>>((ref) {
+  return ref
+      .watch(databaseProvider)
+      .ingestionLogsDao
+      .watchRecentLogs(limit: 60);
+});
 
 /// Bank messages Rivero could not read (see IngestionLogsDao.watchUnreadable).
 final unreadableMessagesProvider = StreamProvider<List<RawIngestionLog>>((ref) {

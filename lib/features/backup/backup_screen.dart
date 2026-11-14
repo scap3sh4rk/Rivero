@@ -139,7 +139,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     } on BackupException catch (e) {
       _say(e.message);
     } on Object catch (e) {
-      _say('Something went wrong: $e');
+      _say(friendlyBackupError(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }

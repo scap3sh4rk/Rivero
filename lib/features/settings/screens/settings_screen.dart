@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivero/core/ingestion/platform/notification_bridge.dart';
+import 'package:rivero/core/ingestion/upi_apps.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/security/app_lock.dart';
 import 'package:rivero/core/storage/media_store.dart';
@@ -12,6 +13,7 @@ import 'package:rivero/design_system/widgets/rivero_card.dart';
 import 'package:rivero/features/backup/backup_screen.dart';
 import 'package:rivero/features/mandates/mandates_screen.dart';
 import 'package:rivero/features/settings/screens/account_types_screen.dart';
+import 'package:rivero/features/settings/screens/capture_log_screen.dart';
 import 'package:rivero/features/settings/screens/categories_screen.dart';
 import 'package:rivero/features/settings/screens/import_statement.dart';
 import 'package:rivero/features/tour/app_tour.dart';
@@ -404,6 +406,7 @@ class _Header extends StatelessWidget {
 /// Slice-style settings row: round outlined icon, title, optional subtitle.
 class _Row extends StatelessWidget {
   const _Row({
+    super.key,
     required this.icon,
     required this.title,
     this.subtitle,
@@ -490,6 +493,22 @@ class _CaptureRowsState extends ConsumerState<_CaptureRows>
     if (mounted) setState(() => _enabled = on);
   }
 
+  Future<void> _pickUpi() async {
+    final current = ref.read(primaryUpiProvider);
+    final picked = await showPicker<String>(
+      context,
+      title: 'Your main UPI app',
+      selected: current ?? '',
+      options: [
+        for (final a in UpiApp.all) PickerOption(a.package, a.name),
+        const PickerOption('', 'I do not use one'),
+      ],
+    );
+    if (picked != null) {
+      ref.read(primaryUpiProvider.notifier).state = picked.value;
+    }
+  }
+
   Future<void> _sendTest() async {
     final accounts = ref.read(activePhysicalAccountsProvider).value ?? const [];
     final mask = accounts.where((a) => !a.isLiability).firstOrNull?.accountMask;
@@ -527,6 +546,21 @@ class _CaptureRowsState extends ConsumerState<_CaptureRows>
             false => 'Off · tap to turn on',
           },
           onTap: NotificationBridge.openSettings,
+        ),
+        _Row(
+          key: const ValueKey('primary-upi'),
+          icon: Icons.account_balance_wallet_outlined,
+          title: 'My main UPI app',
+          subtitle:
+              UpiApp.byPackage(ref.watch(primaryUpiProvider))?.name ??
+              'Not chosen · pick the one you pay with',
+          onTap: _pickUpi,
+        ),
+        _Row(
+          icon: Icons.history_rounded,
+          title: 'Recent captures',
+          subtitle: 'See what Rivero did with each notification',
+          onTap: () => CaptureLogScreen.open(context),
         ),
         _Row(
           icon: Icons.send_outlined,

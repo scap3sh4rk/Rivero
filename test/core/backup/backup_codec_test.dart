@@ -118,4 +118,23 @@ void main() {
         .map((b) => b.linkedPhysicalAccountId);
     expect(links.every((l) => l == null), isTrue);
   });
+
+  test('Google errors are explained, not shown raw', () {
+    expect(
+      friendlyBackupError(
+        'PlatformException(sign_in_failed, ApiException: 10, null)',
+      ),
+      contains('not set up'),
+    );
+    expect(friendlyBackupError('ApiException: 12501'), contains('cancelled'));
+    expect(
+      friendlyBackupError('SocketException: Failed host lookup'),
+      contains('internet'),
+    );
+    expect(
+      friendlyBackupError('DetailedApiRequestError(status: 403)'),
+      contains('not enabled'),
+    );
+    expect(friendlyBackupError('weird'), startsWith('Something went wrong'));
+  });
 }
