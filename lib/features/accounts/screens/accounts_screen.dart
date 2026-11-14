@@ -86,9 +86,16 @@ class AccountsScreen extends ConsumerWidget {
         title: 'Accounts',
         actions: [
           IconButton(
-            tooltip: 'Add Account',
-            icon: const Icon(Icons.add_rounded),
-            onPressed: () => CreateAccountSheet.show(context),
+            key: const ValueKey('toggle-balances'),
+            tooltip: privacy ? 'Show balances' : 'Hide balances',
+            icon: Icon(
+              privacy
+                  ? Icons.visibility_off_outlined
+                  : Icons.visibility_outlined,
+              color: RiveroColors.textSecondary,
+            ),
+            onPressed: () =>
+                ref.read(privacyModeProvider.notifier).state = !privacy,
           ),
         ],
       ),

@@ -60,10 +60,18 @@ void main() {
       expect(find.text('Primary HDFC Salary'), findsOneWidget);
       expect(find.text('ICICI Daily Expenses'), findsOneWidget);
 
-      // Tap New Account FAB
-      final newAccountFab = find.byTooltip('Add Account');
-      expect(newAccountFab, findsOneWidget);
-      await tester.tap(newAccountFab);
+      // The eye in the top bar hides and shows every balance.
+      await tester.tap(find.byKey(const ValueKey('toggle-balances')));
+      await tester.pump();
+      expect(find.text('••••'), findsWidgets);
+      await tester.tap(find.byKey(const ValueKey('toggle-balances')));
+      await tester.pump();
+      expect(find.text('Primary HDFC Salary'), findsOneWidget);
+
+      // Adding an account is the button under the list.
+      final addAccount = find.byKey(const ValueKey('add-account'));
+      await tester.ensureVisible(addAccount);
+      await tester.tap(addAccount);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 

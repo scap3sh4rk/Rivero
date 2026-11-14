@@ -243,6 +243,50 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
     });
   }
 
+  /// A small fixed-size note field under the amount. It never grows: the text
+  /// scrolls inside it, since a note is typed and saved, not read.
+  Widget _notePill(List<LedgerTransaction> txns) => Container(
+    width: 230,
+    height: 38,
+    padding: const EdgeInsets.symmetric(horizontal: RiveroSpacing.md),
+    decoration: BoxDecoration(
+      color: RiveroColors.surfaceElevated,
+      borderRadius: RiveroRadii.borderFull,
+      border: Border.all(color: RiveroColors.borderSubtle),
+    ),
+    child: Row(
+      children: [
+        Icon(Icons.edit_note_rounded, size: 18, color: RiveroColors.textMuted),
+        const SizedBox(width: RiveroSpacing.xs),
+        Expanded(
+          child: TextField(
+            key: const ValueKey('log-note'),
+            controller: _note,
+            focusNode: _noteFocus,
+            maxLength: 80,
+            textCapitalization: TextCapitalization.sentences,
+            textInputAction: TextInputAction.done,
+            style: RiveroTypography.bodyMedium,
+            onChanged: (v) => _learnCategory(v, txns),
+            onTapOutside: (_) => _noteFocus.unfocus(),
+            decoration: InputDecoration(
+              isCollapsed: true,
+              hintText: 'Add a note',
+              hintStyle: RiveroTypography.bodyMedium.copyWith(
+                color: RiveroColors.textMuted,
+              ),
+              counterText: '',
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              filled: false,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     // Watched so the figures behind the large-spend warning are loaded.
@@ -259,6 +303,9 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
 
     return Scaffold(
       backgroundColor: RiveroColors.background,
+      // The keypad stays exactly where it is when the keyboard opens for the
+      // note; the keyboard simply covers it.
+      resizeToAvoidBottomInset: false,
       appBar: RiveroAppBar(
         title: 'Log',
         actions: [
@@ -273,31 +320,6 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: RiveroSpacing.lg),
-              child: TextField(
-                key: const ValueKey('log-note'),
-                controller: _note,
-                focusNode: _noteFocus,
-                textCapitalization: TextCapitalization.sentences,
-                textInputAction: TextInputAction.done,
-                maxLength: 80,
-                onChanged: (v) => _learnCategory(v, txns),
-                decoration: const InputDecoration(
-                  hintText: 'What was it for?',
-                  prefixIcon: Icon(Icons.edit_note_rounded),
-                  counterText: '',
-                  border: OutlineInputBorder(
-                    borderRadius: RiveroRadii.borderFull,
-                    borderSide: BorderSide.none,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: RiveroRadii.borderFull,
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-            ),
             if (!_income) ...[
               const SizedBox(height: RiveroSpacing.sm),
               SizedBox(
@@ -336,62 +358,68 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
               ),
             ],
             Expanded(
-              child: Center(
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 220),
-                  child: _savedLabel != null && _text.isEmpty
-                      ? Row(
-                          key: const ValueKey('saved'),
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.check_circle_rounded,
-                              color: RiveroColors.success,
-                            ),
-                            const SizedBox(width: RiveroSpacing.sm),
-                            Text(
-                              _savedLabel!,
-                              style: RiveroTypography.titleLarge,
-                            ),
-                          ],
-                        )
-                      : Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (isCalculation(_text))
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 220),
+                    child: _savedLabel != null && _text.isEmpty
+                        ? Row(
+                            key: const ValueKey('saved'),
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.check_circle_rounded,
+                                color: RiveroColors.success,
+                              ),
+                              const SizedBox(width: RiveroSpacing.sm),
                               Text(
-                                _text.replaceAll('-', '−'),
-                                key: const ValueKey('expression'),
-                                style: RiveroTypography.titleLarge.copyWith(
-                                  color: RiveroColors.textSecondary,
+                                _savedLabel!,
+                                style: RiveroTypography.titleLarge,
+                              ),
+                            ],
+                          )
+                        : Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (isCalculation(_text))
+                                Text(
+                                  _text.replaceAll('-', '−'),
+                                  key: const ValueKey('expression'),
+                                  style: RiveroTypography.titleLarge.copyWith(
+                                    color: RiveroColors.textSecondary,
+                                  ),
+                                ),
+                              if (isAmountTooLarge(_text))
+                                Text(
+                                  'Amount too large',
+                                  key: const ValueKey('too-large'),
+                                  style: RiveroTypography.bodySmall.copyWith(
+                                    color: RiveroColors.danger,
+                                  ),
+                                ),
+                              FittedBox(
+                                child: Text(
+                                  privacy && _text.isNotEmpty
+                                      ? '₹••••'
+                                      : '${_income ? '+' : ''}₹'
+                                            '${isCalculation(_text) ? _formatPaise(_amount) : (_text.isEmpty ? '0' : _text)}',
+                                  key: const ValueKey('amount'),
+                                  style: RiveroTypography.financialHero
+                                      .copyWith(
+                                        fontSize: 64,
+                                        color: _income
+                                            ? RiveroColors.success
+                                            : RiveroColors.textPrimary,
+                                      ),
                                 ),
                               ),
-                            if (isAmountTooLarge(_text))
-                              Text(
-                                'Amount too large',
-                                key: const ValueKey('too-large'),
-                                style: RiveroTypography.bodySmall.copyWith(
-                                  color: RiveroColors.danger,
-                                ),
-                              ),
-                            FittedBox(
-                              child: Text(
-                                privacy && _text.isNotEmpty
-                                    ? '₹••••'
-                                    : '${_income ? '+' : ''}₹'
-                                          '${isCalculation(_text) ? _formatPaise(_amount) : (_text.isEmpty ? '0' : _text)}',
-                                key: const ValueKey('amount'),
-                                style: RiveroTypography.financialHero.copyWith(
-                                  fontSize: 64,
-                                  color: _income
-                                      ? RiveroColors.success
-                                      : RiveroColors.textPrimary,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                ),
+                            ],
+                          ),
+                  ),
+                  const SizedBox(height: RiveroSpacing.md),
+                  _notePill(txns),
+                ],
               ),
             ),
             if (accounts.isNotEmpty)
