@@ -426,4 +426,17 @@ void main() {
     expect(SpendingSummary.isSpending(rent), isTrue);
     expect(SpendingSummary.isSpending(rent, includePlan: false), isFalse);
   });
+
+  test('L8: lookups are indexed', () async {
+    final rows = await db
+        .customSelect(
+          "SELECT name FROM sqlite_master WHERE type = 'index' "
+          "AND name LIKE 'idx_%'",
+        )
+        .get();
+    expect(
+      rows.map((r) => r.read<String>('name')),
+      containsAll(['idx_txn_time', 'idx_txn_account', 'idx_logs_status']),
+    );
+  });
 }

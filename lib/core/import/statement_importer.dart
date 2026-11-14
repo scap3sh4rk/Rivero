@@ -17,10 +17,12 @@ class StatementImporter {
     String accountId,
     List<StatementRow> rows,
   ) async {
-    final existing = (await db.select(db.transactions).get())
-        .where((t) => t.physicalAccountId == accountId)
-        .map(_key)
-        .toSet();
+    final existing =
+        (await (db.select(
+              db.transactions,
+            )..where((t) => t.physicalAccountId.equals(accountId))).get())
+            .map(_key)
+            .toSet();
     var added = 0;
     var skipped = 0;
     final now = DateTime.now();

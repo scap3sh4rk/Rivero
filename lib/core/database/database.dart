@@ -70,14 +70,28 @@ class RiveroDatabase extends _$RiveroDatabase {
     await delete(appSettings).go();
   });
 
+  /// Lookups every screen makes (by date, account, state, plan id prefix).
+  Future<void> _createIndexes() async {
+    for (final sql in const [
+      'CREATE INDEX IF NOT EXISTS idx_txn_time ON transactions (transaction_timestamp)',
+      'CREATE INDEX IF NOT EXISTS idx_txn_account ON transactions (physical_account_id, transaction_timestamp)',
+      'CREATE INDEX IF NOT EXISTS idx_txn_state ON transactions (transaction_state)',
+      'CREATE INDEX IF NOT EXISTS idx_txn_amount ON transactions (amount_minor_units, transaction_timestamp)',
+      'CREATE INDEX IF NOT EXISTS idx_logs_status ON raw_ingestion_logs (parse_status, received_at)',
+    ]) {
+      await customStatement(sql);
+    }
+  }
+
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration {
     return MigrationStrategy(
       onCreate: (m) async {
         await m.createAll();
+        await _createIndexes();
       },
       onUpgrade: (m, from, to) async {
         if (from < 2) {
@@ -124,6 +138,7 @@ class RiveroDatabase extends _$RiveroDatabase {
             "WHERE role != 'expense'",
           );
         }
+        if (from < 10) await _createIndexes();
       },
       beforeOpen: (details) async {
         await customStatement('PRAGMA foreign_keys = ON;');

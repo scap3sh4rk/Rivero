@@ -520,7 +520,11 @@ class IngestionService {
   }) async {
     final since = parsed.timestamp.subtract(const Duration(days: 3));
     final until = parsed.timestamp.add(const Duration(days: 3));
-    final all = await database.transactionsDao.getAllTransactions();
+    final all =
+        await (database.select(database.transactions)..where(
+              (t) => t.transactionTimestamp.isBetweenValues(since, until),
+            ))
+            .get();
     if (parsed.isDebit) {
       // Bank message after the card's own "payment received".
       final card = await _billedCard(parsed.rawPayload, accountId);

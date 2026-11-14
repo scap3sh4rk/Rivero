@@ -37,6 +37,19 @@ abstract final class MediaStore {
     return (await File(sourcePath).copy(target)).path;
   }
 
+  /// Writes [bytes] as `<folder>/<name>` (restoring a backup); returns the
+  /// path.
+  static Future<String> write(
+    String folder,
+    String name,
+    List<int> bytes,
+  ) async {
+    final dir = await _dir(folder);
+    final file = File(p.join(dir.path, p.basename(name)));
+    await file.writeAsBytes(bytes, flush: true);
+    return file.path;
+  }
+
   static Future<void> remove(String? path) async {
     if (path == null) return;
     final f = File(path);

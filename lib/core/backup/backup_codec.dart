@@ -1,7 +1,10 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:cryptography/cryptography.dart';
+import 'package:path/path.dart' as p;
 import 'package:rivero/core/database/database.dart';
+import 'package:rivero/core/storage/media_store.dart';
 
 /// Wrong passphrase, or a file that is not a Rivero backup / was altered.
 class BackupException implements Exception {
@@ -12,11 +15,13 @@ class BackupException implements Exception {
   String toString() => message;
 }
 
-/// Backups: every table as JSON, encrypted with a passphrase-derived key
-/// (PBKDF2-HMAC-SHA256 -> AES-256-GCM) before it ever leaves the phone.
+/// Backups: every table as JSON, plus bill photos and account pictures,
+/// encrypted with a passphrase-derived key (PBKDF2-HMAC-SHA256 ->
+/// AES-256-GCM) before it ever leaves the phone.
 ///
-/// Photos are not included (only their paths); restoring keeps entries but
-/// pictures from another phone will be missing.
+/// Raw bank message text is never included (privacy); entries keep their
+/// details. Restoring checks the backup's schema and repairs data from
+/// older versions the same way the database migrations do.
 class BackupCodec {
   const BackupCodec({this.iterations = 210000});
 
@@ -32,40 +37,107 @@ class BackupCodec {
     List<Map<String, dynamic>> rows(List<dynamic> list) => [
       for (final r in list) (r as dynamic).toJson() as Map<String, dynamic>,
     ];
+    final accounts = rows(await db.select(db.physicalAccounts).get());
+    final txns = [
+      for (final t in rows(await db.select(db.transactions).get()))
+        {...t, 'ingestionLogId': null}, // raw messages are not backed up
+    ];
+    // Pictures travel inside the backup, keyed by their file name.
+    final media = <Map<String, String>>[];
+    Future<void> add(String? path, String folder) async {
+      if (path == null) return;
+      final f = File(path);
+      if (!f.existsSync()) return;
+      media.add({
+        'folder': folder,
+        'name': p.basename(path),
+        'data': base64Encode(await f.readAsBytes()),
+      });
+    }
+
+    for (final a in accounts) {
+      await add(a['imagePath'] as String?, MediaStore.accountImages);
+    }
+    for (final t in txns) {
+      await add(t['attachmentPath'] as String?, MediaStore.bills);
+    }
     return {
       'schema': db.schemaVersion,
       'createdAt': DateTime.now().toUtc().toIso8601String(),
-      'physicalAccounts': rows(await db.select(db.physicalAccounts).get()),
+      'physicalAccounts': accounts,
       'allocationBuckets': rows(await db.select(db.allocationBuckets).get()),
-      'rawIngestionLogs': rows(await db.select(db.rawIngestionLogs).get()),
-      'transactions': rows(await db.select(db.transactions).get()),
+      'transactions': txns,
       'mandates': rows(await db.select(db.mandates).get()),
       'associatedTitles': rows(await db.select(db.associatedTitles).get()),
       'dues': rows(await db.select(db.dues).get()),
       'appSettings': rows(await db.select(db.appSettings).get()),
+      'media': media,
     };
   }
 
-  /// Replaces everything in [db] with [data], atomically.
-  static Future<void> restore(RiveroDatabase db, Map<String, dynamic> data) {
+  /// Replaces everything in [db] with [data], atomically. Pictures are
+  /// written back first and their paths pointed at the new files.
+  static Future<void> restore(
+    RiveroDatabase db,
+    Map<String, dynamic> data,
+  ) async {
+    final schema = (data['schema'] as int?) ?? 1;
+    if (schema > db.schemaVersion) {
+      throw const BackupException(
+        'This backup was made by a newer Rivero. Update the app first.',
+      );
+    }
     List<Map<String, dynamic>> list(String k) =>
         ((data[k] as List?) ?? const []).cast<Map<String, dynamic>>();
-    return db.transaction(() async {
+
+    final moved = <String, String>{};
+    for (final m in list('media')) {
+      final path = await MediaStore.write(
+        m['folder'] as String,
+        m['name'] as String,
+        base64Decode(m['data'] as String),
+      );
+      moved[m['name'] as String] = path;
+    }
+    String? relink(Object? path) =>
+        path == null ? null : moved[p.basename(path as String)];
+
+    await db.transaction(() async {
       await db.wipeAll();
-      // Parents before children (foreign keys).
+      // Parents before children (foreign keys). Columns added after the
+      // backup was made get their defaults.
       for (final j in list('physicalAccounts')) {
-        await db.into(db.physicalAccounts).insert(PhysicalAccount.fromJson(j));
+        await db
+            .into(db.physicalAccounts)
+            .insert(
+              PhysicalAccount.fromJson({
+                'creditLimitMinorUnits': 0,
+                'accountType': 'Bank',
+                'sortOrder': 0,
+                ...j,
+                'imagePath': relink(j['imagePath']),
+              }),
+            );
       }
       for (final j in list('allocationBuckets')) {
         await db
             .into(db.allocationBuckets)
-            .insert(AllocationBucket.fromJson(j));
+            .insert(
+              AllocationBucket.fromJson({'carryOverMinorUnits': 0, ...j}),
+            );
       }
       for (final j in list('rawIngestionLogs')) {
         await db.into(db.rawIngestionLogs).insert(RawIngestionLog.fromJson(j));
       }
       for (final j in list('transactions')) {
-        await db.into(db.transactions).insert(LedgerTransaction.fromJson(j));
+        await db
+            .into(db.transactions)
+            .insert(
+              LedgerTransaction.fromJson({
+                ...j,
+                'attachmentPath': relink(j['attachmentPath']),
+              }),
+            );
       }
       for (final j in list('mandates')) {
         await db.into(db.mandates).insert(Mandate.fromJson(j));
@@ -78,6 +150,18 @@ class BackupCodec {
       }
       for (final j in list('appSettings')) {
         await db.into(db.appSettings).insert(AppSetting.fromJson(j));
+      }
+      // The same repairs the database migrations make (see database.dart).
+      if (schema < 8) {
+        await db.customStatement(
+          'UPDATE allocation_buckets SET carry_over_minor_units = 0',
+        );
+      }
+      if (schema < 9) {
+        await db.customStatement(
+          'UPDATE allocation_buckets SET linked_physical_account_id = NULL '
+          "WHERE role != 'expense'",
+        );
       }
     });
   }
