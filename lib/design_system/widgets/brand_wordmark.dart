@@ -3,6 +3,9 @@ import 'package:rivero/design_system/rivero_tokens.dart';
 
 /// "Rivero" revealed left to right with a light sweep across it, in the
 /// palette's blues. Plays once per app launch (not on every visit to Home).
+/// The app's tagline, shown on the first-run screen.
+const riveroTagline = 'Your Money - In Flow';
+
 class BrandWordmark extends StatefulWidget {
   const BrandWordmark({super.key, this.fontSize = 30});
 

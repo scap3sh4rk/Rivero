@@ -4,9 +4,9 @@
 
 # Rivero
 
-### Know what you can safely spend today.
+### Your Money - In Flow
 
-A private, local-first money app for Android. One honest number: how much you can spend **per day until payday**.<br>
+A private, local-first money app for Android. Know what you can safely spend today: one honest number, **per day until payday**.<br>
 No bank login · No cloud account · No ads · No SMS permission.
 
 [![CI](https://github.com/scap3sh4rk/Rivero/actions/workflows/ci.yml/badge.svg)](https://github.com/scap3sh4rk/Rivero/actions/workflows/ci.yml)

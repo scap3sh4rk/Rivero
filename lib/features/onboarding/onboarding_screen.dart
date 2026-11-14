@@ -4,6 +4,7 @@ import 'package:rivero/core/plan/onboarding.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/amount_parser.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
+import 'package:rivero/design_system/widgets/brand_wordmark.dart';
 
 /// First-run setup in three short steps: pay day + salary, accounts, split.
 class OnboardingScreen extends ConsumerStatefulWidget {
@@ -107,6 +108,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     children: [
       if (logo) ...[
         Image.asset('assets/icon/logo.png', width: 72, height: 72),
+        const SizedBox(height: RiveroSpacing.sm),
+        Text(
+          riveroTagline,
+          style: RiveroTypography.labelLarge.copyWith(
+            color: RiveroColors.accent,
+            letterSpacing: 0.6,
+          ),
+        ),
         const SizedBox(height: RiveroSpacing.lg),
       ],
       Text(title, style: RiveroTypography.displayLarge.copyWith(fontSize: 30)),

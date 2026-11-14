@@ -31,6 +31,7 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.text('When do you get paid?'), findsOneWidget);
+      expect(find.text('Your Money - In Flow'), findsOneWidget);
 
       Future<void> next() async {
         await tester.tap(find.byType(FilledButton));

@@ -1,4 +1,4 @@
-## Rivero 0.2 — know what you can safely spend today
+## Rivero 0.2 — Your Money - In Flow
 
 **Rivero is a private, local-first money app for Android.** It answers one question first: *how much can I safely spend per day until payday?* No bank login, no cloud account, no ads, no SMS permission. Your data lives encrypted on your phone.
 
