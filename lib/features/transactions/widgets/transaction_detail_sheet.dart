@@ -108,7 +108,9 @@ class _TransactionDetailSheetState
       ),
     );
     if (ok != true) return;
-    await ref.read(ledgerServiceProvider).remove(widget.transaction.id);
+    await ref
+        .read(ledgerServiceProvider)
+        .removeWithPlanPartner(widget.transaction.id);
     if (mounted) Navigator.pop(context);
   }
 

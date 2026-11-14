@@ -181,10 +181,17 @@ void main() {
   test('deleting the transfer from Activity undoes both legs', () async {
     await applyPlan(rent: 0, invest: 0);
     final out = (await planTxns()).firstWhere((t) => t.id.endsWith('exp-out'));
-    await LedgerService(db).remove(out.linkedTransactionId!);
-    await LedgerService(db).remove(out.id);
+    // Deleting just one leg from Activity takes the other with it.
+    await LedgerService(db).removeWithPlanPartner(out.linkedTransactionId!);
+    expect(await planTxns(), isEmpty);
     expect(await bal('salary'), 5200000);
     expect(await bal('spend'), 0);
+  });
+
+  test('removing an account stops plan categories routing into it', () async {
+    await db.accountsDao.deactivatePhysicalAccount('spend');
+    final exp = (await db.accountsDao.getBucketById('exp'))!;
+    expect(exp.linkedPhysicalAccountId, isNull);
   });
 
   test('shortfall warns when the salary has not arrived yet', () async {

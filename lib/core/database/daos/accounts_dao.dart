@@ -100,6 +100,12 @@ class AccountsDao extends DatabaseAccessor<RiveroDatabase>
 
   /// Deactivate (soft delete) a physical account.
   Future<bool> deactivatePhysicalAccount(String accountId) async {
+    // Plan categories must not keep routing money into a hidden account.
+    await (update(
+      allocationBuckets,
+    )..where((b) => b.linkedPhysicalAccountId.equals(accountId))).write(
+      const AllocationBucketsCompanion(linkedPhysicalAccountId: Value(null)),
+    );
     final updatedRows =
         await (update(
           physicalAccounts,

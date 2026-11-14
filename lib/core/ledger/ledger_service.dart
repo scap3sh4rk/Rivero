@@ -118,6 +118,17 @@ class LedgerService {
     await db.transactionsDao.deleteTransaction(transactionId);
   }
 
+  /// Deletes a transaction; if it is one leg of a plan self-transfer, the
+  /// other leg goes too so the two accounts never disagree.
+  Future<void> removeWithPlanPartner(String transactionId) async {
+    final t = await db.transactionsDao.getTransactionById(transactionId);
+    final partner = t?.linkedTransactionId;
+    if (partner != null && transactionId.startsWith('plan-')) {
+      await remove(partner);
+    }
+    await remove(transactionId);
+  }
+
   /// Moves a pending transaction to confirmed and applies its effects once.
   Future<void> confirm(String transactionId) async {
     final t = await db.transactionsDao.getTransactionById(transactionId);
