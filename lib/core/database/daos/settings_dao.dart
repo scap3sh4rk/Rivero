@@ -22,6 +22,10 @@ abstract final class SettingKeys {
   static const salaryAccount = 'salary_account_id';
   static const tourDone = 'tour_done';
 
+  /// Automatic backup frequency (off, daily, weekly) and the last backup.
+  static const autoBackup = 'auto_backup';
+  static const lastBackupAt = 'last_backup_at';
+
   /// '1' = confident captures count straight away; '0' (the app default) =
   /// every capture waits on Home for Accept or Ignore.
   static const captureAutoAccept = 'capture_auto_accept';

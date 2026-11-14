@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:rivero/core/backup/auto_backup.dart';
+import 'package:rivero/core/backup/drive_backup.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/ingestion/capture_decisions.dart';
 import 'package:rivero/core/ingestion/mandate_tracker.dart';
@@ -138,6 +140,13 @@ class _RiveroAppState extends ConsumerState<RiveroApp>
     try {
       final db = ref.read(databaseProvider);
       await MandateTracker(db).rollOverdue(now);
+      // Automatic encrypted backup, when due (never shows a screen; a
+      // failure, such as no network, just waits for the next time).
+      try {
+        await AutoBackup(db).runIfDue(DriveBackup().uploadSilently);
+      } on Object {
+        // Try again on the next start or resume.
+      }
       await db.ingestionLogsDao.purgeLogsOlderThan(
         now.subtract(const Duration(days: 90)),
       );

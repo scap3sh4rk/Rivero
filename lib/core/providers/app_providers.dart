@@ -519,6 +519,15 @@ final logPrefillProvider = StateProvider<LogPrefill?>((ref) => null);
 /// on its notification). MainScreen shows it and clears this.
 final openCaptureProvider = StateProvider<String?>((ref) => null);
 
+/// When data was last backed up (manual or automatic), or null.
+final lastBackupProvider = StreamProvider<DateTime?>((ref) {
+  return ref
+      .watch(databaseProvider)
+      .settingsDao
+      .watch(SettingKeys.lastBackupAt)
+      .map((v) => v == null ? null : DateTime.tryParse(v));
+});
+
 /// Last account used on the quick-log keypad.
 final lastLogAccountProvider = StateProvider<String?>((ref) => null);
 
