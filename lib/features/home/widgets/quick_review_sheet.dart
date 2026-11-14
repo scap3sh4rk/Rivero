@@ -144,7 +144,7 @@ class _QuickReviewSheetState extends ConsumerState<QuickReviewSheet> {
             maxLength: 80,
             textCapitalization: TextCapitalization.sentences,
             decoration: const InputDecoration(
-              hintText: 'Add a note (optional)',
+              hintText: 'Add a note, #tags too (optional)',
               counterText: '',
             ),
           ),

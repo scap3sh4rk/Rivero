@@ -7,6 +7,7 @@ import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/engine/spending_summary.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
+import 'package:rivero/core/utils/tags.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/features/settings/screens/categories_screen.dart';
@@ -120,8 +121,13 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
       return false;
     }
     final q = _query.trim().toLowerCase();
-    if (q.isNotEmpty &&
-        !'${t.merchant} ${t.category}'.toLowerCase().contains(q)) {
+    // "#goa" is a tag: only entries tagged exactly that.
+    if (RegExp(r'^#\S+$').hasMatch(q)) {
+      if (!tagsIn(t.userNotes).contains(q.substring(1))) return false;
+    } else if (q.isNotEmpty &&
+        !'${t.merchant} ${t.category} ${t.userNotes ?? ''}'
+            .toLowerCase()
+            .contains(q)) {
       return false;
     }
     return switch (_filter) {
@@ -303,6 +309,15 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
       }
     }
     final categories = ref.watch(logCategoriesProvider);
+    // Tags in use, most used first: tap one to see only those entries.
+    final tagCount = <String, int>{};
+    for (final t in txns) {
+      for (final tag in tagsIn(t.userNotes)) {
+        tagCount[tag] = (tagCount[tag] ?? 0) + 1;
+      }
+    }
+    final tags = tagCount.keys.toList()
+      ..sort((a, b) => tagCount[b]!.compareTo(tagCount[a]!));
 
     return Scaffold(
       backgroundColor: RiveroColors.background,
@@ -333,7 +348,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                     controller: _search,
                     onChanged: _setQuery,
                     decoration: InputDecoration(
-                      hintText: 'Search transactions',
+                      hintText: 'Search, notes or #tags',
                       prefixIcon: const Icon(Icons.search_rounded),
                       suffixIcon: _query.isEmpty
                           ? null
@@ -374,6 +389,30 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
               ],
             ),
           ),
+          if (tags.isNotEmpty)
+            SizedBox(
+              height: 40,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: RiveroSpacing.xl,
+                ),
+                children: [
+                  for (final tag in tags.take(20))
+                    Padding(
+                      padding: const EdgeInsets.only(right: RiveroSpacing.sm),
+                      child: ChoiceChip(
+                        key: ValueKey('tag-$tag'),
+                        label: Text('#$tag'),
+                        selected: _query.trim().toLowerCase() == '#$tag',
+                        showCheckmark: false,
+                        shape: const StadiumBorder(),
+                        onSelected: (on) => _setQuery(on ? '#$tag' : ''),
+                      ),
+                    ),
+                ],
+              ),
+            ),
           if (range != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(

@@ -189,7 +189,7 @@ class _TransactionDetailSheetState
               maxLength: 280,
               textCapitalization: TextCapitalization.sentences,
               decoration: const InputDecoration(
-                hintText: 'Add a note',
+                hintText: 'Add a note (#tags work)',
                 prefixIcon: Icon(Icons.edit_note_rounded),
                 counterText: '',
               ),

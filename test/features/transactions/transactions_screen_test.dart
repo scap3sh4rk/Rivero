@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -54,6 +55,49 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.text('Zomato'), findsNothing); // an expense is filtered out
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 50));
+  });
+
+  testWidgets('notes are searched, and #tags become filter chips', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final db = RiveroDatabase.memory();
+    addTearDown(db.close);
+    await DatabaseSeeder(db).seedIfEmpty();
+    await (db.update(db.transactions)
+          ..where((t) => t.id.equals('txn-review-1')))
+        .write(const TransactionsCompanion(userNotes: Value('Dinner #Goa')));
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [databaseProvider.overrideWithValue(db)],
+        child: const MaterialApp(home: TransactionsScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    await tester.enterText(find.byType(TextField), 'dinner');
+    await tester.pump();
+    expect(find.text('Zomato'), findsOneWidget);
+    expect(find.text('Uber'), findsNothing);
+    await tester.enterText(find.byType(TextField), '');
+    await tester.pump();
+
+    expect(find.text('Uber'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('tag-goa')));
+    await tester.pump();
+    expect(find.text('Zomato'), findsOneWidget);
+    expect(find.text('Uber'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('tag-goa')));
+    await tester.pump();
+    expect(find.text('Uber'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 50));
