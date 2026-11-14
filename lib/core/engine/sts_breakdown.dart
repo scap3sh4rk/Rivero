@@ -25,6 +25,7 @@ class StsBreakdown {
     required this.mandatesTotal,
     required this.cardBills,
     required this.owedToYou,
+    required this.debtsDue,
     required this.owedIncluded,
     required this.setAside,
     required this.spendingAccountBalance,
@@ -61,6 +62,8 @@ class StsBreakdown {
               .fold<int>(0, (s, a) => s - a.balanceMinorUnits)
         : 0;
     final owed = DuesService.totalOutstanding(dues);
+    // Money you promised to pay back before payday is already spoken for.
+    final debtsDue = DuesService.youOweDueBy(dues, cycle.cycleEndDate);
 
     final linked = spending
         .map((b) => b.linkedPhysicalAccountId)
@@ -126,7 +129,7 @@ class StsBreakdown {
 
     final result = calculator.calculate(
       expenseBalance: usable,
-      upcomingMandates: dueTotal,
+      upcomingMandates: dueTotal + debtsDue,
       unsettledCreditCardLiability: cards,
       pendingReimbursements: owed,
       daysRemainingInCycle: cycle.daysRemaining,
@@ -143,6 +146,7 @@ class StsBreakdown {
       mandatesTotal: dueTotal,
       cardBills: cards,
       owedToYou: owed,
+      debtsDue: debtsDue,
       owedIncluded: includeOwed,
       setAside: setAside,
       spendingAccountBalance: accountBalance,
@@ -165,6 +169,9 @@ class StsBreakdown {
   /// Unpaid card spend reserved (0 when the card toggle is off).
   final int cardBills;
   final int owedToYou;
+
+  /// Money you borrowed that you promised to repay before payday.
+  final int debtsDue;
   final bool owedIncluded;
 
   /// Planned money for investments, savings and other categories: not

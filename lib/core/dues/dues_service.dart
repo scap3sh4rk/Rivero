@@ -127,6 +127,91 @@ class DuesService {
         );
   }
 
+  /// Records money you borrowed from [person]. With [accountId] the money
+  /// arrived in that account (logged as borrowing: not income); without, it
+  /// was cash. [dueDate] is when you promised to pay it back.
+  Future<void> borrow({
+    required String person,
+    required int amountMinorUnits,
+    String? accountId,
+    DateTime? dueDate,
+    String? note,
+  }) => db.transaction(() async {
+    final name = person.trim();
+    if (name.isEmpty) {
+      throw const DueValidationException('Who did you borrow from?');
+    }
+    if (amountMinorUnits <= 0) {
+      throw const DueValidationException('Enter an amount');
+    }
+    String? sourceId;
+    if (accountId != null) {
+      sourceId = await LedgerService(db).recordManual(
+        accountId: accountId,
+        amountMinorUnits: amountMinorUnits,
+        type: TransactionType.borrowing,
+        merchant: 'Borrowed from $name',
+        category: 'Borrowed',
+        note: note,
+      );
+    }
+    final now = DateTime.now();
+    await db
+        .into(db.dues)
+        .insert(
+          DuesCompanion.insert(
+            id: 'due-${now.microsecondsSinceEpoch}',
+            person: name,
+            amountMinorUnits: amountMinorUnits,
+            kind: DueKind.borrowed,
+            status: DueStatus.open,
+            note: Value(note),
+            dueDate: Value(dueDate),
+            sourceTransactionId: Value(sourceId),
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+  });
+
+  /// Records [amountMinorUnits] paid back to someone you owe. With
+  /// [accountId] it leaves that account (logged as a repayment: not
+  /// spending, it was spent when borrowed); without, you paid in cash.
+  Future<void> repay(String dueId, int amountMinorUnits, {String? accountId}) =>
+      db.transaction(() async {
+        final d = await _get(dueId);
+        if (d.kind != DueKind.borrowed) {
+          throw const DueValidationException('This is owed to you');
+        }
+        if (d.status != DueStatus.open) {
+          throw const DueValidationException('This is already closed');
+        }
+        if (amountMinorUnits <= 0 || amountMinorUnits > outstandingOf(d)) {
+          throw const DueValidationException(
+            'Amount is more than what you owe',
+          );
+        }
+        if (accountId != null) {
+          await LedgerService(db).recordManual(
+            accountId: accountId,
+            amountMinorUnits: -amountMinorUnits,
+            type: TransactionType.repayment,
+            merchant: 'Paid back ${d.person}',
+            category: 'Paid back',
+          );
+        }
+        final paid = d.receivedMinorUnits + amountMinorUnits;
+        await (db.update(db.dues)..where((x) => x.id.equals(dueId))).write(
+          DuesCompanion(
+            receivedMinorUnits: Value(paid),
+            status: Value(
+              paid >= d.amountMinorUnits ? DueStatus.settled : DueStatus.open,
+            ),
+            updatedAt: Value(DateTime.now()),
+          ),
+        );
+      });
+
   /// Records [amountMinorUnits] paid back. With [creditTransactionId] the
   /// matching bank credit is tagged "Paid back" (not income); without, it was
   /// received in cash. Split money goes back into the budget it came from.
@@ -136,6 +221,9 @@ class DuesService {
     String? creditTransactionId,
   }) async {
     final d = await _get(dueId);
+    if (d.kind == DueKind.borrowed) {
+      throw const DueValidationException('You owe this: use Paid back');
+    }
     if (d.status != DueStatus.open) {
       throw const DueValidationException('This is already closed');
     }
@@ -230,9 +318,25 @@ class DuesService {
     return out;
   }
 
-  /// Total still owed to you across open dues.
+  /// Total still owed TO YOU (split bills and loans) across open dues.
   static int totalOutstanding(Iterable<Due> dues) => dues
-      .where((d) => d.status == DueStatus.open)
+      .where((d) => d.status == DueStatus.open && d.kind != DueKind.borrowed)
+      .fold(0, (s, d) => s + d.amountMinorUnits - d.receivedMinorUnits);
+
+  /// Total you still owe to people across open borrowed dues.
+  static int totalYouOwe(Iterable<Due> dues) => dues
+      .where((d) => d.status == DueStatus.open && d.kind == DueKind.borrowed)
+      .fold(0, (s, d) => s + d.amountMinorUnits - d.receivedMinorUnits);
+
+  /// What you owe people that falls due on or before [until] (dated debts).
+  static int youOweDueBy(Iterable<Due> dues, DateTime until) => dues
+      .where(
+        (d) =>
+            d.status == DueStatus.open &&
+            d.kind == DueKind.borrowed &&
+            d.dueDate != null &&
+            !d.dueDate!.isAfter(until),
+      )
       .fold(0, (s, d) => s + d.amountMinorUnits - d.receivedMinorUnits);
 
   Future<Due> _get(String id) async {

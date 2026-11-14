@@ -91,4 +91,74 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 100));
   });
+
+  testWidgets('track money you owe, and see every bill in one place', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 3000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final db = RiveroDatabase.memory();
+    addTearDown(db.close);
+    await DatabaseSeeder(db).seedIfEmpty();
+
+    Future<void> settle() async {
+      for (var i = 0; i < 4; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 100)),
+        );
+        await tester.pump(const Duration(milliseconds: 150));
+      }
+    }
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [databaseProvider.overrideWithValue(db)],
+        child: const MaterialApp(home: OwedScreen()),
+      ),
+    );
+    await settle();
+
+    // Bills & commitments: the demo card shows with its due date, and the
+    // autopays due before payday are listed.
+    expect(find.text('Bills & commitments'), findsOneWidget);
+    expect(find.byKey(const ValueKey('commitments-total')), findsOneWidget);
+    expect(find.byKey(const ValueKey('commit-card-acc-cc')), findsOneWidget);
+    expect(find.textContaining('Pay by'), findsWidgets);
+
+    // Borrow ₹5,000 from Meera into the salary account.
+    await tester.tap(find.byKey(const ValueKey('owed-add')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.byKey(const ValueKey('add-borrowed')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Borrowed money'), findsOneWidget);
+    await tester.enterText(find.byKey(const ValueKey('lend-person')), 'Meera');
+    await tester.enterText(find.byKey(const ValueKey('lend-amount')), '5000');
+    await tester.tap(find.byKey(const ValueKey('money-save')));
+    await settle();
+
+    final dues = (await tester.runAsync(() => db.select(db.dues).get()))!;
+    expect(dues.single.kind, DueKind.borrowed);
+    expect(find.byKey(const ValueKey('owe-total')), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.byKey(const ValueKey('owe-total'))).data,
+      '₹5,000.00',
+    );
+    expect(find.text('Meera'), findsOneWidget);
+
+    // Pay it back in cash.
+    await tester.tap(find.text('Meera'));
+    await settle();
+    expect(find.textContaining('You owe Meera'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('repay-save')));
+    await settle();
+    final after = (await tester.runAsync(() => db.select(db.dues).get()))!;
+    expect(after.single.status, DueStatus.settled);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 100));
+  });
 }

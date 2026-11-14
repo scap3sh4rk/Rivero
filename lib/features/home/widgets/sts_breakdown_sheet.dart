@@ -107,6 +107,11 @@ class StsBreakdownSheet extends ConsumerWidget {
                   '${debitsUntil(m, b.cycleEnd) > 1 ? ' · ×${debitsUntil(m, b.cycleEnd)}' : ''}',
                   money(reserveUntil(m, b.cycleEnd)),
                 ),
+              if (b.debtsDue > 0)
+                _line(
+                  'Money you owe, due before payday',
+                  '− ${money(b.debtsDue)}',
+                ),
               _line(
                 'Credit card bills to pay',
                 b.cardBills == 0 ? '₹0' : '− ${money(b.cardBills)}',
