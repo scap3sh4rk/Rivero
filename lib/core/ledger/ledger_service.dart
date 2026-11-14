@@ -4,6 +4,8 @@ import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/account_role.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/ingestion/mandate_tracker.dart';
+import 'package:rivero/core/ingestion/models/raw_notification.dart';
+import 'package:rivero/core/ingestion/parser/financial_parser.dart';
 
 /// The one place where a transaction's money effects are applied:
 /// physical balance + expense-bucket spend. Every capture path (notification,
@@ -182,8 +184,74 @@ class LedgerService {
             );
     if (flipped == 0) return false;
     await applyEffects(t);
+    // The other leg of a card bill Rivero created goes with it.
+    final partner = t.linkedTransactionId;
+    if (partner != null && (_pairedByApp(partner) || _pairedByApp(t.id))) {
+      await confirm(partner);
+    }
+    await _adoptReportedBalance(t);
     return true;
   });
+
+  /// "Not a transaction": nothing is applied; a paired leg goes too.
+  Future<void> ignore(String transactionId) => db.transaction(() async {
+    final t = await db.transactionsDao.getTransactionById(transactionId);
+    if (t == null) return;
+    final applied =
+        t.transactionState == TransactionState.confirmed ||
+        t.transactionState == TransactionState.reconciled;
+    if (applied) return; // Applied money is undone by deleting, not ignoring.
+    await db.transactionsDao.updateTransactionState(
+      transactionId,
+      TransactionState.ignored,
+    );
+    final partner = t.linkedTransactionId;
+    if (partner != null && (_pairedByApp(partner) || _pairedByApp(t.id))) {
+      await ignore(partner);
+    }
+  });
+
+  /// A confirmed capture's bank message said "Avl bal": that is the truth
+  /// for the account, unless something newer has happened there since.
+  Future<void> _adoptReportedBalance(LedgerTransaction t) async {
+    final logId = t.ingestionLogId;
+    if (logId == null) return;
+    final log = await (db.select(
+      db.rawIngestionLogs,
+    )..where((l) => l.id.equals(logId))).getSingleOrNull();
+    if (log == null) return;
+    final reported = const FinancialParser()
+        .parse(
+          RawNotification(
+            id: log.id,
+            body: log.rawPayload,
+            receivedAt: log.receivedAt,
+            sender: log.senderHeader,
+          ),
+        )
+        ?.balanceMinorUnits;
+    if (reported == null) return;
+    final acc = await db.accountsDao.getPhysicalAccountById(
+      t.physicalAccountId,
+    );
+    if (acc == null || acc.isLiability) return;
+    final newer =
+        await (db.select(db.transactions)..where(
+              (x) =>
+                  x.physicalAccountId.equals(t.physicalAccountId) &
+                  x.id.equals(t.id).not() &
+                  x.transactionTimestamp.isBiggerThanValue(
+                    t.transactionTimestamp,
+                  ) &
+                  x.transactionState.isIn([
+                    TransactionState.confirmed.name,
+                    TransactionState.reconciled.name,
+                  ]),
+            ))
+            .get();
+    if (newer.isNotEmpty) return;
+    await db.accountsDao.updateAccountBalance(t.physicalAccountId, reported);
+  }
 
   /// Applies balance and budget effects of [t]. Call exactly once, when the
   /// transaction becomes confirmed.

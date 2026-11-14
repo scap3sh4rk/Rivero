@@ -12,6 +12,7 @@ import 'package:rivero/core/import/statement_parser.dart';
 import 'package:rivero/core/ingestion/mandate_tracker.dart';
 import 'package:rivero/core/ledger/ledger_service.dart';
 import 'package:rivero/core/plan/salary_plan_service.dart';
+import 'package:rivero/core/reconciliation/internal_transfer_matcher.dart';
 
 import '../../test_helper.dart';
 
@@ -298,4 +299,101 @@ void main() {
       );
     });
   });
+
+  group('M3: self-transfer matching', () {
+    LedgerTransaction leg(
+      String id,
+      String acc,
+      int amount,
+      TransactionType type,
+      DateTime at, {
+      String? ref,
+    }) => LedgerTransaction(
+      id: id,
+      physicalAccountId: acc,
+      amountMinorUnits: amount,
+      transactionType: type,
+      transactionState: TransactionState.confirmed,
+      merchant: id,
+      category: 'x',
+      referenceNumber: ref,
+      transactionTimestamp: at,
+      isInternalTransfer: false,
+      createdAt: at,
+    );
+    const matcher = InternalTransferMatcher();
+
+    test('paying one friend while another pays you is not a transfer', () {
+      final pairs = matcher.findTransferPairs(
+        unlinkedTransactions: [
+          leg('out', 'sbi', -50000, TransactionType.expense, now, ref: 'A1'),
+          leg(
+            'in',
+            'spend',
+            50000,
+            TransactionType.income,
+            now.add(const Duration(seconds: 30)),
+            ref: 'B2',
+          ),
+        ],
+      );
+      expect(pairs, isEmpty);
+    });
+
+    test('without references only an almost simultaneous pair counts', () {
+      List<Object> pairsAfter(Duration d) => matcher.findTransferPairs(
+        unlinkedTransactions: [
+          leg('out', 'sbi', -50000, TransactionType.expense, now),
+          leg('in', 'spend', 50000, TransactionType.income, now.add(d)),
+        ],
+      );
+      expect(pairsAfter(const Duration(seconds: 40)), hasLength(1));
+      expect(pairsAfter(const Duration(minutes: 4)), isEmpty);
+    });
+
+    test('a loan or a hand-set balance is never half of a transfer', () {
+      final pairs = matcher.findTransferPairs(
+        unlinkedTransactions: [
+          leg('out', 'sbi', -50000, TransactionType.lending, now),
+          leg('in', 'spend', 50000, TransactionType.balanceAdjustment, now),
+        ],
+      );
+      expect(pairs, isEmpty);
+    });
+  });
+
+  test(
+    'M4: confirming a capture adopts the bank balance it reported',
+    () async {
+      await db.ingestionLogsDao.insertLog(
+        RawIngestionLogsCompanion(
+          id: const Value('log1'),
+          sourceChannel: const Value(IngestionChannel.notificationAndroid),
+          rawPayload: const Value(
+            'Rs 200.00 debited from A/c XX4012. Avl bal: Rs 777.00',
+          ),
+          receivedAt: Value(now),
+          parseStatus: const Value(ParseStatus.parsed),
+          confidenceScore: const Value(0.7),
+          createdAt: Value(now),
+        ),
+      );
+      await db.transactionsDao.insertTransaction(
+        TransactionsCompanion(
+          id: const Value('t'),
+          ingestionLogId: const Value('log1'),
+          physicalAccountId: const Value('bank'),
+          amountMinorUnits: const Value(-20000),
+          transactionType: const Value(TransactionType.expense),
+          transactionState: const Value(TransactionState.needsReview),
+          merchant: const Value('Shop'),
+          category: const Value('Other'),
+          transactionTimestamp: Value(now),
+          createdAt: Value(now),
+        ),
+      );
+      await ledger.confirm('t');
+      expect(await bal('bank'), 77700);
+    },
+  );
 }

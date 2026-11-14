@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:rivero/core/database/database.dart';
-import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
@@ -16,8 +15,13 @@ class ReviewInbox extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final pending =
-        ref.watch(pendingReviewTransactionsProvider).value ?? const [];
+    // A card bill's card side follows its bank side; it is not asked twice.
+    final pending = <LedgerTransaction>[
+      for (final t
+          in ref.watch(pendingReviewTransactionsProvider).value ??
+              const <LedgerTransaction>[])
+        if (!t.id.startsWith('cc-')) t,
+    ];
     if (pending.isEmpty) return const SizedBox.shrink();
     final privacy = ref.watch(privacyModeProvider);
 
@@ -26,10 +30,8 @@ class ReviewInbox extends ConsumerWidget {
       await ref.read(reconciliationServiceProvider).reconcileAll();
     }
 
-    Future<void> ignore(LedgerTransaction t) => ref
-        .read(databaseProvider)
-        .transactionsDao
-        .updateTransactionState(t.id, TransactionState.ignored);
+    Future<void> ignore(LedgerTransaction t) =>
+        ref.read(ledgerServiceProvider).ignore(t.id);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

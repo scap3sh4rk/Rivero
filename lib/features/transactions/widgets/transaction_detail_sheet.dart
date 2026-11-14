@@ -121,10 +121,7 @@ class _TransactionDetailSheetState
   }
 
   Future<void> _ignore() async {
-    await _db.transactionsDao.updateTransactionState(
-      widget.transaction.id,
-      TransactionState.ignored,
-    );
+    await ref.read(ledgerServiceProvider).ignore(widget.transaction.id);
     await _saveAndClose();
   }
 
