@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:rivero/core/domain/account_role.dart';
+import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/dues/dues_service.dart';
 import 'package:rivero/core/engine/spending_summary.dart';
 import 'package:rivero/core/providers/app_providers.dart';
@@ -28,9 +29,15 @@ class HomeShortcuts extends ConsumerWidget {
     final setAside = buckets
         .where((b) => b.role != AccountRole.expense)
         .fold<int>(0, (s, b) => s + b.allocatedMinorUnits);
-    final owed = DuesService.totalOutstanding(
-      ref.watch(duesProvider).value ?? const [],
-    );
+    final dues = ref.watch(duesProvider).value ?? const [];
+    final owed = DuesService.totalOutstanding(dues);
+    final owedPeople = {
+      for (final d in dues)
+        if (d.status == DueStatus.open &&
+            d.amountMinorUnits > d.receivedMinorUnits &&
+            d.kind != DueKind.borrowed)
+          d.person.trim().toLowerCase(),
+    }.length;
     final mandates = [...?ref.watch(activeMandatesProvider).value]
       ..removeWhere((m) => m.nextExecutionDate == null);
     final next = mandates.isEmpty ? null : mandates.first;
@@ -49,13 +56,16 @@ class HomeShortcuts extends ConsumerWidget {
     ).total;
     void tab(int i) => ref.read(selectedNavIndexProvider.notifier).state = i;
 
-    Widget row(Widget a, Widget b) => Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(child: a),
-        const SizedBox(width: RiveroSpacing.md),
-        Expanded(child: b),
-      ],
+    // Both tiles in a row take the taller one's height: never uneven.
+    Widget row(Widget a, Widget b) => IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(child: a),
+          const SizedBox(width: RiveroSpacing.md),
+          Expanded(child: b),
+        ],
+      ),
     );
 
     return Column(
@@ -66,13 +76,17 @@ class HomeShortcuts extends ConsumerWidget {
             label: 'PLAN',
             value: salary == 0
                 ? 'Set up'
-                : '${money((salary - setAside).clamp(0, salary))} / month',
+                : money((salary - setAside).clamp(0, salary)),
+            caption: salary == 0 ? 'Your salary plan' : 'to spend a month',
             onTap: () => BudgetsScreen.open(context),
           ),
           BentoTile(
             key: const ValueKey('home-owed'),
             label: 'OWED TO YOU',
             value: money(owed),
+            caption: owedPeople == 0
+                ? 'Nobody'
+                : '$owedPeople ${owedPeople == 1 ? 'person' : 'people'}',
             onTap: () => tab(owedTab),
           ),
         ),
@@ -81,9 +95,10 @@ class HomeShortcuts extends ConsumerWidget {
           BentoTile(
             key: const ValueKey('home-autopay'),
             label: 'NEXT AUTOPAY',
-            value: next == null
-                ? 'None'
-                : '${next.payee} · '
+            value: next == null ? 'None' : next.payee,
+            caption: next == null
+                ? 'Nothing due'
+                : '${money(next.amountMinorUnits)} · '
                       '${DateFormat('d MMM').format(next.nextExecutionDate!)}',
             onTap: () => MandatesScreen.open(context),
           ),
@@ -91,6 +106,7 @@ class HomeShortcuts extends ConsumerWidget {
             key: const ValueKey('home-spent'),
             label: 'SPENT THIS CYCLE',
             value: money(spent),
+            caption: '${cycle.daysRemaining} days to payday',
             onTap: () => tab(activityTab),
           ),
         ),
