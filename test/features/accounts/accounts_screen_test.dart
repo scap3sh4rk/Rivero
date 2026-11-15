@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/database/database_seeder.dart';
 import 'package:rivero/core/providers/app_providers.dart';
+import 'package:rivero/design_system/widgets/bank_badge.dart';
 import 'package:rivero/features/accounts/screens/account_detail_screen.dart';
 import 'package:rivero/features/accounts/screens/accounts_screen.dart';
 import 'package:rivero/features/accounts/widgets/create_account_sheet.dart';
@@ -327,6 +330,44 @@ void main() {
     expect(fd.fdRateBps, 725);
     expect(fd.balanceMinorUnits, 10000000);
     expect(fd.includeInNetWorth, isTrue);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 50));
+  });
+
+  testWidgets('an account can take one of the bank icons already added', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final dir = Directory.systemTemp.createTempSync('rivero_icons');
+    final icon = File('${dir.path}/kotak.png')..writeAsBytesSync([1, 2, 3]);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          bankIconsProvider.overrideWith((ref) => {'kotak': icon.path}),
+        ],
+        child: const MaterialApp(home: Scaffold(body: CreateAccountSheet())),
+      ),
+    );
+    await tester.pump();
+    await tester.ensureVisible(find.byKey(const ValueKey('account-bank-icon')));
+    await tester.tap(find.byKey(const ValueKey('account-bank-icon')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.byKey(const ValueKey('pick-icon-kotak')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    // The account's picture is now that icon.
+    expect(
+      tester
+          .widgetList<BankBadge>(find.byType(BankBadge))
+          .any((b) => b.imagePath == icon.path && b.size == 48),
+      isTrue,
+    );
 
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 50));

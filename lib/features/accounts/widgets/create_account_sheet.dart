@@ -310,6 +310,66 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
     }
   }
 
+  /// Picks one of the bank pictures the user added (Settings > Bank icons)
+  /// for this account.
+  Future<void> _pickBankIcon() async {
+    final icons = ref.read(bankIconsProvider).entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    final path = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: RiveroColors.surface,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(RiveroSpacing.xl),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Your bank icons', style: RiveroTypography.titleLarge),
+              const SizedBox(height: RiveroSpacing.lg),
+              Wrap(
+                spacing: RiveroSpacing.lg,
+                runSpacing: RiveroSpacing.lg,
+                children: [
+                  for (final e in icons)
+                    InkWell(
+                      key: ValueKey('pick-icon-${e.key}'),
+                      borderRadius: RiveroRadii.borderLg,
+                      onTap: () => Navigator.pop(ctx, e.value),
+                      child: SizedBox(
+                        width: 72,
+                        child: Column(
+                          children: [
+                            BankBadge(
+                              name: e.key,
+                              imagePath: e.value,
+                              size: 52,
+                            ),
+                            const SizedBox(height: RiveroSpacing.xs),
+                            Text(
+                              e.key.toUpperCase(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: RiveroTypography.labelSmall,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (path == null || !mounted) return;
+    setState(() {
+      _imagePath = path;
+      _imageChanged = true;
+    });
+  }
+
   /// Fixed deposit details: rate, opened on, matures on, and what it will
   /// be worth then.
   List<Widget> _fdFields() {
@@ -801,6 +861,14 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
                         ),
                     ],
                   ),
+                  // Pictures already added in Settings > Bank icons.
+                  if (ref.watch(bankIconsProvider).isNotEmpty)
+                    TextButton.icon(
+                      key: const ValueKey('account-bank-icon'),
+                      onPressed: _pickBankIcon,
+                      icon: const Icon(Icons.collections_outlined),
+                      label: const Text('Choose from your bank icons'),
+                    ),
                   const SizedBox(height: RiveroSpacing.lg),
                   Text('Colour', style: RiveroTypography.bodyMedium),
                   const SizedBox(height: RiveroSpacing.sm),
