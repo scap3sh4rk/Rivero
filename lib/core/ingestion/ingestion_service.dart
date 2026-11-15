@@ -1,5 +1,4 @@
 import 'package:drift/drift.dart';
-import 'package:rivero/core/database/daos/accounts_dao.dart';
 import 'package:rivero/core/database/daos/ingestion_logs_dao.dart';
 import 'package:rivero/core/database/daos/settings_dao.dart';
 import 'package:rivero/core/database/database.dart';
@@ -144,6 +143,7 @@ class IngestionService {
         accountId,
         parsed.balanceMinorUnits,
         parsed.timestamp,
+        planned.id,
       );
       return IngestionResult(
         rawLogId: logId,
@@ -191,6 +191,7 @@ class IngestionService {
           accountId,
           parsed.balanceMinorUnits,
           parsed.timestamp,
+          duplicate.id,
         );
       }
       return IngestionResult(
@@ -218,6 +219,7 @@ class IngestionService {
           accountId,
           parsed.balanceMinorUnits,
           parsed.timestamp,
+          paired,
         );
         return IngestionResult(
           rawLogId: logId,
@@ -310,6 +312,7 @@ class IngestionService {
         accountId,
         parsed.balanceMinorUnits,
         parsed.timestamp,
+        txnId,
       );
       await ReconciliationService(database: database).reconcileAll();
     }
@@ -437,17 +440,21 @@ class IngestionService {
   }
 
   /// The bank's "available balance" is the truth for a bank account.
+  /// Not for debts, and not when something newer is already known (see
+  /// LedgerService.adoptStated, which also lets deleting [entryId] undo it).
   Future<void> _adoptReportedBalance(
     String accountId,
     int? reported,
     DateTime at,
+    String entryId,
   ) async {
     if (reported == null) return;
-    final acc = await database.accountsDao.getPhysicalAccountById(accountId);
-    // Not for debts, and not when something newer is already known.
-    if (acc == null || acc.isLiability) return;
-    if (!AccountsDao.movesBalance(acc, at)) return;
-    await database.accountsDao.setKnownBalance(accountId, reported, at);
+    await LedgerService(database).adoptStated(
+      entryId: entryId,
+      accountId: accountId,
+      reported: reported,
+      at: at,
+    );
   }
 
   Future<void> _logFailed(

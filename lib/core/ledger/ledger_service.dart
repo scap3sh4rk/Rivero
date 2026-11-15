@@ -291,10 +291,37 @@ class LedgerService {
             ))
             .get();
     if (newer.isNotEmpty) return;
-    await db.accountsDao.setKnownBalance(
-      t.physicalAccountId,
-      reported,
-      t.transactionTimestamp,
+    await adoptStated(
+      entryId: t.id,
+      accountId: t.physicalAccountId,
+      reported: reported,
+      at: t.transactionTimestamp,
+    );
+  }
+
+  /// The bank says [accountId] holds [reported] as of [at], in the message
+  /// of entry [entryId]: that becomes the balance (unless something newer
+  /// is already known), and the change is counted as part of what that
+  /// entry did. So deleting the entry undoes all of it: a message that
+  /// turns out not to be real leaves the balance as it was before it.
+  Future<void> adoptStated({
+    required String entryId,
+    required String accountId,
+    required int reported,
+    required DateTime at,
+  }) async {
+    final acc = await db.accountsDao.getPhysicalAccountById(accountId);
+    if (acc == null || acc.isLiability) return;
+    if (!AccountsDao.movesBalance(acc, at)) return;
+    final before = acc.balanceMinorUnits;
+    await db.accountsDao.setKnownBalance(accountId, reported, at);
+    final delta = await _balance(accountId) - before;
+    if (delta == 0) return;
+    await db.customUpdate(
+      'UPDATE transactions SET applied_minor_units = '
+      'COALESCE(applied_minor_units, amount_minor_units) + ? WHERE id = ?',
+      variables: [Variable.withInt(delta), Variable.withString(entryId)],
+      updates: {db.transactions},
     );
   }
 

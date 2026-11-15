@@ -894,4 +894,54 @@ void main() {
       expect(await bal('ubi'), 70183);
     });
   });
+
+  // ---- deleting an entry whose message stated the balance --------------
+
+  group('Deleting a captured payment puts the balance back as it was', () {
+    String ubi(String amount) =>
+        'Union Bank of India A/c*0485 Dr Rs$amount on 15-11-26 19:19 by MB '
+        '631977745590 Fv.IRANI, Bal Rs701.83 Not U?Call 18002333/SMS BLOCK '
+        '0485 to 8879635472';
+
+    for (final amount in ['275.00', '2105.00']) {
+      test('edited test message "Dr Rs$amount ... Bal Rs701.83"', () async {
+        await account('ubi', 300000, mask: '0485'); // ₹3,000 before
+        final id = await sms(ubi(amount), sender: 'JX-UNIONB-S');
+        await ledger.confirm(id!);
+        expect(await bal('ubi'), 70183); // the bank's stated balance
+        await ledger.remove(id);
+        expect(await bal('ubi'), 300000); // as before the message
+      });
+    }
+
+    test('automatic acceptance on: the same', () async {
+      await db.settingsDao.set(SettingKeys.captureAutoAccept, '1');
+      await account('ubi', 300000, mask: '0485');
+      final id = await sms(ubi('25.00'), sender: 'JX-UNIONB-S');
+      expect(await bal('ubi'), 70183);
+      await ledger.remove(id!);
+      expect(await bal('ubi'), 300000);
+    });
+
+    test('a later payment keeps the balance it brought', () async {
+      await account('ubi', 300000, mask: '0485');
+      final first = await sms(
+        ubi('25.00'),
+        sender: 'JX-UNIONB-S',
+        ago: const Duration(hours: 1),
+      );
+      await ledger.confirm(first!);
+      await ledger.recordManual(
+        accountId: 'ubi',
+        amountMinorUnits: -10000,
+        type: TransactionType.expense,
+        merchant: 'Tea',
+        category: 'Food',
+      );
+      expect(await bal('ubi'), 60183);
+      await ledger.remove(first);
+      // The ₹100 tea stays spent; only the deleted message is undone.
+      expect(await bal('ubi'), 290000);
+    });
+  });
 }
