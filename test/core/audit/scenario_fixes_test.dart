@@ -831,6 +831,7 @@ void main() {
         'Union Bank of India A/c*0485 Dr Rs25.00 on 15-11-26 19:19 by MB '
         '631977745590 Fv.IRANI, Bal Rs701.83 Not U?Call 18002333/SMS BLOCK '
         '0485 to 8879635472';
+    final sent = DateTime(2026, 11, 15, 19, 20);
     Future<void> arrive(String id, String title) => NotificationBridge(capture)
         .ingestJson(
           jsonEncode([
@@ -839,7 +840,9 @@ void main() {
               'package': 'com.samsung.android.messaging',
               'title': title,
               'body': body,
-              'time': now.millisecondsSinceEpoch,
+              // When the SMS (dated 15-11-26 19:19) reached the phone; fixed
+              // so the test does not depend on the time of day it runs.
+              'time': sent.millisecondsSinceEpoch,
             },
           ]),
         );
@@ -878,7 +881,7 @@ void main() {
         type: TransactionType.expense,
         merchant: 'Other',
         category: 'Other',
-        at: now.subtract(const Duration(hours: 1)),
+        at: sent.subtract(const Duration(hours: 1)),
       );
       await arrive('ubi-2', '+919701122455'); // forwarded copy
       await CaptureDecisions(db).apply({
