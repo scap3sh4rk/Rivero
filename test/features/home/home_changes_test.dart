@@ -67,10 +67,11 @@ void main() {
     });
     await pump(tester, const SafeToSpendHeroCard());
     await tester.pump(const Duration(milliseconds: 900));
-    final bar = tester.widget<LinearProgressIndicator>(
-      find.byKey(const ValueKey('budget-bar')),
+    // The card's background is the battery: 7% full.
+    final fill = tester.widget<FractionallySizedBox>(
+      find.byKey(const ValueKey('budget-fill')),
     );
-    expect(bar.value, closeTo(0.07, 0.01));
+    expect(fill.widthFactor, closeTo(0.07, 0.01));
     expect(find.text('₹700.00 left of ₹10,000.00'), findsOneWidget);
     await done(tester);
   });

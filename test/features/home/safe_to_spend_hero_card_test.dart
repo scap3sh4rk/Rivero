@@ -37,8 +37,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('SAFE TO SPEND PER DAY'), findsOneWidget);
-    expect(find.text('Verified'), findsOneWidget);
-    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    // No "Verified" label; the card itself is the battery.
+    expect(find.text('Verified'), findsNothing);
+    expect(find.byType(BatteryFill), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 50));
@@ -71,19 +72,27 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
   });
 
-  test(
-    'pill stays neutral while fine, warms when low, red only for deficit',
-    () {
-      expect(SafeToSpendHeroCard.toneFor(0.9), RiveroColors.textSecondary);
-      expect(SafeToSpendHeroCard.toneFor(0.4), RiveroColors.textSecondary);
-      expect(SafeToSpendHeroCard.toneFor(0.15), RiveroColors.warning);
-      expect(SafeToSpendHeroCard.toneFor(0), RiveroColors.danger);
+  test('the battery is green when full, amber, then red when nearly empty; '
+      'text on it always stands out', () {
+    expect(SafeToSpendHeroCard.fillFor(0.9), RiveroColors.success);
+    expect(SafeToSpendHeroCard.fillFor(0.2), RiveroColors.warning);
+    expect(SafeToSpendHeroCard.fillFor(0), RiveroColors.danger);
+    double contrast(Color a, Color b) {
+      final la = a.computeLuminance();
+      final lb = b.computeLuminance();
+      return (la > lb ? la + 0.05 : lb + 0.05) /
+          (la > lb ? lb + 0.05 : la + 0.05);
+    }
+
+    for (var i = 0; i <= 20; i++) {
+      final fill = SafeToSpendHeroCard.fillFor(i / 20);
+      // WCAG AA for large text, at every level of the battery.
       expect(
-        SafeToSpendHeroCard.toneFor(0.9, deficit: true),
-        RiveroColors.danger,
+        contrast(fill, SafeToSpendHeroCard.onFillFor(fill)),
+        greaterThanOrEqualTo(4.5),
       );
-    },
-  );
+    }
+  });
 
   testWidgets('tapping the card explains the calculation line by line', (
     tester,
