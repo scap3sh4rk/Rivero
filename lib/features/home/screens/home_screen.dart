@@ -9,6 +9,7 @@ import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/features/home/widgets/backup_reminder_card.dart';
 import 'package:rivero/features/home/widgets/capture_hint_card.dart';
 import 'package:rivero/features/home/widgets/get_started_card.dart';
+import 'package:rivero/features/home/widgets/goals_home_card.dart';
 import 'package:rivero/features/home/widgets/home_shortcuts.dart';
 import 'package:rivero/features/home/widgets/review_inbox.dart';
 import 'package:rivero/features/home/widgets/safe_to_spend_hero_card.dart';
@@ -75,6 +76,7 @@ class HomeScreen extends ConsumerWidget {
             const ReviewInbox(),
             const SizedBox(height: RiveroSpacing.lg),
             const HomeShortcuts(),
+            const GoalsHomeCard(),
           ],
         ),
       ),

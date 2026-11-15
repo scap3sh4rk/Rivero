@@ -163,7 +163,8 @@ Future<String?> _pdfText(BuildContext context, String path) async {
         ],
       ),
     );
-    c.dispose();
+    // ponytail: not disposed here, the dialog may still be animating out
+    // and use it; it holds no listeners afterwards and is collected.
     if (password == null || password.isEmpty) return null;
   }
 }
