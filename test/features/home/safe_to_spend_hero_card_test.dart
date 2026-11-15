@@ -84,14 +84,25 @@ void main() {
           (la > lb ? lb + 0.05 : la + 0.05);
     }
 
-    for (var i = 0; i <= 20; i++) {
-      final fill = SafeToSpendHeroCard.fillFor(i / 20);
-      // WCAG AA for large text, at every level of the battery.
-      expect(
-        contrast(fill, SafeToSpendHeroCard.onFillFor(fill)),
-        greaterThanOrEqualTo(4.5),
-      );
+    // The text keeps one colour; it must read well on the fill at every
+    // level and on the empty part, in both themes.
+    for (final light in [false, true]) {
+      RiveroColors.isLight = light;
+      for (var i = 0; i <= 20; i++) {
+        final bg = SafeToSpendHeroCard.shownFill(i / 20);
+        expect(
+          contrast(bg, RiveroColors.textPrimary),
+          greaterThanOrEqualTo(4.5),
+          reason: 'main text, level ${i / 20}, light $light',
+        );
+        expect(
+          contrast(bg, RiveroColors.textSecondary),
+          greaterThanOrEqualTo(3),
+          reason: 'small text, level ${i / 20}, light $light',
+        );
+      }
     }
+    RiveroColors.isLight = false;
   });
 
   testWidgets('tapping the card explains the calculation line by line', (

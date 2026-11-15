@@ -188,6 +188,7 @@ class _CaptureLogScreenState extends ConsumerState<CaptureLogScreen> {
     return Scaffold(
       backgroundColor: RiveroColors.background,
       appBar: RiveroAppBar(
+        showEye: false, // the hide-amounts eye is for money pages
         title: 'Recent captures',
         showProfile: false,
         leading: BackButton(onPressed: () => Navigator.of(context).pop()),

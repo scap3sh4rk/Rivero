@@ -349,6 +349,7 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen>
     return Scaffold(
       backgroundColor: RiveroColors.background,
       appBar: RiveroAppBar(
+        showEye: false, // the hide-amounts eye is for money pages
         title: 'Log',
         actions: [
           IconButton(

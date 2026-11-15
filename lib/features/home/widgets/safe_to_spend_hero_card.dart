@@ -30,21 +30,16 @@ class SafeToSpendHeroCard extends ConsumerWidget {
     return Color.lerp(RiveroColors.danger, RiveroColors.warning, r / 0.2)!;
   }
 
-  /// Text drawn over the fill: near-black or white, whichever stands out
-  /// more against [fill] (WCAG contrast), so it is always readable.
-  static Color onFillFor(Color fill) {
-    const dark = Color(0xFF0B0B0F);
-    double contrast(Color a, Color b) {
-      final la = a.computeLuminance();
-      final lb = b.computeLuminance();
-      return (la > lb ? la + 0.05 : lb + 0.05) /
-          (la > lb ? lb + 0.05 : la + 0.05);
-    }
+  /// How strong the battery's colour is over the card. Light enough that
+  /// the card's own text colours read well on it, so text never changes
+  /// colour where the fill ends.
+  static const fillStrength = 0.32;
 
-    return contrast(fill, dark) >= contrast(fill, Colors.white)
-        ? dark
-        : Colors.white;
-  }
+  /// The fill as it looks on the card (the level's colour over the card).
+  static Color shownFill(double remaining) => Color.alphaBlend(
+    fillFor(remaining).withValues(alpha: fillStrength),
+    RiveroColors.surfaceElevated,
+  );
 
   static bool _spendingOutOfDate(WidgetRef ref) {
     final stale = ref.watch(balanceToUpdateProvider);
@@ -99,7 +94,7 @@ class SafeToSpendHeroCard extends ConsumerWidget {
                   'SAFE TO SPEND PER DAY',
                   style: RiveroTypography.labelSmall.copyWith(
                     letterSpacing: 1.6,
-                    color: RiveroColors.textMuted,
+                    color: RiveroColors.textSecondary,
                   ),
                 ),
               ),
@@ -111,7 +106,7 @@ class SafeToSpendHeroCard extends ConsumerWidget {
               Icon(
                 Icons.info_outline_rounded,
                 size: 16,
-                color: RiveroColors.textMuted,
+                color: RiveroColors.textSecondary,
               ),
             ],
           ),
@@ -211,11 +206,9 @@ class SafeToSpendHeroCard extends ConsumerWidget {
   }
 }
 
-/// A card background that fills from the left like a battery, with a
-/// gradient in the level's colour. Over the filled part the content is
-/// recoloured, through a hard-edged shader, in one colour that stands out
-/// against the fill; elsewhere it keeps its own colours. Text stays readable
-/// wherever the edge of the fill falls.
+/// A card background that fills from the left like a battery: a light
+/// tint of the level's colour (deeper at the left), over which the card's
+/// own text stays readable everywhere.
 class BatteryFill extends StatelessWidget {
   const BatteryFill({required this.level, required this.child, super.key});
 
@@ -227,7 +220,7 @@ class BatteryFill extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = level.clamp(0.0, 1.0);
     final fill = SafeToSpendHeroCard.fillFor(l);
-    final onFill = SafeToSpendHeroCard.onFillFor(fill);
+    const a = SafeToSpendHeroCard.fillStrength;
     return Stack(
       children: [
         Positioned.fill(
@@ -240,23 +233,17 @@ class BatteryFill extends StatelessWidget {
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Color.lerp(fill, Colors.black, 0.18)!, fill],
+                    colors: [
+                      fill.withValues(alpha: a + 0.06),
+                      fill.withValues(alpha: a),
+                    ],
                   ),
                 ),
               ),
             ),
           ),
         ),
-        ShaderMask(
-          // srcATop paints the shader only where the content has pixels:
-          // the on-fill colour left of the edge, nothing (own colours) right.
-          blendMode: BlendMode.srcATop,
-          shaderCallback: (bounds) => LinearGradient(
-            colors: [onFill, onFill, Colors.transparent, Colors.transparent],
-            stops: [0, l, l, 1],
-          ).createShader(bounds),
-          child: child,
-        ),
+        child,
       ],
     );
   }

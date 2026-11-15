@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
+import 'package:rivero/features/goals/goals_screen.dart';
 import 'package:rivero/features/home/home_widgets.dart';
 
 /// Settings > Home screen: which cards sit under Safe to spend, and in what
@@ -17,6 +18,8 @@ class HomeWidgetsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final chosen = HomeWidget.chosen(ref.watch(homeWidgetsProvider));
+    // Goals can only go on Home once there is a goal to show.
+    final hasGoals = (ref.watch(goalsProvider).value ?? const []).isNotEmpty;
     // Chosen ones first in their order, then the rest.
     final all = [
       ...chosen,
@@ -31,6 +34,7 @@ class HomeWidgetsScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: RiveroColors.background,
       appBar: RiveroAppBar(
+        showEye: false, // the hide-amounts eye is for money pages
         title: 'Home screen',
         showProfile: false,
         leading: BackButton(onPressed: () => Navigator.of(context).pop()),
@@ -63,17 +67,24 @@ class HomeWidgetsScreen extends ConsumerWidget {
                 SwitchListTile(
                   key: ValueKey('home-widget-${w.name}'),
                   title: Text(w.label),
-                  subtitle: Text(w.description),
-                  secondary: const Icon(Icons.drag_handle_rounded),
-                  value: chosen.contains(w),
-                  onChanged: (on) => set(
-                    on
-                        ? [...chosen, w]
-                        : [
-                            for (final x in chosen)
-                              if (x != w) x,
-                          ],
+                  subtitle: Text(
+                    w == HomeWidget.goals && !hasGoals
+                        ? 'Set a goal first: Plan > Goals'
+                        : w.description,
                   ),
+                  secondary: const Icon(Icons.drag_handle_rounded),
+                  value:
+                      chosen.contains(w) && (w != HomeWidget.goals || hasGoals),
+                  onChanged: w == HomeWidget.goals && !hasGoals
+                      ? null
+                      : (on) => set(
+                          on
+                              ? [...chosen, w]
+                              : [
+                                  for (final x in chosen)
+                                    if (x != w) x,
+                                ],
+                        ),
                 ),
             ],
           ),

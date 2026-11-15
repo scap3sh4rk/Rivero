@@ -57,6 +57,7 @@ class AccountTypesScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: RiveroColors.background,
       appBar: RiveroAppBar(
+        showEye: false, // the hide-amounts eye is for money pages
         title: 'Account types',
         showProfile: false,
         leading: BackButton(onPressed: () => Navigator.of(context).pop()),

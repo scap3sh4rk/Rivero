@@ -124,9 +124,11 @@ class AppTour extends ConsumerStatefulWidget {
   ];
 
   /// Shows the tour above everything, also above the pages it opens.
+  /// Works from any context, also the Navigator's own (Settings closes
+  /// itself and starts the tour from there).
   static void show(BuildContext context) {
-    final overlay = Overlay.of(context, rootOverlay: true);
     final navigator = Navigator.of(context, rootNavigator: true);
+    final overlay = navigator.overlay!;
     late final OverlayEntry entry;
     entry = OverlayEntry(
       builder: (_) => AppTour(navigator: navigator, onClose: entry.remove),
@@ -140,6 +142,15 @@ class AppTour extends ConsumerStatefulWidget {
 
 class _AppTourState extends ConsumerState<AppTour> {
   int _i = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Start on the first step's tab (Home), wherever the tour was opened.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _go(0);
+    });
+  }
 
   /// The pages the tour has opened, bottom first.
   final List<_Page> _open = [];

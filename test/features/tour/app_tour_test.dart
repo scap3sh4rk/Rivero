@@ -8,6 +8,7 @@ import 'package:rivero/features/budgets/screens/budgets_screen.dart';
 import 'package:rivero/features/goals/goals_screen.dart';
 import 'package:rivero/features/home/widgets/get_started_card.dart';
 import 'package:rivero/features/mandates/mandates_screen.dart';
+import 'package:rivero/features/settings/screens/settings_screen.dart';
 import 'package:rivero/main.dart';
 
 import '../../test_helper.dart';
@@ -93,6 +94,51 @@ void main() {
       await tester.runAsync(() => db.settingsDao.get(SettingKeys.tourDone)),
       '1',
     );
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 100));
+  });
+
+  testWidgets('Take the tour in Settings closes Settings and starts the tour '
+      'on Home', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final db = RiveroDatabase.memory();
+    addTearDown(db.close);
+    await tester.runAsync(() => db.settingsDao.set(SettingKeys.tourDone, '1'));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [databaseProvider.overrideWithValue(db)],
+        child: const RiveroApp(),
+      ),
+    );
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 300)),
+    );
+    await tester.pump(const Duration(milliseconds: 1200));
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(MaterialApp)),
+    );
+    await container.read(settingsSyncProvider).load();
+    await tester.pump(const Duration(milliseconds: 1200));
+    expect(find.byKey(const ValueKey('tour-card')), findsNothing);
+    // On Activity, open Settings and take the tour.
+    container.read(selectedNavIndexProvider.notifier).state = 4;
+    await tester.pump(const Duration(milliseconds: 600));
+    tester
+        .state<NavigatorState>(find.byType(Navigator).first)
+        .push(MaterialPageRoute<void>(builder: (_) => const SettingsScreen()));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    // Settings is short now: the row is on screen.
+    await tester.tap(find.text('Take the tour'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 800));
+    expect(find.byKey(const ValueKey('tour-card')), findsOneWidget);
+    expect(find.text('Welcome to Rivero'), findsOneWidget);
+    expect(container.read(selectedNavIndexProvider), 2); // Home
 
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 100));

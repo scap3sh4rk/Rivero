@@ -89,6 +89,7 @@ class _SectionPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) => Scaffold(
     backgroundColor: RiveroColors.background,
     appBar: RiveroAppBar(
+      showEye: false, // the hide-amounts eye is for money pages
       title: section.title,
       showProfile: false,
       leading: BackButton(onPressed: () => Navigator.of(context).pop()),
@@ -162,6 +163,7 @@ class SettingsScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: RiveroColors.background,
       appBar: RiveroAppBar(
+        showEye: false, // the hide-amounts eye is for money pages
         title: 'Settings',
         showProfile: false,
         leading: Navigator.of(context).canPop()
@@ -191,7 +193,8 @@ class SettingsScreen extends ConsumerWidget {
             title: 'Take the tour',
             subtitle: 'A quick walk through every part of Rivero',
             onTap: () {
-              final nav = Navigator.of(context)..pop();
+              // Close Settings, back to the tabs, then start the tour.
+              final nav = Navigator.of(context)..popUntil((r) => r.isFirst);
               AppTour.show(nav.context);
             },
           ),

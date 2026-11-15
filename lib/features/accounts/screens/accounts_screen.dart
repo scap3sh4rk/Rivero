@@ -782,8 +782,9 @@ class _CardsSummary extends StatelessWidget {
     final a = afford;
     if (a.owed == 0) return const SizedBox.shrink();
     final color = a.canPay ? RiveroColors.success : RiveroColors.danger;
+    // Space above and below: it never touches the first card.
     return Padding(
-      padding: const EdgeInsets.only(top: RiveroSpacing.lg),
+      padding: const EdgeInsets.only(bottom: RiveroSpacing.md),
       child: RiveroCard(
         key: const ValueKey('cards-summary'),
         child: Row(

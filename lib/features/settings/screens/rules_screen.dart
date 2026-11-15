@@ -64,6 +64,7 @@ class _RulesScreenState extends ConsumerState<RulesScreen> {
     return Scaffold(
       backgroundColor: RiveroColors.background,
       appBar: RiveroAppBar(
+        showEye: false, // the hide-amounts eye is for money pages
         title: 'Rules',
         showProfile: false,
         leading: BackButton(onPressed: () => Navigator.of(context).pop()),

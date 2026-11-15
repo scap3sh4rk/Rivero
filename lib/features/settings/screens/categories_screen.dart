@@ -72,6 +72,7 @@ class CategoriesScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: RiveroColors.background,
       appBar: RiveroAppBar(
+        showEye: false, // the hide-amounts eye is for money pages
         title: 'Categories',
         showProfile: false,
         leading: BackButton(onPressed: () => Navigator.of(context).pop()),
