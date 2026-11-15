@@ -633,7 +633,7 @@ class _DueSheetState extends ConsumerState<_DueSheet> {
               prefixText: '₹',
             ),
           ),
-          const SizedBox(height: RiveroSpacing.md),
+          const SizedBox(height: RiveroSpacing.field),
           PickerField<String?>(
             label: 'Paid from',
             value: _paidFrom,
@@ -867,7 +867,7 @@ class _MoneySheetState extends ConsumerState<_MoneySheet> {
             textCapitalization: TextCapitalization.words,
             decoration: InputDecoration(labelText: borrowing ? 'From' : 'To'),
           ),
-          const SizedBox(height: RiveroSpacing.md),
+          const SizedBox(height: RiveroSpacing.field),
           TextField(
             key: const ValueKey('lend-amount'),
             controller: _amount,
@@ -877,7 +877,7 @@ class _MoneySheetState extends ConsumerState<_MoneySheet> {
               prefixText: '₹',
             ),
           ),
-          const SizedBox(height: RiveroSpacing.md),
+          const SizedBox(height: RiveroSpacing.field),
           PickerField<String?>(
             label: borrowing ? 'Received in' : 'From',
             value: _accountId,
@@ -950,7 +950,7 @@ class _MoneySheetState extends ConsumerState<_MoneySheet> {
               ),
             ),
           ],
-          const SizedBox(height: RiveroSpacing.md),
+          const SizedBox(height: RiveroSpacing.field),
           TextField(
             controller: _note,
             decoration: const InputDecoration(hintText: 'Note (optional)'),

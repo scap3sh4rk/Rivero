@@ -160,7 +160,7 @@ class _AddFromMessageSheetState extends ConsumerState<AddFromMessageSheet> {
                 ),
               ],
             ),
-            const SizedBox(height: RiveroSpacing.md),
+            const SizedBox(height: RiveroSpacing.field),
             if (accounts.isNotEmpty)
               PickerField<String>(
                 key: const ValueKey('msg-account'),
@@ -195,7 +195,7 @@ class _AddFromMessageSheetState extends ConsumerState<AddFromMessageSheet> {
                 ],
               ),
             ],
-            const SizedBox(height: RiveroSpacing.md),
+            const SizedBox(height: RiveroSpacing.field),
             TextField(
               key: const ValueKey('msg-note'),
               controller: _note,

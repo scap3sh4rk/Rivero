@@ -59,7 +59,7 @@ class ExchangeRatesScreen extends ConsumerWidget {
             ),
           for (final c in codes)
             Padding(
-              padding: const EdgeInsets.only(bottom: RiveroSpacing.md),
+              padding: const EdgeInsets.only(bottom: RiveroSpacing.field),
               child: TextFormField(
                 key: ValueKey('rate-$c'),
                 initialValue: _rupees(rates.paisePerUnit[c]),

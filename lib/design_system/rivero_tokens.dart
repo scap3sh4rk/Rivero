@@ -109,6 +109,9 @@ abstract final class RiveroSpacing {
   static const double xxl = 24;
   static const double xxxl = 32;
   static const double huge = 48;
+
+  /// Between two input fields in a form, so each reads as its own box.
+  static const double field = 16;
 }
 
 /// Border radius scale.
@@ -393,9 +396,10 @@ abstract final class RiveroTheme {
           borderRadius: RiveroRadii.borderMd,
           borderSide: BorderSide.none,
         ),
-        enabledBorder: const OutlineInputBorder(
+        // A faint outline: fields next to each other never blend together.
+        enabledBorder: OutlineInputBorder(
           borderRadius: RiveroRadii.borderMd,
-          borderSide: BorderSide.none,
+          borderSide: BorderSide(color: RiveroColors.borderSubtle),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: RiveroRadii.borderMd,

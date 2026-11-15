@@ -431,6 +431,7 @@ class _GoalEditorState extends ConsumerState<GoalEditor> {
             decoration: const InputDecoration(labelText: 'Goal'),
             onChanged: (_) => setState(() {}),
           ),
+          const SizedBox(height: RiveroSpacing.field),
           TextField(
             key: const ValueKey('goal-target'),
             controller: _target,
@@ -569,6 +570,7 @@ class _AssetDialogState extends State<_AssetDialog> {
             hintText: 'Cash at home, Infosys shares, gold',
           ),
         ),
+        const SizedBox(height: RiveroSpacing.field),
         TextField(
           key: const ValueKey('asset-value'),
           controller: _value,

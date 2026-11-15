@@ -301,7 +301,12 @@ void main() {
     await tester.tap(find.text('Account type'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-    await tester.tap(find.text('Fixed Deposit').last);
+    // A real dropdown under the field: scroll it to Fixed Deposit.
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('pick-Fixed Deposit')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('pick-Fixed Deposit')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     // FD-only questions appear.

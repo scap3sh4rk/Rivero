@@ -563,6 +563,7 @@ class _MandateSheetState extends ConsumerState<_MandateSheet> {
                 }
               },
             ),
+            const SizedBox(height: RiveroSpacing.field),
             TextField(
               key: const ValueKey('autopay-amount'),
               controller: _amount,
@@ -571,12 +572,14 @@ class _MandateSheetState extends ConsumerState<_MandateSheet> {
               ),
               decoration: const InputDecoration(labelText: 'Amount (₹)'),
             ),
+            const SizedBox(height: RiveroSpacing.field),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('Amount varies (amount is the cap)'),
               value: _variable,
               onChanged: (v) => setState(() => _variable = v),
             ),
+            const SizedBox(height: RiveroSpacing.field),
             PickerField<MandateFrequency>(
               label: 'How often',
               value: _frequency,
@@ -586,7 +589,7 @@ class _MandateSheetState extends ConsumerState<_MandateSheet> {
               ],
               onChanged: (v) => setState(() => _frequency = v),
             ),
-            const SizedBox(height: RiveroSpacing.sm),
+            const SizedBox(height: RiveroSpacing.field),
             if (accounts.isNotEmpty)
               PickerField<String>(
                 label: 'Taken from',

@@ -11,6 +11,7 @@ import 'package:rivero/core/storage/media_store.dart';
 import 'package:rivero/core/utils/amount_parser.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/bank_badge.dart';
+import 'package:rivero/design_system/widgets/color_swatch_picker.dart';
 import 'package:rivero/design_system/widgets/photo_picker.dart';
 import 'package:rivero/design_system/widgets/picker.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
@@ -416,6 +417,7 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
             : null,
         onChanged: (_) => setState(() {}),
       ),
+      const SizedBox(height: RiveroSpacing.sm),
       Row(
         children: [
           Expanded(
@@ -769,16 +771,15 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
                       ),
                     ),
                   ] else ...[
-                    DropdownButtonFormField<String>(
+                    PickerField<String>(
                       key: const ValueKey('account-currency'),
-                      initialValue: _currency,
-                      decoration: const InputDecoration(labelText: 'Currency'),
-                      items: [
+                      label: 'Currency',
+                      value: _currency,
+                      options: [
                         for (final c in currencySymbols.keys)
-                          DropdownMenuItem(value: c, child: Text(c)),
+                          PickerOption(c, c),
                       ],
-                      onChanged: (v) =>
-                          setState(() => _currency = v ?? homeCurrency),
+                      onChanged: (v) => setState(() => _currency = v),
                     ),
                     const SizedBox(height: RiveroSpacing.md),
                     Text(
@@ -872,30 +873,10 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
                   const SizedBox(height: RiveroSpacing.lg),
                   Text('Colour', style: RiveroTypography.bodyMedium),
                   const SizedBox(height: RiveroSpacing.sm),
-                  Wrap(
-                    spacing: RiveroSpacing.sm,
-                    runSpacing: RiveroSpacing.sm,
-                    children: [
-                      for (final c in RiveroColors.categorical)
-                        GestureDetector(
-                          key: ValueKey('account-color-${c.toARGB32()}'),
-                          onTap: () => setState(() => _color = c.toARGB32()),
-                          child: Container(
-                            width: 30,
-                            height: 30,
-                            decoration: BoxDecoration(
-                              color: c,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                width: 3,
-                                color: _color == c.toARGB32()
-                                    ? RiveroColors.textPrimary
-                                    : Colors.transparent,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
+                  ColorSwatchPicker(
+                    keyPrefix: 'account-color',
+                    selected: _color,
+                    onPick: (c) => setState(() => _color = c),
                   ),
                   const SizedBox(height: RiveroSpacing.xl),
 

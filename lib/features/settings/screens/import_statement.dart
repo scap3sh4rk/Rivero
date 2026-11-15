@@ -10,6 +10,7 @@ import 'package:rivero/core/import/statement_text_parser.dart';
 import 'package:rivero/core/ingestion/platform/notification_bridge.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
+import 'package:rivero/design_system/rivero_tokens.dart';
 
 /// Pick an account and a PDF (Android) or CSV statement, preview, import.
 Future<void> importStatement(BuildContext context, WidgetRef ref) async {
@@ -142,6 +143,7 @@ Future<String?> _pdfText(BuildContext context, String path) async {
               'your name and date of birth). It is used once to open the '
               'file and is not saved.',
             ),
+            const SizedBox(height: RiveroSpacing.field),
             TextField(
               key: const ValueKey('pdf-password'),
               controller: c,

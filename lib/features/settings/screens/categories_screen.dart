@@ -6,6 +6,7 @@ import 'package:rivero/core/domain/log_category.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/account_color.dart';
+import 'package:rivero/design_system/widgets/color_swatch_picker.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/design_system/widgets/rivero_fab.dart';
 
@@ -164,29 +165,10 @@ class _CategoryDialogState extends State<_CategoryDialog> {
             ),
           ),
           const SizedBox(height: RiveroSpacing.md),
-          Wrap(
-            spacing: RiveroSpacing.sm,
-            runSpacing: RiveroSpacing.sm,
-            children: [
-              for (final c in RiveroColors.categorical)
-                GestureDetector(
-                  onTap: () => setState(() => _color = c.toARGB32()),
-                  child: Container(
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      color: c,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        width: 3,
-                        color: _color == c.toARGB32()
-                            ? RiveroColors.textPrimary
-                            : Colors.transparent,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
+          ColorSwatchPicker(
+            keyPrefix: 'category-color',
+            selected: _color,
+            onPick: (c) => setState(() => _color = c),
           ),
         ],
       ),

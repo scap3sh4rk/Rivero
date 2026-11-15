@@ -102,7 +102,7 @@ class _SalaryPlanScreenState extends ConsumerState<SalaryPlanScreen> {
                 hintText: 'Rent, Family, Loan EMI…',
               ),
             ),
-            const SizedBox(height: RiveroSpacing.md),
+            const SizedBox(height: RiveroSpacing.field),
             TextField(
               key: const ValueKey('cat-amount'),
               controller: amount,
@@ -399,14 +399,14 @@ class _SalaryPlanScreenState extends ConsumerState<SalaryPlanScreen> {
             ),
           ),
           if (accounts.length > 1) ...[
-            const SizedBox(height: RiveroSpacing.sm),
+            const SizedBox(height: RiveroSpacing.field),
             PickerField<String>(
               label: 'Salary arrives in',
               value: salaryAcc?.id,
               options: [for (final a in accounts) PickerOption(a.id, a.name)],
               onChanged: (v) => setState(() => _salaryId = v),
             ),
-            const SizedBox(height: RiveroSpacing.md),
+            const SizedBox(height: RiveroSpacing.field),
             PickerField<String>(
               label: 'Spending money goes to',
               value: spendingAcc?.id,
