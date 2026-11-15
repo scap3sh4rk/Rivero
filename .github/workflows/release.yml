@@ -35,6 +35,9 @@ jobs:
       - run: find lib -name '*.g.dart' -print0 | xargs -0 dart format
       - run: ./tool/verify.sh
 
+      # Tag: v<major.minor.patch from pubspec>-<build number>, e.g. v1.0.0-12.
+      # Bump the pubspec version (1.x.x) for each release worth naming; the
+      # build number always grows, so Android installs it as an update.
       - name: Version from pubspec
         id: version
         run: |
