@@ -137,12 +137,13 @@ class SafeToSpendHeroCard extends ConsumerWidget {
             builder: (context, color, _) => ClipRRect(
               borderRadius: RiveroRadii.borderFull,
               child: TweenAnimationBuilder<double>(
-                tween: Tween(end: (1 - remaining).clamp(0.0, 1.0)),
+                // How much is LEFT: ₹700 of ₹10,000 is a nearly empty bar.
+                tween: Tween(end: remaining.clamp(0.0, 1.0)),
                 duration: const Duration(milliseconds: 700),
                 curve: Curves.easeOutCubic,
-                builder: (context, used, _) => LinearProgressIndicator(
+                builder: (context, left, _) => LinearProgressIndicator(
                   key: const ValueKey('budget-bar'),
-                  value: used,
+                  value: left,
                   minHeight: 6,
                   backgroundColor: RiveroColors.surfaceInteractive,
                   valueColor: AlwaysStoppedAnimation<Color>(color ?? tone),

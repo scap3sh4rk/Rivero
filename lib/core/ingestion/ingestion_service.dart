@@ -57,7 +57,7 @@ class IngestionService {
         RawIngestionLogsCompanion(
           id: Value(logId),
           sourceChannel: Value(notification.channel),
-          senderHeader: Value(notification.sender ?? notification.packageName),
+          senderHeader: Value(_sender(notification)),
           sourcePackage: Value(notification.packageName),
           rawPayload: Value(notification.body),
           receivedAt: Value(notification.receivedAt),
@@ -104,7 +104,7 @@ class IngestionService {
       RawIngestionLogsCompanion(
         id: Value(logId),
         sourceChannel: Value(notification.channel),
-        senderHeader: Value(notification.sender ?? notification.packageName),
+        senderHeader: Value(_sender(notification)),
         sourcePackage: Value(notification.packageName),
         rawPayload: Value(notification.body),
         receivedAt: Value(notification.receivedAt),
@@ -137,7 +137,7 @@ class IngestionService {
       )..where((t) => t.id.equals(planned.id))).write(
         TransactionsCompanion(
           transactionState: const Value(TransactionState.reconciled),
-          referenceNumber: Value(parsed.referenceNumber),
+          referenceNumber: Value(_fit(parsed.referenceNumber, 80)),
         ),
       );
       await _adoptReportedBalance(
@@ -168,7 +168,9 @@ class IngestionService {
         await (database.update(
           database.transactions,
         )..where((t) => t.id.equals(duplicate.id))).write(
-          TransactionsCompanion(referenceNumber: Value(parsed.referenceNumber)),
+          TransactionsCompanion(
+            referenceNumber: Value(_fit(parsed.referenceNumber, 80)),
+          ),
         );
       }
       // The payment app guessed the account; the bank's message names it.
@@ -279,14 +281,12 @@ class IngestionService {
               : parsed.suggestedTransactionType,
         ),
         transactionState: Value(state),
-        merchant: Value(parsed.merchant ?? 'Unknown Merchant'),
+        merchant: Value(_fit(parsed.merchant, 120) ?? 'Unknown Merchant'),
         category: Value(
-          category?.name ??
-              rule?.category ??
-              parsed.category ??
+          _fit(category?.name ?? rule?.category ?? parsed.category, 60) ??
               'General Expense',
         ),
-        referenceNumber: Value(parsed.referenceNumber),
+        referenceNumber: Value(_fit(parsed.referenceNumber, 80)),
         transactionTimestamp: Value(parsed.timestamp),
         createdAt: Value(now),
       ),
@@ -339,7 +339,7 @@ class IngestionService {
       RawIngestionLogsCompanion(
         id: Value(logId),
         sourceChannel: Value(notification.channel),
-        senderHeader: Value(notification.sender ?? notification.packageName),
+        senderHeader: Value(_sender(notification)),
         sourcePackage: Value(notification.packageName),
         // Never persist one-time passwords.
         rawPayload: Value(
@@ -459,7 +459,7 @@ class IngestionService {
     RawIngestionLogsCompanion(
       id: Value(logId),
       sourceChannel: Value(notification.channel),
-      senderHeader: Value(notification.sender ?? notification.packageName),
+      senderHeader: Value(_sender(notification)),
       sourcePackage: Value(notification.packageName),
       rawPayload: Value(notification.body),
       receivedAt: Value(notification.receivedAt),
@@ -469,6 +469,19 @@ class IngestionService {
       createdAt: Value(now),
     ),
   );
+
+  /// Who sent it, as stored on its log: the SMS sender or the app's title
+  /// (or package). Never empty and never longer than the column allows,
+  /// or saving it would fail and the whole notification would be lost.
+  static String? _sender(RawNotification n) =>
+      _fit(n.sender, 50) ?? _fit(n.packageName, 50);
+
+  /// [s] trimmed to at most [max] characters; null when empty.
+  static String? _fit(String? s, int max) {
+    final t = s?.trim();
+    if (t == null || t.isEmpty) return null;
+    return t.length <= max ? t : t.substring(0, max);
+  }
 
   /// Real last digits. All zeros is the placeholder older versions saved
   /// when the digits were left empty: not digits Rivero knows.
@@ -545,9 +558,9 @@ class IngestionService {
     await database.accountsDao.upsertPhysicalAccount(
       PhysicalAccountsCompanion(
         id: Value(newId),
-        name: Value(_accountName(parsed, card: card)),
-        institution: Value(parsed.financialInstitution ?? 'Bank'),
-        accountMask: Value(parsed.accountMask ?? '••••'),
+        name: Value(_fit(_accountName(parsed, card: card), 100)!),
+        institution: Value(_fit(parsed.financialInstitution, 50) ?? 'Bank'),
+        accountMask: Value(_fit(parsed.accountMask, 20) ?? '••••'),
         isLiability: Value(card),
         accountType: Value(
           card ? StandardAccountTypes.creditCard : StandardAccountTypes.savings,
@@ -801,7 +814,7 @@ class IngestionService {
           ),
           merchant: Value('Card bill: ${card.name}'),
           category: const Value('Card bill'),
-          referenceNumber: Value(parsed.referenceNumber),
+          referenceNumber: Value(_fit(parsed.referenceNumber, 80)),
           transactionTimestamp: Value(parsed.timestamp),
           createdAt: Value(DateTime.now()),
           isInternalTransfer: const Value(true),

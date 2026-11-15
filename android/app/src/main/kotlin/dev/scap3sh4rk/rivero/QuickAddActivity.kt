@@ -29,6 +29,7 @@ import android.widget.Toast
 class QuickAddActivity : Activity() {
     private var selected: String? = null
     private val chips = mutableListOf<TextView>()
+    private var addButton: TextView? = null
 
     // Rivero's "Ink & Sky" dark palette.
     private val surface = Color.parseColor("#18181B")
@@ -50,6 +51,14 @@ class QuickAddActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Opens over the lock screen: pick a category and add it without
+        // unlocking. Only this payment is shown, never the rest of Rivero.
+        if (Build.VERSION.SDK_INT >= 27) {
+            setShowWhenLocked(true)
+        } else {
+            @Suppress("DEPRECATION")
+            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED)
+        }
         val id = intent.getStringExtra(CaptureNotifier.EXTRA_ID)
         if (id == null) {
             finish()
@@ -97,7 +106,14 @@ class QuickAddActivity : Activity() {
             setPadding(0, dp(6), 0, dp(16))
         })
 
-        // Category chips (the same categories as the Log screen).
+        card.addView(TextView(this).apply {
+            this.text = "Pick a category"
+            setTextColor(muted)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            setPadding(0, 0, 0, dp(8))
+        })
+        // Category chips (the same categories as the Log screen). A category
+        // is required; the description is extra.
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         for (name in CaptureNotifier.categories(this)) {
             val chip = TextView(this).apply {
@@ -123,7 +139,7 @@ class QuickAddActivity : Activity() {
         })
 
         val note = EditText(this).apply {
-            hint = "Add a note (optional)"
+            hint = "Description (optional)"
             setHintTextColor(muted)
             setTextColor(this@QuickAddActivity.text)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
@@ -159,12 +175,16 @@ class QuickAddActivity : Activity() {
         val weight = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         buttons.addView(button("Ignore", false) { decide(id, "ignore", null, null) }, weight)
         buttons.addView(View(this), LinearLayout.LayoutParams(dp(12), 1))
-        buttons.addView(
-            button("Add", true) {
+        val add = button("Add", true) {
+            if (selected == null) {
+                Toast.makeText(this, "Pick a category first", Toast.LENGTH_SHORT).show()
+            } else {
                 decide(id, "accept", selected, note.text?.toString()?.trim()?.ifEmpty { null })
-            },
-            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
-        )
+            }
+        }
+        addButton = add
+        buttons.addView(add, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        refreshAdd()
         card.addView(buttons)
 
         // Keep the card above the keyboard (and the navigation bar). On
@@ -191,6 +211,12 @@ class QuickAddActivity : Activity() {
             chip.background = pill(if (on) accent else chipBg)
             chip.setTextColor(if (on) onAccent else text)
         }
+        refreshAdd()
+    }
+
+    /** Add looks enabled only once a category is picked. */
+    private fun refreshAdd() {
+        addButton?.alpha = if (selected == null) 0.45f else 1f
     }
 
     private fun decide(id: String, action: String, category: String?, note: String?) {

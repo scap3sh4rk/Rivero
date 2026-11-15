@@ -8,6 +8,7 @@ import 'package:rivero/core/ingestion/message_redactor.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
+import 'package:rivero/features/home/widgets/add_from_message_sheet.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Bank messages Rivero could not read. Shown so a real payment is never
@@ -109,29 +110,26 @@ class UnreadableSheet extends ConsumerWidget {
                               child: FilledButton(
                                 key: ValueKey('add-${l.id}'),
                                 onPressed: () async {
-                                  // Open Log with what Rivero could read of
-                                  // the message already filled in.
-                                  // Plus the category and note picked on
-                                  // its notification, if Add was tapped.
+                                  // Add it right here: the amount Rivero
+                                  // found, plus the category and note
+                                  // picked on its notification, if any.
                                   final db = ref.read(databaseProvider);
                                   final choices =
                                       await CaptureDecisions.unreadableChoices(
                                         db,
                                       );
-                                  ref.read(logPrefillProvider.notifier).state =
-                                      LogPrefill.fromMessage(l.rawPayload)
-                                          .withChoice(
-                                            (choices[l.id] as Map?)
-                                                ?.cast<String, dynamic>(),
-                                          );
-                                  await dismiss(l.id);
-                                  ref
-                                          .read(
-                                            selectedNavIndexProvider.notifier,
-                                          )
-                                          .state =
-                                      logTab;
-                                  if (context.mounted) Navigator.pop(context);
+                                  if (!context.mounted) return;
+                                  final added = await AddFromMessageSheet.show(
+                                    context,
+                                    message: l.rawPayload,
+                                    prefill:
+                                        LogPrefill.fromMessage(l.rawPayload)
+                                            .withChoice(
+                                              (choices[l.id] as Map?)
+                                                  ?.cast<String, dynamic>(),
+                                            ),
+                                  );
+                                  if (added) await dismiss(l.id);
                                 },
                                 style: FilledButton.styleFrom(
                                   shape: const StadiumBorder(),

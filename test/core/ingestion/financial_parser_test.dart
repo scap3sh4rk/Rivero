@@ -185,4 +185,42 @@ void main() {
       expect(parser.parse(notif), isNull);
     });
   });
+
+  test('Union Bank: "Dr Rs25.00 ... by MB <ref> Fv.<payee>", any sender', () {
+    const body =
+        'Union Bank of India A/c*0485 Dr Rs25.00 on 15-11-26 19:19 by MB '
+        '631977745590 Fv.IRANI, Bal Rs701.83 Not U?Call 18002333/SMS BLOCK '
+        '0485 to 8879635472.';
+    for (final sender in ['VM-UNIONB', 'AX-UBOIBK', 'Union Bank']) {
+      final p = const FinancialParser().parse(
+        RawNotification(
+          id: 'ubi',
+          body: body,
+          sender: sender,
+          receivedAt: DateTime(2026, 11, 15, 19, 19),
+        ),
+      )!;
+      expect(p.amountMinorUnits, 2500, reason: sender);
+      expect(p.isDebit, isTrue);
+      expect(p.accountMask, '0485');
+      expect(p.referenceNumber, '631977745590');
+      expect(p.merchant, 'IRANI'); // not the help-line number
+      expect(p.balanceMinorUnits, 70183);
+    }
+  });
+
+  test('"Cr Rs" is money in', () {
+    final p = const FinancialParser().parse(
+      RawNotification(
+        id: 'cr',
+        body:
+            'A/c*0485 Cr Rs1,500.00 on 15-11-26 by UPI 512345678901 '
+            'Fv.RAVI KUMAR, Bal Rs2,201.83',
+        sender: 'VM-UNIONB',
+        receivedAt: DateTime(2026, 11, 15),
+      ),
+    )!;
+    expect(p.isDebit, isFalse);
+    expect(p.amountMinorUnits, 150000);
+  });
 }

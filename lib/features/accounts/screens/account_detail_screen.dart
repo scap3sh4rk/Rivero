@@ -109,7 +109,11 @@ class AccountDetailScreen extends ConsumerWidget {
         ref.watch(hiddenBalancesProvider).contains(accountId);
     String money(int v) => privacy ? '••••' : CurrencyFormatter.format(v);
     final txns = (ref.watch(allTransactionsStreamProvider).value ?? const [])
-        .where((t) => t.physicalAccountId == accountId)
+        .where(
+          (t) =>
+              t.physicalAccountId == accountId &&
+              t.transactionState != TransactionState.ignored,
+        )
         .toList();
     final mandates = (ref.watch(allMandatesProvider).value ?? const [])
         .where(
@@ -269,6 +273,7 @@ class AccountDetailScreen extends ConsumerWidget {
             ActivityRow(
               t,
               privacy: privacy,
+              showAccount: false,
               tint: t.amountMinorUnits > 0
                   ? RiveroColors.success
                   : categoryColor(t.category, categories),

@@ -256,7 +256,7 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen>
     final minor = _amount;
     if (minor == 0) return;
     if (!await _confirmLargeSpend(account, minor)) return;
-    final category = _income ? 'Income' : (_category ?? 'Other');
+    final category = _income ? 'Income' : _category!;
     final note = _note.text.trim();
     await ref
         .read(ledgerServiceProvider)
@@ -316,7 +316,7 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen>
             onTapOutside: (_) => _noteFocus.unfocus(),
             decoration: InputDecoration(
               isCollapsed: true,
-              hintText: 'Add a note',
+              hintText: 'Description (optional)',
               hintStyle: RiveroTypography.bodyMedium.copyWith(
                 color: RiveroColors.textMuted,
               ),
@@ -590,11 +590,21 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen>
                 width: double.infinity,
                 height: 56,
                 child: FilledButton(
+                  key: const ValueKey('log-save'),
                   style: FilledButton.styleFrom(shape: const StadiumBorder()),
-                  onPressed: account == null || _amount <= 0
+                  // A spend needs its category (money in is Income); the
+                  // note is only extra description.
+                  onPressed:
+                      account == null ||
+                          _amount <= 0 ||
+                          (!_income && _category == null)
                       ? null
                       : () => _save(account),
-                  child: const Text('Save'),
+                  child: Text(
+                    !_income && _amount > 0 && _category == null
+                        ? 'Pick a category to save'
+                        : 'Save',
+                  ),
                 ),
               ),
             ),

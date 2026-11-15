@@ -101,6 +101,10 @@ class _QuickReviewSheetState extends ConsumerState<QuickReviewSheet> {
     final privacy = ref.watch(privacyModeProvider);
     final categories = ref.watch(logCategoriesProvider).map((c) => c.name);
     if (t == null) return const SizedBox(height: 160);
+    // Already filed under one of the user's categories (a rule, or saved
+    // before): that one is picked. A guess from the message is not.
+    final picked =
+        _category ?? (categories.contains(t.category) ? t.category : null);
     final income = t.amountMinorUnits > 0;
     final waiting = t.transactionState == TransactionState.needsReview;
     // Other accounts of the same kind (bank or card) it could have been.
@@ -138,6 +142,13 @@ class _QuickReviewSheetState extends ConsumerState<QuickReviewSheet> {
             style: RiveroTypography.bodySmall,
           ),
           const SizedBox(height: RiveroSpacing.lg),
+          Text(
+            picked == null ? 'Pick a category' : 'Category',
+            style: RiveroTypography.bodySmall.copyWith(
+              color: picked == null ? RiveroColors.warning : null,
+            ),
+          ),
+          const SizedBox(height: RiveroSpacing.xs),
           Wrap(
             spacing: RiveroSpacing.sm,
             runSpacing: RiveroSpacing.xs,
@@ -146,7 +157,7 @@ class _QuickReviewSheetState extends ConsumerState<QuickReviewSheet> {
                 ChoiceChip(
                   key: ValueKey('quick-cat-$c'),
                   label: Text(c),
-                  selected: _category == c,
+                  selected: picked == c,
                   showCheckmark: false,
                   shape: const StadiumBorder(),
                   onSelected: (on) => setState(() => _category = on ? c : null),
@@ -170,7 +181,7 @@ class _QuickReviewSheetState extends ConsumerState<QuickReviewSheet> {
             maxLength: 80,
             textCapitalization: TextCapitalization.sentences,
             decoration: const InputDecoration(
-              hintText: 'Add a note, #tags too (optional)',
+              hintText: 'Description (optional)',
               counterText: '',
             ),
           ),
@@ -194,7 +205,13 @@ class _QuickReviewSheetState extends ConsumerState<QuickReviewSheet> {
               Expanded(
                 child: FilledButton(
                   key: const ValueKey('quick-add'),
-                  onPressed: () => _decide(t, add: true),
+                  // A category is required; the description is extra.
+                  onPressed: picked == null
+                      ? null
+                      : () {
+                          _category = picked;
+                          _decide(t, add: true);
+                        },
                   style: FilledButton.styleFrom(
                     shape: const StadiumBorder(),
                     minimumSize: const Size.fromHeight(52),

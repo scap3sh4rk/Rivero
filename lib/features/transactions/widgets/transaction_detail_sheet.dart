@@ -9,6 +9,8 @@ import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/storage/media_store.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
+import 'package:rivero/design_system/widgets/account_color.dart';
+import 'package:rivero/design_system/widgets/bank_badge.dart';
 import 'package:rivero/design_system/widgets/photo_picker.dart';
 import 'package:rivero/features/settings/screens/categories_screen.dart';
 import 'package:rivero/features/transactions/widgets/split_sheet.dart';
@@ -173,11 +175,35 @@ class _TransactionDetailSheetState
                 color: credit ? RiveroColors.success : null,
               ),
             ),
-            const SizedBox(height: RiveroSpacing.xs),
+            // Which bank or card it moved through, right under the amount.
+            if (account != null)
+              Padding(
+                padding: const EdgeInsets.only(top: RiveroSpacing.xs),
+                child: Row(
+                  key: const ValueKey('detail-account'),
+                  children: [
+                    BankBadge(
+                      name: account.institution,
+                      color: accountColor(account),
+                      imagePath: account.imagePath,
+                      size: 20,
+                      circle: true,
+                    ),
+                    const SizedBox(width: RiveroSpacing.xs),
+                    Flexible(
+                      child: Text(
+                        '${credit ? 'Into' : 'From'} ${account.name} '
+                        '••${account.accountMask}',
+                        style: RiveroTypography.bodySmall,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            const SizedBox(height: RiveroSpacing.sm),
             Text(t.merchant, style: RiveroTypography.titleMedium),
             Text(
-              '${DateFormat('d MMM y, h:mm a').format(t.transactionTimestamp)}'
-              '${account == null ? '' : ' · ${account.name}'}',
+              DateFormat('d MMM y, h:mm a').format(t.transactionTimestamp),
               style: RiveroTypography.bodySmall,
             ),
             const SizedBox(height: RiveroSpacing.lg),

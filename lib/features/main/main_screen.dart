@@ -15,8 +15,9 @@ import 'package:rivero/features/tour/app_tour.dart';
 import 'package:rivero/features/transactions/screens/transactions_screen.dart';
 
 /// App shell: swipeable pages with a Slice-style row of round icon buttons.
-/// Tabs: Home, Accounts, Log (keypad), Activity, Plan. Settings lives behind
-/// the profile button.
+/// Pages: Owed, Accounts, Home, Log, Activity. Four buttons: the centre one
+/// is Home, and on Home it turns into the Log keypad (tap it to log); on Log
+/// it is Home again. Settings lives behind the profile button.
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
 
@@ -38,13 +39,39 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     TransactionsScreen(),
   ];
 
-  static const _tabs = <(IconData, IconData, String)>[
-    (Icons.handshake_outlined, Icons.handshake_rounded, 'Owed'),
-    (Icons.account_balance_outlined, Icons.account_balance_rounded, 'Accounts'),
-    (Icons.home_outlined, Icons.home_rounded, 'Home'),
-    (Icons.dialpad_rounded, Icons.dialpad_rounded, 'Log'),
-    (Icons.receipt_long_outlined, Icons.receipt_long_rounded, 'Activity'),
+  /// Buttons: (page, icon, selected icon, label). The centre one is drawn
+  /// by [_centre].
+  static const _tabs = <(int, IconData, IconData, String)>[
+    (0, Icons.handshake_outlined, Icons.handshake_rounded, 'Owed'),
+    (
+      1,
+      Icons.account_balance_outlined,
+      Icons.account_balance_rounded,
+      'Accounts',
+    ),
+    (homeIndex, Icons.home_outlined, Icons.home_rounded, 'Home'),
+    (
+      activityIndex,
+      Icons.receipt_long_outlined,
+      Icons.receipt_long_rounded,
+      'Activity',
+    ),
   ];
+
+  /// The centre button: on Home it is the Log keypad (tap to log), on Log
+  /// it is Home, elsewhere it is Home.
+  Widget _centre(int current) {
+    final onHome = current == homeIndex;
+    final onLog = current == logIndex;
+    return _NavButton(
+      key: const ValueKey('nav-Home'),
+      icon: Icons.home_outlined,
+      selectedIcon: onHome ? Icons.dialpad_rounded : Icons.home_rounded,
+      label: onHome ? 'Log' : 'Home',
+      selected: onHome || onLog,
+      onTap: () => _goTo(onHome ? logIndex : homeIndex),
+    );
+  }
 
   late final int _initial = ref.read(openOnLogProvider) ? logIndex : homeIndex;
   late int _settled = _initial;
@@ -156,7 +183,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               _dragDx += d.delta.dx;
               final target = (_dragStart + (_dragDx / 56).round()).clamp(
                 0,
-                _tabs.length - 1,
+                _screens.length - 1,
               );
               if (target != ref.read(selectedNavIndexProvider)) {
                 HapticFeedback.selectionClick();
@@ -168,15 +195,18 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  for (var i = 0; i < _tabs.length; i++)
-                    _NavButton(
-                      key: ValueKey('nav-${_tabs[i].$3}'),
-                      icon: _tabs[i].$1,
-                      selectedIcon: _tabs[i].$2,
-                      label: _tabs[i].$3,
-                      selected: i == current,
-                      onTap: () => _goTo(i),
-                    ),
+                  for (final (page, icon, selectedIcon, label) in _tabs)
+                    if (page == homeIndex)
+                      _centre(current)
+                    else
+                      _NavButton(
+                        key: ValueKey('nav-$label'),
+                        icon: icon,
+                        selectedIcon: selectedIcon,
+                        label: label,
+                        selected: page == current,
+                        onTap: () => _goTo(page),
+                      ),
                 ],
               ),
             ),

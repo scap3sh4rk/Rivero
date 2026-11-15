@@ -1,29 +1,41 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
+import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/category_icons.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
+import 'package:rivero/design_system/widgets/account_color.dart';
 import 'package:rivero/design_system/widgets/bank_badge.dart';
 import 'package:rivero/features/transactions/widgets/transaction_detail_sheet.dart';
 
 /// One transaction row: round tinted initial, title, date · category,
 /// optional note, amount. Tapping opens its details.
-class ActivityRow extends StatelessWidget {
+class ActivityRow extends ConsumerWidget {
   const ActivityRow(
     this.t, {
     super.key,
     required this.privacy,
     required this.tint,
+    this.showAccount = true,
   });
 
   final LedgerTransaction t;
   final bool privacy;
   final Color tint;
 
+  /// The bank or card it moved through (off on that account's own page).
+  final bool showAccount;
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final account = showAccount
+        ? (ref.watch(activePhysicalAccountsProvider).value ?? const [])
+              .where((a) => a.id == t.physicalAccountId)
+              .firstOrNull
+        : null;
     final credit = t.amountMinorUnits > 0;
     final pending = t.transactionState == TransactionState.needsReview;
     final ignored = t.transactionState == TransactionState.ignored;
@@ -62,6 +74,30 @@ class ActivityRow extends StatelessWidget {
                       color: pending ? RiveroColors.warning : null,
                     ),
                   ),
+                  if (account != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Row(
+                        children: [
+                          BankBadge(
+                            name: account.institution,
+                            color: accountColor(account),
+                            imagePath: account.imagePath,
+                            size: 16,
+                            circle: true,
+                          ),
+                          const SizedBox(width: RiveroSpacing.xs),
+                          Flexible(
+                            child: Text(
+                              account.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: RiveroTypography.bodySmall,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   if (note != null)
                     Text(
                       note,

@@ -80,11 +80,24 @@ class CaptureDecisions {
   Future<int> apply(Map<String, dynamic> decisions) async {
     final ledger = LedgerService(db);
     var applied = 0;
-    for (final e in decisions.entries) {
+    // Choices whose notification was not processed yet (it can arrive a
+    // moment later, or the app was frozen in between) wait for it here.
+    final waiting = await _waiting();
+    final all = {...waiting, ...decisions};
+    final stillWaiting = <String, dynamic>{};
+    final now = DateTime.now().millisecondsSinceEpoch;
+    for (final e in all.entries) {
       final d = (e.value as Map).cast<String, dynamic>();
       final t = await entryFor(e.key);
       if (t == null) {
-        if (await _unreadable(e.key, d)) applied++;
+        if (await _unreadable(e.key, d)) {
+          applied++;
+        } else if (!await _logged(e.key)) {
+          final since = d['since'] as int? ?? now;
+          if (now - since < const Duration(days: 3).inMilliseconds) {
+            stillWaiting[e.key] = {...d, 'since': since};
+          }
+        }
         continue;
       }
       // A choice made on the second notification of one payment: only an
@@ -123,6 +136,29 @@ class CaptureDecisions {
       }
       applied++;
     }
+    if (stillWaiting.isNotEmpty || waiting.isNotEmpty) {
+      await db.settingsDao.set(
+        SettingKeys.waitingDecisions,
+        jsonEncode(stillWaiting),
+      );
+    }
     return applied;
   }
+
+  Future<Map<String, dynamic>> _waiting() async {
+    final raw = await db.settingsDao.get(SettingKeys.waitingDecisions);
+    if (raw == null) return {};
+    try {
+      return (jsonDecode(raw) as Map).cast<String, dynamic>();
+    } on FormatException {
+      return {};
+    }
+  }
+
+  /// Whether Rivero has processed notification [captureId] at all.
+  Future<bool> _logged(String captureId) async =>
+      await (db.select(
+        db.rawIngestionLogs,
+      )..where((l) => l.id.equals(captureId))).getSingleOrNull() !=
+      null;
 }

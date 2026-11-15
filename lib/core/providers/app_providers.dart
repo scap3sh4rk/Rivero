@@ -573,7 +573,8 @@ class LogPrefill {
         !RegExp(r'\bdebited', caseSensitive: false).hasMatch(clean);
     return LogPrefill(
       amountText: amount,
-      note: clean.length > 80 ? clean.substring(0, 80) : clean,
+      // The bank's text is not a note: the user adds one if they want.
+      note: '',
       income: income,
     );
   }

@@ -53,6 +53,31 @@ class FinancialParser {
     caseSensitive: false,
   );
 
+  /// Bank shorthand: "Dr Rs25.00" (money out), "Cr Rs500" (money in), as
+  /// Union Bank and others write it. Only right before an amount, so a
+  /// "Dr." (doctor) payee is not read as a debit.
+  static final RegExp _drAmountRegex = RegExp(
+    r'\bDr\.?\s*(?:Rs\.?|INR|₹)\s*\d',
+    caseSensitive: false,
+  );
+  static final RegExp _crAmountRegex = RegExp(
+    r'\bCr\.?\s*(?:Rs\.?|INR|₹)\s*\d',
+    caseSensitive: false,
+  );
+
+  /// "by MB 631977745590", "by UPI 512345678901", "via IMPS 4567...": the
+  /// bank's reference for the payment.
+  static final RegExp _byChannelRefRegex = RegExp(
+    r'\b(?:by|via)\s+(?:MB|UPI|IMPS|NEFT|RTGS|NB)\s*[:\-/]?\s*(\d{6,16})\b',
+    caseSensitive: false,
+  );
+
+  /// "Fv.IRANI", "Fvg RAVI KUMAR", "favouring ACME": who was paid.
+  static final RegExp _favouringRegex = RegExp(
+    r'\b(?:Fvg?\.?|favou?ring)\s*([A-Za-z][A-Za-z0-9 &\.\-]{1,30}?)(?=\s*[,;]|\.\s|\s+(?:bal|avl|on|ref|not)\b|$)',
+    caseSensitive: false,
+  );
+
   static final RegExp _creditRegex = RegExp(
     r'\b(?:credited|received|deposited|refunded|reversed|cashback)\b',
     caseSensitive: false,
@@ -233,7 +258,10 @@ class FinancialParser {
       return true;
     }
 
-    final hasKeyword = _financialKeywordRegex.hasMatch(text);
+    final hasKeyword =
+        _financialKeywordRegex.hasMatch(text) ||
+        _drAmountRegex.hasMatch(text) ||
+        _crAmountRegex.hasMatch(text);
     final hasCurrency =
         _currencyIndicatorRegex.hasMatch(text) ||
         _verbAmountRegex.hasMatch(text);
@@ -288,6 +316,9 @@ class FinancialParser {
     if (_creditRegex.hasMatch(text) && !_debitRegex.hasMatch(text)) {
       return false; // Inflow
     }
+    if (_crAmountRegex.hasMatch(text) && !_drAmountRegex.hasMatch(text)) {
+      return false; // "Cr Rs500"
+    }
     return true; // Outflow / debit default
   }
 
@@ -313,11 +344,19 @@ class FinancialParser {
   }
 
   String? _extractReferenceNumber(String text) {
-    final match = _referenceNumberRegex.firstMatch(text);
+    final match =
+        _referenceNumberRegex.firstMatch(text) ??
+        _byChannelRefRegex.firstMatch(text);
     return match?.group(1);
   }
 
   String? _extractMerchant(String text, String? title) {
+    // 0. "Fv.IRANI": the bank names who was paid.
+    final fav = _favouringRegex.firstMatch(text)?.group(1)?.trim();
+    if (fav != null && fav.length >= 2 && !_isCommonExclusion(fav)) {
+      return _cleanMerchantName(fav);
+    }
+
     // 1. Try VPA match: "to VPA swiggy@hdfcbank" -> "Swiggy"
     final vpaMatch = _vpaMerchantRegex.firstMatch(text);
     if (vpaMatch != null) {
@@ -394,6 +433,8 @@ class FinancialParser {
 
   bool _isCommonExclusion(String name) {
     final lower = name.toLowerCase();
+    // A phone number or a reference is not a payee ("SMS BLOCK to 88796...").
+    if (RegExp(r'^[\d\s+\-]+$').hasMatch(lower)) return true;
     return lower == 'rs' ||
         lower == 'inr' ||
         lower == 'account' ||

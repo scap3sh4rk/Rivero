@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rivero/core/database/daos/settings_dao.dart';
@@ -10,6 +12,7 @@ import 'package:rivero/core/engine/sts_breakdown.dart';
 import 'package:rivero/core/ingestion/capture_decisions.dart';
 import 'package:rivero/core/ingestion/ingestion_service.dart';
 import 'package:rivero/core/ingestion/models/raw_notification.dart';
+import 'package:rivero/core/ingestion/platform/notification_bridge.dart';
 import 'package:rivero/core/ledger/ledger_service.dart';
 import 'package:rivero/core/plan/defaults.dart';
 import 'package:rivero/core/plan/salary_plan_service.dart';
@@ -763,5 +766,61 @@ void main() {
       });
       expect(await db.ingestionLogsDao.watchUnreadable().first, isEmpty);
     });
+  });
+
+  // ---- pop-up "Add" when the notification has an awkward title ---------
+
+  group('Pop-up Add reaches the transaction list', () {
+    Future<void> drainOne(String id, String? title, String body) =>
+        NotificationBridge(capture).ingestJson(
+          jsonEncode([
+            {
+              'id': id,
+              'package': gpay,
+              'title': title,
+              'body': body,
+              'time': now.millisecondsSinceEpoch,
+            },
+          ]),
+        );
+
+    for (final title in [
+      'You paid ₹500.00 to Ravi Kumar from your HDFC Bank account',
+      '',
+    ]) {
+      test('title "${title.isEmpty ? '(empty)' : 'long'}"', () async {
+        await account('bank', 100000, mask: '4012');
+        await drainOne('pop-1', title, 'UPI ID ravi@okhdfc · ₹500.00');
+        expect(
+          await CaptureDecisions(db).apply({
+            'pop-1': {'action': 'accept', 'category': 'Food', 'note': null},
+          }),
+          1,
+        );
+        final t = (await entries()).single;
+        expect(t.transactionState, isNot(TransactionState.needsReview));
+        expect(t.category, 'Food');
+      });
+    }
+
+    test(
+      'a choice made before its notification is processed waits for it',
+      () async {
+        await account('bank', 100000, mask: '4012');
+        final decisions = CaptureDecisions(db);
+        expect(
+          await decisions.apply({
+            'pop-2': {'action': 'accept', 'category': 'Fun', 'note': 'Movie'},
+          }),
+          0,
+        );
+        await drainOne('pop-2', 'Google Pay', 'Paid ₹300.00 to PVR');
+        expect(await decisions.apply({}), 1); // the next capture run
+        final t = (await entries()).single;
+        expect(t.category, 'Fun');
+        expect(t.userNotes, 'Movie');
+        expect(t.transactionState, isNot(TransactionState.needsReview));
+      },
+    );
   });
 }

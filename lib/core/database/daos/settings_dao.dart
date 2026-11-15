@@ -54,6 +54,10 @@ abstract final class SettingKeys {
   /// it is added from Home.
   static const unreadableChoices = 'unreadable_choices_json';
 
+  /// Pop-up choices whose notification was not processed yet (JSON: capture
+  /// id -> choice), retried on each capture run for three days.
+  static const waitingDecisions = 'waiting_decisions_json';
+
   /// Appearance choices (JSON, see Look).
   static const look = 'look_json';
 
