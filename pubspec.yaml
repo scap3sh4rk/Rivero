@@ -1,7 +1,7 @@
 name: rivero
 description: "Rivero — Your Money - In Flow. A private, local-first money app."
 publish_to: 'none'
-version: 1.0.1+1
+version: 1.1.0+1
 
 environment:
   sdk: ^3.14.0
