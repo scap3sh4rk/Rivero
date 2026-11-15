@@ -52,6 +52,9 @@ abstract final class SettingKeys {
 
   /// '0' = the net worth card is hidden on Accounts.
   static const showNetWorth = 'show_net_worth';
+
+  /// Home cards the user picked, in order (JSON list of names).
+  static const homeWidgets = 'home_widgets_json';
   static const primaryUpi = 'primary_upi_package';
   static const primaryUpiName = 'primary_upi_name';
 

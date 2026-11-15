@@ -58,6 +58,9 @@ final accountGroupPrefsProvider = StateProvider<AccountGroupPrefs>(
   (ref) => const AccountGroupPrefs(),
 );
 
+/// Home cards the user picked, in order (names; null = the defaults).
+final homeWidgetsProvider = StateProvider<List<String>?>((ref) => null);
+
 /// Show the net worth card on Accounts.
 final showNetWorthProvider = StateProvider<bool>((ref) => true);
 
@@ -113,6 +116,16 @@ class SettingsSync {
     );
     ref.read(accountGroupPrefsProvider.notifier).state =
         AccountGroupPrefs.fromJson(await dao.get(SettingKeys.accountGroups));
+    final homeWidgets = await dao.get(SettingKeys.homeWidgets);
+    if (homeWidgets != null) {
+      try {
+        ref.read(homeWidgetsProvider.notifier).state = [
+          for (final n in jsonDecode(homeWidgets) as List) n as String,
+        ];
+      } on FormatException {
+        // Unreadable: the default cards.
+      }
+    }
     ref.read(showNetWorthProvider.notifier).state =
         (await dao.get(SettingKeys.showNetWorth)) != '0';
     final hidden = await dao.get(SettingKeys.hiddenBalances);
@@ -216,6 +229,9 @@ class SettingsSync {
         accountGroupPrefsProvider,
         (_, v) => save(SettingKeys.accountGroups, v.toJson()),
       )
+      ..listen(homeWidgetsProvider, (_, v) {
+        if (v != null) save(SettingKeys.homeWidgets, jsonEncode(v));
+      })
       ..listen(
         showNetWorthProvider,
         (_, v) => save(SettingKeys.showNetWorth, v ? '1' : '0'),

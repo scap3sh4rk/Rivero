@@ -58,4 +58,49 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 50));
   });
+
+  testWidgets('only the chosen cards show, in the chosen order, same size', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final db = RiveroDatabase.memory();
+    addTearDown(db.close);
+    await DatabaseSeeder(db).seedIfEmpty();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          homeWidgetsProvider.overrideWith(
+            (ref) => ['netWorth', 'cardBills', 'spent'],
+          ),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(body: SingleChildScrollView(child: HomeShortcuts())),
+        ),
+      ),
+    );
+    for (var i = 0; i < 3; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(find.byKey(const ValueKey('home-plan')), findsNothing);
+    expect(find.byKey(const ValueKey('home-networth')), findsOneWidget);
+    expect(find.byKey(const ValueKey('home-cardbills')), findsOneWidget);
+    // In order: net worth left of card bills; spent on the next row, alone
+    // but no wider than the others.
+    final nw = tester.getRect(find.byKey(const ValueKey('home-networth')));
+    final cb = tester.getRect(find.byKey(const ValueKey('home-cardbills')));
+    final sp = tester.getRect(find.byKey(const ValueKey('home-spent')));
+    expect(nw.left, lessThan(cb.left));
+    expect(sp.top, greaterThan(nw.bottom));
+    expect(sp.width, nw.width);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 50));
+  });
 }
