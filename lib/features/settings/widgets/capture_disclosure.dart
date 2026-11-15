@@ -15,9 +15,10 @@ Future<void> openCaptureAccess(BuildContext context) async {
       content: SingleChildScrollView(
         child: Text(
           'To record payments for you, Rivero reads the notifications of your '
-          'SMS app, bank apps and UPI apps.\n\n'
-          '• Only notifications that mention money are kept; chats and other '
-          'notifications are ignored.\n'
+          'SMS app, bank apps and UPI apps, and payment notifications from '
+          'other apps (a card or wallet app).\n\n'
+          '• Only notifications that mention money are kept; everything else '
+          'is ignored. Chat, social and email apps are never read.\n'
           '• One-time passwords are never stored.\n'
           '• Everything stays on this phone, encrypted. Nothing is sent to any '
           'server, and raw message text is deleted after 90 days.\n'

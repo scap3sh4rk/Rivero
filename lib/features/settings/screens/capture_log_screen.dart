@@ -127,6 +127,9 @@ class _CaptureLogScreenState extends ConsumerState<CaptureLogScreen> {
           'At $at a second message for the same payment came in: no '
               'second pop-up.',
         'offer' => 'At $at an offer (not a payment) came in: no pop-up.',
+        'other app' =>
+          'At $at a payment notification came from an app Rivero does not '
+              'list: it waits under To review, without a pop-up.',
         'rivero open' =>
           'At $at a payment came in while Rivero was open: it waits under '
               'To review on Home instead of a pop-up.',
