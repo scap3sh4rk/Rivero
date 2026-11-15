@@ -49,6 +49,9 @@ abstract final class SettingKeys {
   static const primaryUpi = 'primary_upi_package';
   static const primaryUpiName = 'primary_upi_name';
 
+  /// Money (paise) in the spending account that Safe to spend never counts.
+  static const keepUntouched = 'keep_untouched_minor';
+
   /// Cycle (yyyy-mm-dd of its start) whose plan money already moved before
   /// Rivero was set up: Apply never moves it again.
   static const planMovedOutside = 'plan_moved_outside_cycle';

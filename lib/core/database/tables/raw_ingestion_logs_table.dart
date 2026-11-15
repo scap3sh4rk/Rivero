@@ -29,6 +29,14 @@ class RawIngestionLogs extends Table {
   /// Error or reason if parsing failed or was quarantined.
   TextColumn get failureReason => text().nullable()();
 
+  /// Android app the notification came from (null for older rows): two
+  /// messages from one app are two events, never each other's echo.
+  TextColumn get sourcePackage => text().nullable()();
+
+  /// The ledger entry this message turned out to repeat (a second
+  /// notification for one payment), so its details still reach that entry.
+  TextColumn get matchedTransactionId => text().nullable()();
+
   /// Audit timestamp when the record was persisted.
   DateTimeColumn get createdAt => dateTime()();
 

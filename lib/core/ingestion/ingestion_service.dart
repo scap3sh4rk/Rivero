@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:rivero/core/database/daos/accounts_dao.dart';
 import 'package:rivero/core/database/daos/ingestion_logs_dao.dart';
 import 'package:rivero/core/database/daos/settings_dao.dart';
 import 'package:rivero/core/database/database.dart';
@@ -57,6 +58,7 @@ class IngestionService {
           id: Value(logId),
           sourceChannel: Value(notification.channel),
           senderHeader: Value(notification.sender ?? notification.packageName),
+          sourcePackage: Value(notification.packageName),
           rawPayload: Value(notification.body),
           receivedAt: Value(notification.receivedAt),
           parseStatus: const Value(ParseStatus.failed),
@@ -103,6 +105,7 @@ class IngestionService {
         id: Value(logId),
         sourceChannel: Value(notification.channel),
         senderHeader: Value(notification.sender ?? notification.packageName),
+        sourcePackage: Value(notification.packageName),
         rawPayload: Value(notification.body),
         receivedAt: Value(notification.receivedAt),
         parseStatus: const Value(ParseStatus.parsed),
@@ -122,8 +125,13 @@ class IngestionService {
     // 5. Is this the bank's own message for a payment the salary plan
     // already recorded (SIP, rent, the move to the spending account)? Then
     // attach to that entry instead of counting the money twice.
-    final planned = await _matchPlanned(accountId, signedAmount);
+    final planned = await _matchPlanned(
+      accountId,
+      signedAmount,
+      parsed.timestamp,
+    );
     if (planned != null) {
+      await _sameAs(logId, planned.id);
       await (database.update(
         database.transactions,
       )..where((t) => t.id.equals(planned.id))).write(
@@ -132,7 +140,11 @@ class IngestionService {
           referenceNumber: Value(parsed.referenceNumber),
         ),
       );
-      await _adoptReportedBalance(accountId, parsed.balanceMinorUnits);
+      await _adoptReportedBalance(
+        accountId,
+        parsed.balanceMinorUnits,
+        parsed.timestamp,
+      );
       return IngestionResult(
         rawLogId: logId,
         status: ParseStatus.parsed,
@@ -144,8 +156,14 @@ class IngestionService {
 
     // 6. Already recorded? (UPI app + bank SMS for one payment, or a spend
     // the user logged by hand before the bank's message arrived.)
-    final duplicate = await _findDuplicate(parsed, accountId, signedAmount);
+    final duplicate = await _findDuplicate(
+      parsed,
+      accountId,
+      signedAmount,
+      notification,
+    );
     if (duplicate != null) {
+      await _sameAs(logId, duplicate.id);
       if (duplicate.referenceNumber == null && parsed.referenceNumber != null) {
         await (database.update(
           database.transactions,
@@ -157,7 +175,11 @@ class IngestionService {
           duplicate.transactionState == TransactionState.confirmed ||
           duplicate.transactionState == TransactionState.reconciled;
       if (applied && duplicate.physicalAccountId == accountId) {
-        await _adoptReportedBalance(accountId, parsed.balanceMinorUnits);
+        await _adoptReportedBalance(
+          accountId,
+          parsed.balanceMinorUnits,
+          parsed.timestamp,
+        );
       }
       return IngestionResult(
         rawLogId: logId,
@@ -179,7 +201,12 @@ class IngestionService {
         signedAmount: signedAmount,
       );
       if (paired != null) {
-        await _adoptReportedBalance(accountId, parsed.balanceMinorUnits);
+        await _sameAs(logId, paired);
+        await _adoptReportedBalance(
+          accountId,
+          parsed.balanceMinorUnits,
+          parsed.timestamp,
+        );
         return IngestionResult(
           rawLogId: logId,
           status: ParseStatus.parsed,
@@ -269,7 +296,11 @@ class IngestionService {
       if (saved != null) await LedgerService(database).applyEffects(saved);
       // The bank's own "available balance" is the source of truth for the
       // account; adopting it self-corrects any drift.
-      await _adoptReportedBalance(accountId, parsed.balanceMinorUnits);
+      await _adoptReportedBalance(
+        accountId,
+        parsed.balanceMinorUnits,
+        parsed.timestamp,
+      );
       await ReconciliationService(database: database).reconcileAll();
     }
 
@@ -299,6 +330,7 @@ class IngestionService {
         id: Value(logId),
         sourceChannel: Value(notification.channel),
         senderHeader: Value(notification.sender ?? notification.packageName),
+        sourcePackage: Value(notification.packageName),
         // Never persist one-time passwords.
         rawPayload: Value(
           isOtp ? '[OTP message not stored]' : notification.body,
@@ -343,10 +375,13 @@ class IngestionService {
   }
 
   /// The oldest still-unmatched plan entry on [accountId] with exactly this
-  /// signed amount, if any.
+  /// signed amount, if any. Only from the last pay cycle or so: an old move
+  /// whose bank message never came must not swallow a real payment of the
+  /// same amount months later.
   Future<LedgerTransaction?> _matchPlanned(
     String accountId,
     int signedAmount,
+    DateTime at,
   ) async {
     final candidates =
         await (database.select(database.transactions)
@@ -356,7 +391,10 @@ class IngestionService {
                     t.physicalAccountId.equals(accountId) &
                     t.amountMinorUnits.equals(signedAmount) &
                     t.transactionState.equals(TransactionState.confirmed.name) &
-                    t.referenceNumber.isNull(),
+                    t.referenceNumber.isNull() &
+                    t.transactionTimestamp.isBiggerOrEqualValue(
+                      at.subtract(const Duration(days: 35)),
+                    ),
               )
               ..orderBy([(t) => OrderingTerm(expression: t.createdAt)]))
             .get();
@@ -389,12 +427,17 @@ class IngestionService {
   }
 
   /// The bank's "available balance" is the truth for a bank account.
-  Future<void> _adoptReportedBalance(String accountId, int? reported) async {
+  Future<void> _adoptReportedBalance(
+    String accountId,
+    int? reported,
+    DateTime at,
+  ) async {
     if (reported == null) return;
     final acc = await database.accountsDao.getPhysicalAccountById(accountId);
-    if (acc != null && !acc.isLiability) {
-      await database.accountsDao.updateAccountBalance(accountId, reported);
-    }
+    // Not for debts, and not when something newer is already known.
+    if (acc == null || acc.isLiability) return;
+    if (!AccountsDao.movesBalance(acc, at)) return;
+    await database.accountsDao.setKnownBalance(accountId, reported, at);
   }
 
   Future<void> _logFailed(
@@ -407,6 +450,7 @@ class IngestionService {
       id: Value(logId),
       sourceChannel: Value(notification.channel),
       senderHeader: Value(notification.sender ?? notification.packageName),
+      sourcePackage: Value(notification.packageName),
       rawPayload: Value(notification.body),
       receivedAt: Value(notification.receivedAt),
       parseStatus: const Value(ParseStatus.failed),
@@ -416,8 +460,11 @@ class IngestionService {
     ),
   );
 
+  /// Real last digits. All zeros is the placeholder older versions saved
+  /// when the digits were left empty: not digits Rivero knows.
   static bool _knownMask(String mask) =>
-      RegExp(r'^\d{3,6}$').hasMatch(mask.trim());
+      RegExp(r'^\d{3,6}$').hasMatch(mask.trim()) &&
+      !RegExp(r'^0+$').hasMatch(mask.trim());
 
   /// Whether the money in this message moved on a card (not a bank account).
   static bool _isCardMessage(ParsedTransaction p) {
@@ -438,7 +485,9 @@ class IngestionService {
 
     // 1. Exact last digits.
     if (mask != null) {
-      final hit = all.where((a) => a.accountMask.trim() == mask).firstOrNull;
+      final hit = all
+          .where((a) => _knownMask(mask) && a.accountMask.trim() == mask)
+          .firstOrNull;
       if (hit != null) return (id: hit.id, sure: true);
     }
 
@@ -486,10 +535,7 @@ class IngestionService {
     await database.accountsDao.upsertPhysicalAccount(
       PhysicalAccountsCompanion(
         id: Value(newId),
-        name: Value(
-          '${parsed.financialInstitution ?? "Bank"} ${card ? 'Card' : 'Account'}'
-          '${parsed.accountMask != null ? " (**${parsed.accountMask})" : ""}',
-        ),
+        name: Value(_accountName(parsed, card: card)),
         institution: Value(parsed.financialInstitution ?? 'Bank'),
         accountMask: Value(parsed.accountMask ?? '••••'),
         isLiability: Value(card),
@@ -505,22 +551,39 @@ class IngestionService {
     return newId;
   }
 
+  /// "HDFC Bank Account (**4321)"; a sender already called "... Credit
+  /// Card" is not given a second "Card".
+  static String _accountName(ParsedTransaction parsed, {required bool card}) {
+    final bank = parsed.financialInstitution ?? 'Bank';
+    final kind = card ? 'Card' : 'Account';
+    final named = bank.toLowerCase().endsWith(kind.toLowerCase());
+    return '${named ? bank : '$bank $kind'}'
+        '${parsed.accountMask != null ? " (**${parsed.accountMask})" : ""}';
+  }
+
   /// The entry this message duplicates, if any.
   Future<LedgerTransaction?> _findDuplicate(
     ParsedTransaction parsed,
     String accountId,
     int signedAmount,
+    RawNotification notification,
   ) async {
     // Two notifications for one payment arrive within minutes.
     final near = await database.transactionsDao.findDuplicateCandidates(
       amountMinorUnits: signedAmount,
       timestamp: parsed.timestamp,
     );
+    final candidates = <LedgerTransaction>[];
+    for (final t in near) {
+      if (t.id.startsWith('plan-')) continue;
+      if (await _anotherPaymentFromSameSource(t, parsed, notification)) {
+        continue;
+      }
+      candidates.add(t);
+    }
     final match = deduplicator.evaluate(
       candidate: parsed,
-      existingTransactions: near
-          .where((t) => !t.id.startsWith('plan-'))
-          .toList(),
+      existingTransactions: candidates,
     );
     if (match.isDuplicate) return match.matchedTransaction;
 
@@ -532,7 +595,7 @@ class IngestionService {
       timestamp: parsed.timestamp,
       window: const Duration(hours: 6),
     );
-    return manual
+    final typedIn = manual
         .where(
           (t) =>
               t.id.startsWith('txn-manual-') &&
@@ -540,7 +603,64 @@ class IngestionService {
               t.referenceNumber == null,
         )
         .firstOrNull;
+    if (typedIn != null) return typedIn;
+
+    // A plan category marked "Paying now" (rent, family): the bank's
+    // message for it can arrive days later, and is that same payment.
+    final planPaid = await database.transactionsDao.findDuplicateCandidates(
+      amountMinorUnits: signedAmount,
+      timestamp: parsed.timestamp,
+      window: const Duration(days: 7),
+    );
+    return planPaid
+        .where(
+          (t) =>
+              t.id.startsWith('txn-manual-') &&
+              t.transactionType == TransactionType.planTransfer &&
+              t.allocationBucketId != null &&
+              t.physicalAccountId == accountId &&
+              t.referenceNumber == null,
+        )
+        .firstOrNull;
   }
+
+  /// One payment is announced once per app: the payment app, then the
+  /// bank. So a second message from the SAME app (and for SMS the same
+  /// sender) naming a different payee is another payment, even for the
+  /// same amount in the same minute. Same reference = same payment.
+  // ponytail: same payee, same amount, same app within a minute still
+  // counts once (apps do repost a notification); the user logs the second.
+  Future<bool> _anotherPaymentFromSameSource(
+    LedgerTransaction existing,
+    ParsedTransaction parsed,
+    RawNotification n,
+  ) async {
+    final logId = existing.ingestionLogId;
+    final pkg = n.packageName;
+    if (logId == null || pkg == null) return false;
+    if (parsed.referenceNumber != null &&
+        parsed.referenceNumber == existing.referenceNumber) {
+      return false;
+    }
+    final log = await (database.select(
+      database.rawIngestionLogs,
+    )..where((l) => l.id.equals(logId))).getSingleOrNull();
+    if (log == null || log.sourcePackage != pkg) return false;
+    final paymentApp = parser.dltValidator.isFinancialSender(packageName: pkg);
+    if (!paymentApp && log.senderHeader != (n.sender ?? pkg)) return false;
+    final a = existing.merchant.toLowerCase().trim();
+    final b = (parsed.merchant ?? '').toLowerCase().trim();
+    return b.isNotEmpty && a != b && !a.contains(b) && !b.contains(a);
+  }
+
+  /// This message repeats entry [transactionId]: remembered, so a choice
+  /// made on its notification and the balance it reports reach that entry.
+  Future<void> _sameAs(String logId, String transactionId) =>
+      (database.update(
+        database.rawIngestionLogs,
+      )..where((l) => l.id.equals(logId))).write(
+        RawIngestionLogsCompanion(matchedTransactionId: Value(transactionId)),
+      );
 
   /// The card a bill payment went to: the card whose digits the message
   /// mentions, else the only card.
@@ -582,12 +702,19 @@ class IngestionService {
                 t.physicalAccountId == card.id &&
                 t.amountMinorUnits == -signedAmount &&
                 t.linkedTransactionId == null &&
+                // An ignored card message is no payment to pair with.
+                t.transactionState != TransactionState.ignored &&
                 t.transactionTimestamp.isAfter(since) &&
                 t.transactionTimestamp.isBefore(until),
           )
           .firstOrNull;
       if (leg == null) return null;
-      // Record the bank side, linked to the card side, as a transfer.
+      // Record the bank side, linked to the card side, as a transfer. It
+      // follows the card side: still waiting for Accept there, it waits
+      // too, and the two are accepted or ignored together.
+      final legApplied =
+          leg.transactionState == TransactionState.confirmed ||
+          leg.transactionState == TransactionState.reconciled;
       final id = uuid.v4();
       await database.transactionsDao.insertTransaction(
         TransactionsCompanion(
@@ -595,7 +722,11 @@ class IngestionService {
           physicalAccountId: Value(accountId),
           amountMinorUnits: Value(signedAmount),
           transactionType: const Value(TransactionType.creditCardSettlement),
-          transactionState: const Value(TransactionState.confirmed),
+          transactionState: Value(
+            legApplied
+                ? TransactionState.confirmed
+                : TransactionState.needsReview,
+          ),
           merchant: Value('Card bill: ${card.name}'),
           category: const Value('Card bill'),
           referenceNumber: Value(parsed.referenceNumber),
@@ -605,8 +736,10 @@ class IngestionService {
           linkedTransactionId: Value(leg.id),
         ),
       );
-      final saved = await database.transactionsDao.getTransactionById(id);
-      if (saved != null) await LedgerService(database).applyEffects(saved);
+      if (legApplied) {
+        final saved = await database.transactionsDao.getTransactionById(id);
+        if (saved != null) await LedgerService(database).applyEffects(saved);
+      }
       await database.transactionsDao.linkTransactionLegs(id, leg.id);
       return id;
     }

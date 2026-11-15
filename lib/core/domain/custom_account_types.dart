@@ -28,6 +28,13 @@ abstract final class StandardAccountTypes {
     overdraft,
   ];
 
+  /// A loan or overdraft (also custom types such as "Home Loan"): long-term
+  /// debt, never a bill to clear from this month's money.
+  static bool isLongTermDebt(String type) {
+    final t = type.toLowerCase();
+    return t.contains('loan') || t.contains('overdraft');
+  }
+
   /// Suggested icon for an account type.
   static IconData getIcon(String type) {
     switch (type.toLowerCase()) {

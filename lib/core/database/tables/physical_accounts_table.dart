@@ -18,6 +18,12 @@ class PhysicalAccounts extends Table {
   /// Current balance strictly stored as integer minor units (paise in INR).
   IntColumn get balanceMinorUnits => integer().withDefault(const Constant(0))();
 
+  /// The moment [balanceMinorUnits] was last known to be true: the user
+  /// typed it, or a bank message reported it. An entry dated at or before
+  /// this is already inside the balance, so recording, accepting or deleting
+  /// it later must not move the balance again. Null = never stated.
+  DateTimeColumn get balanceAsOf => dateTime().nullable()();
+
   /// Credit limit in minor units (for credit cards / credit lines, e.g. 15000000 for ₹1,50,000).
   IntColumn get creditLimitMinorUnits =>
       integer().withDefault(const Constant(0))();

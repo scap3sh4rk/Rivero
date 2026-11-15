@@ -140,12 +140,19 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
   void _onAccountTypeChanged(String? type) {
     if (type == null) return;
     setState(() {
+      final was = _selectedAccountType;
       _selectedAccountType = type;
-      if (type == StandardAccountTypes.creditCard ||
-          type == StandardAccountTypes.creditLine ||
-          type == StandardAccountTypes.loan ||
-          type == StandardAccountTypes.overdraft) {
+      bool debt(String t) =>
+          t == StandardAccountTypes.creditCard ||
+          t == StandardAccountTypes.creditLine ||
+          t == StandardAccountTypes.loan ||
+          t == StandardAccountTypes.overdraft;
+      // A debt type switches "this is a debt" on; going back from one to a
+      // bank, wallet or cash type switches it off again.
+      if (debt(type)) {
         _isLiability = true;
+      } else if (debt(was)) {
+        _isLiability = false;
       }
     });
   }
@@ -232,9 +239,17 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
         id: drift.Value(accountId),
         name: drift.Value(name),
         institution: drift.Value(institution),
-        accountMask: drift.Value(mask.isNotEmpty ? mask : '0000'),
+        // No digits typed = not known yet (never a made-up '0000').
+        accountMask: drift.Value(mask.isNotEmpty ? mask : '••••'),
         accountType: drift.Value(_selectedAccountType),
         balanceMinorUnits: drift.Value(balanceMinorUnits),
+        // A balance typed here is the truth from this moment (older
+        // captures accepted later must not move it again).
+        balanceAsOf:
+            widget.existing == null ||
+                widget.existing!.balanceMinorUnits != balanceMinorUnits
+            ? drift.Value(now)
+            : const drift.Value.absent(),
         creditLimitMinorUnits: drift.Value(creditLimitMinorUnits),
         isActive: const drift.Value(true),
         isLiability: drift.Value(_isLiability),

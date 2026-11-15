@@ -97,11 +97,16 @@ class SafeToSpendHeroCard extends ConsumerWidget {
               size: FinancialAmountSize.hero,
               isAnimated: true,
               includeDecimals: false,
-              customColor: sts.isDeficit ? RiveroColors.danger : null,
+              customColor: sts.isDeficit && (breakdown?.hasPlan ?? true)
+                  ? RiveroColors.danger
+                  : null,
             ),
           const SizedBox(height: RiveroSpacing.xs),
           Text(
-            sts.isDeficit
+            // Nothing to measure against yet: say so, not "short by".
+            !(breakdown?.hasPlan ?? true)
+                ? 'Set up your salary plan to see this'
+                : sts.isDeficit
                 ? (breakdown?.overBudget ?? false
                       ? 'Short by '
                             '${CurrencyFormatter.format(-breakdown!.usable)}'
@@ -112,6 +117,19 @@ class SafeToSpendHeroCard extends ConsumerWidget {
                       '${awaiting ? 'waiting for salary' : '${paycycle.daysRemaining} days to payday'}',
             style: RiveroTypography.bodyMedium,
           ),
+          if ((breakdown?.waitingForReview ?? 0) > 0 && !isPrivacy)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                // Counted already; Accept or Ignore below settles it.
+                'Includes ${CurrencyFormatter.format(breakdown!.waitingForReview)} '
+                'waiting for your Accept',
+                key: const ValueKey('sts-waiting'),
+                style: RiveroTypography.bodySmall.copyWith(
+                  color: RiveroColors.warning,
+                ),
+              ),
+            ),
           const SizedBox(height: RiveroSpacing.lg),
           TweenAnimationBuilder<Color?>(
             tween: ColorTween(end: tone),

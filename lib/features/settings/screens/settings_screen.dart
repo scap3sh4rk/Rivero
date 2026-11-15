@@ -8,6 +8,8 @@ import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/reminders/reminder_planner.dart';
 import 'package:rivero/core/security/app_lock.dart';
 import 'package:rivero/core/storage/media_store.dart';
+import 'package:rivero/core/utils/amount_parser.dart';
+import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/picker.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
@@ -28,6 +30,44 @@ import 'package:url_launcher/url_launcher.dart';
 /// Settings as short rows: one line each, details one tap deeper.
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
+
+  Future<void> _keepUntouched(BuildContext context, WidgetRef ref) async {
+    final now = ref.read(keepUntouchedProvider);
+    final controller = TextEditingController(
+      text: now > 0 ? '${now ~/ 100}' : '',
+    );
+    final value = await showDialog<int>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Keep untouched'),
+        content: TextField(
+          key: const ValueKey('keep-untouched-field'),
+          controller: controller,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(
+            prefixText: '₹',
+            helperText: 'Leave empty to count everything',
+            helperMaxLines: 2,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.pop(ctx, parseAmountMinorUnits(controller.text)),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    // Not disposed here: the dialog is still animating out and uses it.
+    if (value == null) return;
+    ref.read(keepUntouchedProvider.notifier).state = value < 0 ? 0 : value;
+  }
 
   static const Map<AppThemeMode, String> _themeLabels = {
     AppThemeMode.dark: 'Dark',
@@ -138,6 +178,18 @@ class SettingsScreen extends ConsumerWidget {
                           .state =
                       v,
             ),
+          ),
+          _Row(
+            key: const ValueKey('keep-untouched'),
+            icon: Icons.lock_outline_rounded,
+            title: 'Keep untouched',
+            subtitle: ref.watch(keepUntouchedProvider) > 0
+                ? '${CurrencyFormatter.format(ref.watch(keepUntouchedProvider))} '
+                      'in your spending account is never counted as safe '
+                      'to spend'
+                : 'Savings in your spending account? Set an amount Safe '
+                      'to spend never counts',
+            onTap: () => _keepUntouched(context, ref),
           ),
           _Row(
             icon: Icons.sell_outlined,

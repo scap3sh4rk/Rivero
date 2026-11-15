@@ -38,14 +38,33 @@ object CaptureNotifier {
             "pre[\\s-]?debit|statement (is )?(generated|ready)|minimum (amount )?due|total (amount )?due)\\b",
     )
     private val INCOME = Regex("(?i)\\b(credited|received|deposited|refund)")
-    private val DEBIT = Regex("(?i)\\bdebited|\\bpaid|\\bsent|\\bspent")
+    private val DEBIT = Regex("(?i)\\bdebited|\\bpaid|\\bsent|\\bspent|\\bwithdrawn|\\btransferred|\\bpurchase")
+
+    /** Amount -> when a popup was last shown for it. */
+    private val recent = HashMap<String, Long>()
+    private const val SAME_PAYMENT_MS = 3 * 60 * 1000L
 
     fun notificationId(captureId: String) = captureId.hashCode() and 0x7fffffff
 
     /** Posts the notification for a newly captured message, if it looks like a payment. */
-    fun notify(context: Context, captureId: String, title: String?, body: String) {
+    fun notify(context: Context, captureId: String, title: String?, body: String, force: Boolean = false) {
         val text = listOfNotNull(title, body).joinToString(" · ")
         if (NOT_A_PAYMENT.containsMatchIn(text)) return
+        // "Get Rs 500 cashback" mentions money but nothing moved: no popup
+        // (the message is still kept for the app to judge).
+        if (!force && !DEBIT.containsMatchIn(text) && !INCOME.containsMatchIn(text)) return
+        // One payment is announced by the payment app and again by the
+        // bank: one popup, not two. The app pairs the two messages itself.
+        val seen = AMOUNT.find(text)?.let { it.groupValues[1].ifEmpty { it.groupValues[2] } }
+            ?.replace(",", "")?.removeSuffix(".00")?.removeSuffix(".0")
+        if (!force && seen != null) {
+            val now = System.currentTimeMillis()
+            synchronized(recent) {
+                recent.values.removeAll { now - it > SAME_PAYMENT_MS }
+                if (recent.containsKey(seen)) return
+                recent[seen] = now
+            }
+        }
         if (Build.VERSION.SDK_INT >= 33 &&
             context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED

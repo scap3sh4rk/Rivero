@@ -348,14 +348,18 @@ class DuesService {
       .where((d) => d.status == DueStatus.open && d.kind == DueKind.borrowed)
       .fold(0, (s, d) => s + d.amountMinorUnits - d.receivedMinorUnits);
 
-  /// What you owe people that falls due on or before [until] (dated debts).
+  /// What you owe people that is not yours to spend before [until]: debts
+  /// due by then, and borrowed money that came into an account with no
+  /// pay-back date (it could be asked back any day; a date after [until]
+  /// frees it).
   static int youOweDueBy(Iterable<Due> dues, DateTime until) => dues
       .where(
         (d) =>
             d.status == DueStatus.open &&
             d.kind == DueKind.borrowed &&
-            d.dueDate != null &&
-            !d.dueDate!.isAfter(until),
+            (d.dueDate == null
+                ? d.sourceTransactionId != null
+                : !d.dueDate!.isAfter(until)),
       )
       .fold(0, (s, d) => s + d.amountMinorUnits - d.receivedMinorUnits);
 

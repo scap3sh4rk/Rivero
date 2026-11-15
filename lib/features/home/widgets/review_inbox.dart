@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:rivero/core/database/database.dart';
+import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
@@ -22,7 +23,12 @@ class ReviewInbox extends ConsumerWidget {
       for (final t
           in ref.watch(pendingReviewTransactionsProvider).value ??
               const <LedgerTransaction>[])
-        if (!t.id.startsWith('cc-')) t,
+        if (!t.id.startsWith('cc-') &&
+            !(t.isInternalTransfer &&
+                t.linkedTransactionId != null &&
+                t.amountMinorUnits > 0 &&
+                t.transactionType == TransactionType.creditCardSettlement))
+          t,
     ];
     final unreadable = ref.watch(unreadableMessagesProvider).value?.length ?? 0;
     if (pending.isEmpty && unreadable == 0) return const SizedBox.shrink();

@@ -181,7 +181,9 @@ class _SalaryPlanScreenState extends ConsumerState<SalaryPlanScreen> {
           canMove
               ? 'The plan moves ${f(total)} out of ${salaryAcc.name}. If you '
                     'already did that this month, choose Already moved: '
-                    'nothing is moved again.'
+                    'nothing is moved again.\n\nMove now only records it '
+                    'here. Make the same transfers in your bank app, or the '
+                    'balances shown will be ahead of your bank.'
               : '${salaryAcc.name} holds ${f(salaryAcc.balanceMinorUnits)}, '
                     'less than the ${f(total)} the plan moves, so it must '
                     'have moved already. Nothing is moved; it is marked done.',
@@ -484,6 +486,18 @@ class _SalaryPlanScreenState extends ConsumerState<SalaryPlanScreen> {
                       ? RiveroTypography.titleMedium
                       : RiveroTypography.financialMedium,
                 ),
+                if (!over && rest == 0 && salary > 0 && carry == 0)
+                  Padding(
+                    padding: const EdgeInsets.only(top: RiveroSpacing.xs),
+                    child: Text(
+                      'Nothing is left for everyday spending this month. '
+                      'Reduce a category if that is not what you want.',
+                      key: const ValueKey('plan-nothing-left'),
+                      style: RiveroTypography.bodySmall.copyWith(
+                        color: RiveroColors.warning,
+                      ),
+                    ),
+                  ),
                 if (!over && carry > 0)
                   Padding(
                     padding: const EdgeInsets.only(top: RiveroSpacing.xs),

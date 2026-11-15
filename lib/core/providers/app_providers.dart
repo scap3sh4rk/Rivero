@@ -8,6 +8,7 @@ import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/database/database_seeder.dart';
 import 'package:rivero/core/domain/custom_account_types.dart';
 import 'package:rivero/core/domain/log_category.dart';
+import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/dues/dues_service.dart';
 import 'package:rivero/core/engine/paycycle.dart';
 import 'package:rivero/core/engine/safe_to_spend_calculator.dart';
@@ -44,6 +45,9 @@ final userSalaryDayProvider = StateProvider<int>((ref) => 1);
 /// Expected monthly salary in minor units (0 = not configured yet).
 final monthlySalaryProvider = StateProvider<int>((ref) => 0);
 
+/// Money in the spending account Safe to spend leaves alone (paise).
+final keepUntouchedProvider = StateProvider<int>((ref) => 0);
+
 /// Whether unsettled credit-card spend is reserved out of Safe-to-Spend.
 final reserveCreditCardsProvider = StateProvider<bool>((ref) => true);
 
@@ -74,6 +78,8 @@ class SettingsSync {
         await dao.getInt(SettingKeys.salaryDay) ?? 1;
     ref.read(monthlySalaryProvider.notifier).state =
         await dao.getInt(SettingKeys.monthlySalary) ?? 0;
+    ref.read(keepUntouchedProvider.notifier).state =
+        await dao.getInt(SettingKeys.keepUntouched) ?? 0;
     ref.read(reserveCreditCardsProvider.notifier).state =
         (await dao.get(SettingKeys.reserveCreditCards)) != '0';
     ref.read(salaryAccountIdProvider.notifier).state = await dao.get(
@@ -155,6 +161,10 @@ class SettingsSync {
       ..listen(
         monthlySalaryProvider,
         (_, v) => save(SettingKeys.monthlySalary, '$v'),
+      )
+      ..listen(
+        keepUntouchedProvider,
+        (_, v) => save(SettingKeys.keepUntouched, '$v'),
       )
       ..listen(
         reserveCreditCardsProvider,
@@ -449,6 +459,10 @@ final stsBreakdownProvider = Provider<AsyncValue<StsBreakdown>>((ref) {
     }
   }
 
+  final cycle = ref.watch(currentPaycycleProvider);
+  final awaiting = ref.watch(awaitingSalaryProvider).value ?? false;
+  final salaryIn = ref.watch(pendingSalaryProvider).value != null;
+
   return AsyncValue.data(
     StsBreakdown.compute(
       buckets: bucketsAsync.value ?? const [],
@@ -456,7 +470,19 @@ final stsBreakdownProvider = Provider<AsyncValue<StsBreakdown>>((ref) {
       mandates: ref.watch(activeMandatesProvider).value ?? const [],
       dues: ref.watch(duesProvider).value ?? const [],
       salaryAccountId: ref.watch(salaryAccountIdProvider),
-      cycle: ref.watch(currentPaycycleProvider),
+      pending: [
+        for (final t in txns)
+          if (t.transactionState == TransactionState.needsReview) t,
+      ],
+      // New cycle, salary in, not split yet: last cycle's "paid" marks on
+      // rent and the like no longer hold.
+      paidMarksStale: awaiting && salaryIn,
+      // The first days of a cycle whose salary has not landed: the money
+      // left has to last until it does (a week in, it is simply late or
+      // not tracked, and the month is counted as usual).
+      salaryDueNow: awaiting && !salaryIn && cycle.elapsedDays <= 5,
+      keepUntouched: ref.watch(keepUntouchedProvider),
+      cycle: cycle,
       reserveCards: ref.watch(reserveCreditCardsProvider),
       includeOwed: ref.watch(includePendingReimbursementsProvider),
       lastSyncedAt: synced,

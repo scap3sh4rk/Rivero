@@ -8,6 +8,7 @@ import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/rules/capture_rules.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
+import 'package:rivero/design_system/widgets/picker.dart';
 
 /// Add a captured payment in two taps: pick a category, optionally a note,
 /// then Add (or Ignore). Opened from a capture notification ("Open Rivero")
@@ -35,6 +36,7 @@ class QuickReviewSheet extends ConsumerStatefulWidget {
 class _QuickReviewSheetState extends ConsumerState<QuickReviewSheet> {
   final _note = TextEditingController();
   String? _category;
+  String? _accountId; // set when the user corrects Rivero's guess
   bool _busy = false;
 
   @override
@@ -56,6 +58,13 @@ class _QuickReviewSheetState extends ConsumerState<QuickReviewSheet> {
               ? const Value.absent()
               : Value(_category!),
           userNotes: note.isEmpty ? const Value.absent() : Value(note),
+          // Nothing has been applied to a waiting entry yet, so it can
+          // simply be pointed at the right account before it counts.
+          physicalAccountId:
+              _accountId == null ||
+                  t.transactionState != TransactionState.needsReview
+              ? const Value.absent()
+              : Value(_accountId!),
         ),
       );
       await ledger.confirm(t.id);
@@ -94,6 +103,13 @@ class _QuickReviewSheetState extends ConsumerState<QuickReviewSheet> {
     if (t == null) return const SizedBox(height: 160);
     final income = t.amountMinorUnits > 0;
     final waiting = t.transactionState == TransactionState.needsReview;
+    // Other accounts of the same kind (bank or card) it could have been.
+    final all = ref.watch(activePhysicalAccountsProvider).value ?? const [];
+    final from = all.where((a) => a.id == t.physicalAccountId).firstOrNull;
+    final choices = [
+      for (final a in all)
+        if (a.isLiability == (from?.isLiability ?? false)) a,
+    ];
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
@@ -137,6 +153,16 @@ class _QuickReviewSheetState extends ConsumerState<QuickReviewSheet> {
                 ),
             ],
           ),
+          if (waiting && !t.isInternalTransfer && choices.length > 1) ...[
+            const SizedBox(height: RiveroSpacing.md),
+            PickerField<String>(
+              key: const ValueKey('quick-account'),
+              label: income ? 'Received in' : 'Paid from',
+              value: _accountId ?? t.physicalAccountId,
+              options: [for (final a in choices) PickerOption(a.id, a.name)],
+              onChanged: (v) => setState(() => _accountId = v),
+            ),
+          ],
           const SizedBox(height: RiveroSpacing.md),
           TextField(
             key: const ValueKey('quick-note'),
