@@ -12,16 +12,36 @@ import org.json.JSONObject
  * No READ_SMS: only notifications the user has granted listener access to.
  */
 class RiveroNotificationListener : NotificationListenerService() {
+    override fun onListenerConnected() {
+        super.onListenerConnected()
+        Diagnostics.listener(this, true)
+    }
+
+    // Android dropped the connection (it can after an app update, or under
+    // memory pressure): ask for it back instead of going deaf until reboot.
+    override fun onListenerDisconnected() {
+        Diagnostics.listener(this, false)
+        if (android.os.Build.VERSION.SDK_INT >= 24) {
+            requestRebind(android.content.ComponentName(this, RiveroNotificationListener::class.java))
+        }
+        super.onListenerDisconnected()
+    }
+
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         val extras = sbn.notification.extras
         // Rivero's own "test capture" notification exercises this exact path.
         val isTest = sbn.packageName == packageName && extras.getBoolean(EXTRA_TEST, false)
-        if (!isTest && !isFinancialSource(this, sbn.packageName)) return
+        if (!isTest && (sbn.packageName == packageName || isPrivate(sbn.packageName))) return
+        val known = isTest || isFinancialSource(this, sbn.packageName)
         val title = extras.getCharSequence("android.title")?.toString()
         val body = (extras.getCharSequence("android.bigText")
             ?: extras.getCharSequence("android.text"))?.toString()
         // Titles often carry the amount in payment apps ("Paid ₹500 to X").
         val searchable = "${title ?: ""} ${body ?: ""}"
+        // Any other app (a bank's own app, a wallet, a card app Rivero does
+        // not list): kept only when it reads like a real transaction, and
+        // nothing about it is recorded otherwise.
+        if (!known && (body == null || !looksLikeTransaction(searchable))) return
         if (body == null || !MONEY.containsMatchIn(searchable)) {
             // Seen from an allowed app but not about money (chat, OTP-only,
             // or text the phone hid): counted so the user can see it.
@@ -52,7 +72,17 @@ class RiveroNotificationListener : NotificationListenerService() {
             cancelNotification(sbn.key)
             CaptureNotifier.notify(this, captureId, title, body, force = true)
         } else if (!MainActivity.isForeground) {
-            CaptureNotifier.notify(this, captureId, title, body)
+            // From an app Rivero does not list, a pop-up only when the text
+            // names an account, card, UPI ID or reference (not a shop's
+            // "order paid" update); it still waits in To review either way.
+            if (known || ACCOUNTISH.containsMatchIn(searchable)) {
+                CaptureNotifier.notify(this, captureId, title, body)
+            } else {
+                Diagnostics.popup(this, "other app")
+            }
+        } else {
+            // Rivero is on screen: the payment shows in To review instead.
+            Diagnostics.popup(this, "rivero open")
         }
     }
 
@@ -64,6 +94,57 @@ class RiveroNotificationListener : NotificationListenerService() {
         var onQueued: (() -> Unit)? = null
 
         val LOCK = Any()
+
+        /** Asks Android to (re)connect the listener when access is on. Cheap,
+         *  and harmless when it is already connected. */
+        fun reconnect(context: android.content.Context) {
+            if (android.os.Build.VERSION.SDK_INT < 24) return
+            val me = android.content.ComponentName(context, RiveroNotificationListener::class.java)
+            val enabled = android.provider.Settings.Secure.getString(
+                context.contentResolver,
+                "enabled_notification_listeners",
+            )
+            if (enabled?.contains(me.flattenToString()) == true) {
+                try {
+                    requestRebind(me)
+                } catch (_: Exception) {
+                    // Not allowed right now; the next start tries again.
+                }
+            }
+        }
+        /** Chats, social and email: never read, whatever they say. */
+        private val PRIVATE = setOf(
+            "com.whatsapp", "com.whatsapp.w4b", "org.telegram.messenger",
+            "org.thoughtcrime.securesms", "com.instagram.android",
+            "com.facebook.orca", "com.facebook.katana", "com.snapchat.android",
+            "com.discord", "com.Slack", "com.google.android.gm",
+            "com.microsoft.office.outlook", "com.twitter.android",
+            "com.linkedin.android", "com.google.android.apps.dynamite",
+            "com.microsoft.teams", "us.zoom.videomeetings", "jp.naver.line.android",
+            "com.viber.voip", "com.skype.raider", "com.google.android.apps.tachyon",
+        )
+
+        private fun isPrivate(pkg: String) =
+            pkg in PRIVATE || pkg == "android" || pkg.startsWith("com.android.systemui")
+
+        /** An amount and a transaction word ("₹500 debited", "paid Rs 200"). */
+        private val TXN_WORD = Regex(
+            "(?i)\\b(debited|credited|paid|sent|received|spent|withdrawn|transferred|deducted|charged)\\b",
+        )
+        private val AMOUNT = Regex("(?i)(rs\\.?|inr|₹)\\s?\\d")
+        private val OFFER = Regex(
+            "(?i)\\b(cashback offer|get (up ?to )?(rs\\.?|inr|₹)|win (up ?to )?|coupon|voucher|apply now|offer)\\b",
+        )
+
+        fun looksLikeTransaction(text: String) =
+            AMOUNT.containsMatchIn(text) && TXN_WORD.containsMatchIn(text) &&
+                !OFFER.containsMatchIn(text)
+
+        /** Names where the money moved: an account, card, UPI ID or reference. */
+        private val ACCOUNTISH = Regex(
+            "(?i)\\b(a/?c|acct|account|card|upi|vpa|ref|utr|imps|neft)\\b|@[a-z]{2,}",
+        )
+
         private val MONEY = Regex("(?i)(rs\\.?|inr|₹)\\s?\\d|debited|credited|spent|mandate|autopay")
         // SMS apps + major UPI/bank apps; extend as needed.
         private val SOURCES = setOf(
