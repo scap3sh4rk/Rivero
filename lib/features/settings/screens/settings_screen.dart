@@ -518,16 +518,35 @@ class _CaptureRowsState extends ConsumerState<_CaptureRows>
   }
 
   bool _battery = true;
+  ({bool allowed, bool channelOff}) _popups = (
+    allowed: true,
+    channelOff: false,
+  );
 
   Future<void> _refresh() async {
     final on = await NotificationBridge.isEnabled();
     final battery = await NotificationBridge.batteryUnrestricted();
+    final popups = await NotificationBridge.popupHealth();
     if (mounted) {
       setState(() {
         _enabled = on;
         _battery = battery;
+        _popups = popups;
       });
     }
+  }
+
+  /// Pop-ups blocked: ask for the permission (Android shows its own prompt
+  /// once); if it was refused before, or the channel is off, open Rivero's
+  /// notification page instead.
+  Future<void> _fixPopups() async {
+    if (!_popups.allowed && !_popups.channelOff) {
+      await NotificationBridge.askNotifyPermission();
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+      await _refresh();
+      if (_popups.allowed) return;
+    }
+    await NotificationBridge.openPopupSettings();
   }
 
   Future<void> _pickUpi() async {
@@ -599,6 +618,18 @@ class _CaptureRowsState extends ConsumerState<_CaptureRows>
           },
           onTap: () => openCaptureAccess(context),
         ),
+        if (NotificationBridge.supported)
+          _Row(
+            key: const ValueKey('popups-row'),
+            icon: Icons.notification_add_outlined,
+            title: 'Payment pop-ups',
+            subtitle: !_popups.allowed
+                ? 'Off · Rivero may not show notifications. Tap to allow'
+                : _popups.channelOff
+                ? 'Off · "Payments to add" is turned off. Tap to turn it on'
+                : 'On · a pop-up to add each payment in two taps',
+            onTap: _popups.allowed && !_popups.channelOff ? null : _fixPopups,
+          ),
         if (NotificationBridge.supported)
           _Row(
             key: const ValueKey('battery-row'),

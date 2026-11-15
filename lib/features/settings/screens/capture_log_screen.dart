@@ -107,6 +107,37 @@ class _CaptureLogScreenState extends ConsumerState<CaptureLogScreen> {
         'your messages and UPI apps.';
     final lines = <String>['Notification access: $access', heard];
     if (lastLine != null) lines.add(lastLine);
+    // Is the listener still connected (it can drop after an update)?
+    if (_diag['listenerConnected'] == false) {
+      lines.add(
+        'Android disconnected Rivero from your notifications. Open Rivero '
+        'once to reconnect; if payments still are not seen, turn '
+        'notification access off and on again.',
+      );
+    }
+    // What happened to the last payment pop-up, and why.
+    final popup = _diag['popupResult'] as String?;
+    final popupTime = (_diag['popupTime'] as int?) ?? 0;
+    if (popup != null && popupTime > 0) {
+      final at = DateFormat('d MMM, h:mm a')
+          .format(DateTime.fromMillisecondsSinceEpoch(popupTime));
+      lines.add(switch (popup) {
+        'shown' => 'Last payment pop-up shown at $at.',
+        'same payment' =>
+          'At $at a second message for the same payment came in: no '
+              'second pop-up.',
+        'offer' => 'At $at an offer (not a payment) came in: no pop-up.',
+        'rivero open' =>
+          'At $at a payment came in while Rivero was open: it waits under '
+              'To review on Home instead of a pop-up.',
+        'not a payment' =>
+          'At $at a reminder or OTP came in (not a payment): no pop-up.',
+        'no permission' =>
+          'At $at a payment came in but Rivero may not show notifications. '
+              'Settings, Capture, Payment pop-ups.',
+        _ => 'Last pop-up: $popup at $at.',
+      });
+    }
     if (noText > 0) lines.add(hiddenHint);
     if (!_battery) {
       lines.add(

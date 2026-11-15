@@ -49,6 +49,8 @@ class MainActivity : FlutterFragmentActivity() {
     override fun onResume() {
         super.onResume()
         isForeground = true
+        // After an update some phones leave the listener disconnected.
+        RiveroNotificationListener.reconnect(this)
     }
 
     override fun onPause() {
@@ -79,6 +81,19 @@ class MainActivity : FlutterFragmentActivity() {
                     result.success(null)
                 }
                 "diagnostics" -> result.success(Diagnostics.read(this))
+                "popupHealth" -> result.success(CaptureNotifier.health(this).toString())
+                "openPopupSettings" -> {
+                    // Rivero's notification page, where pop-ups are allowed.
+                    val i = if (Build.VERSION.SDK_INT >= 26) {
+                        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                            .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                    } else {
+                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                            .setData(android.net.Uri.parse("package:$packageName"))
+                    }
+                    startActivity(i)
+                    result.success(null)
+                }
                 // A PDF statement's text, read off the main thread.
                 "pdfText" -> {
                     val path = call.argument<String>("path") ?: ""

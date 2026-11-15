@@ -33,6 +33,11 @@ object CaptureNotifier {
         "(?i)(?:rs\\.?|inr|₹)\\s*([0-9][0-9,]*(?:\\.[0-9]{1,2})?)" +
             "|(?:debited|credited|paid|sent|received)\\s+(?:by|for|with|of)?\\s*([0-9][0-9,]*(?:\\.[0-9]{1,2})?)",
     )
+    /** Offers, not payments ("Get Rs 500 cashback", "Win up to ₹1000"). */
+    private val PROMOTION = Regex(
+        "(?i)\\b(cashback offer|get (up ?to )?(rs\\.?|inr|₹)|win (up ?to )?|up ?to (rs\\.?|inr|₹)|" +
+            "coupon|voucher|pre[\\s-]?approved|apply now|eligible for|offer ends|limited time)",
+    )
     private val NOT_A_PAYMENT = Regex(
         "(?i)\\b(otp|one[\\s-]?time password|verification code|will be debited|to be debited|" +
             "pre[\\s-]?debit|statement (is )?(generated|ready)|minimum (amount )?due|total (amount )?due)\\b",
@@ -49,10 +54,20 @@ object CaptureNotifier {
     /** Posts the notification for a newly captured message, if it looks like a payment. */
     fun notify(context: Context, captureId: String, title: String?, body: String, force: Boolean = false) {
         val text = listOfNotNull(title, body).joinToString(" · ")
-        if (NOT_A_PAYMENT.containsMatchIn(text)) return
-        // "Get Rs 500 cashback" mentions money but nothing moved: no popup
-        // (the message is still kept for the app to judge).
-        if (!force && !DEBIT.containsMatchIn(text) && !INCOME.containsMatchIn(text)) return
+        if (NOT_A_PAYMENT.containsMatchIn(text)) {
+            Diagnostics.popup(context, "not a payment")
+            return
+        }
+        // An offer mentions money but nothing moved: no popup (the message
+        // is still kept for the app to judge). Payments are worded every
+        // which way ("Payment of ₹500 to X successful", "₹500 to X"), so a
+        // pop-up never waits for a particular verb.
+        if (!force && PROMOTION.containsMatchIn(text) &&
+            !DEBIT.containsMatchIn(text) && !INCOME.containsMatchIn(text)
+        ) {
+            Diagnostics.popup(context, "offer")
+            return
+        }
         // One payment is announced by the payment app and again by the
         // bank: one popup, not two. The app pairs the two messages itself.
         val seen = AMOUNT.find(text)?.let { it.groupValues[1].ifEmpty { it.groupValues[2] } }
@@ -61,7 +76,10 @@ object CaptureNotifier {
             val now = System.currentTimeMillis()
             synchronized(recent) {
                 recent.values.removeAll { now - it > SAME_PAYMENT_MS }
-                if (recent.containsKey(seen)) return
+                if (recent.containsKey(seen)) {
+                    Diagnostics.popup(context, "same payment")
+                    return
+                }
                 recent[seen] = now
             }
         }
@@ -69,6 +87,7 @@ object CaptureNotifier {
             context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
         ) {
+            Diagnostics.popup(context, "no permission")
             return
         }
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -120,6 +139,23 @@ object CaptureNotifier {
             .addAction(Notification.Action.Builder(null, "Open Rivero", openPi).build())
             .build()
         manager.notify(id, n)
+        Diagnostics.popup(context, "shown")
+    }
+
+    /** Whether Rivero's pop-ups can appear at all: notifications allowed
+     *  for the app, and the "Payments to add" channel not switched off. */
+    fun health(context: Context): JSONObject {
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val allowed = manager.areNotificationsEnabled() &&
+            (Build.VERSION.SDK_INT < 33 ||
+                context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
+                PackageManager.PERMISSION_GRANTED)
+        val channelOff = Build.VERSION.SDK_INT >= 26 &&
+            manager.getNotificationChannel(CHANNEL)?.importance == NotificationManager.IMPORTANCE_NONE
+        return JSONObject().apply {
+            put("allowed", allowed)
+            put("channelOff", channelOff)
+        }
     }
 
     fun cancel(context: Context, captureId: String) {

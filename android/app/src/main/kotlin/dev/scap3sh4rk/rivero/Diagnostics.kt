@@ -22,6 +22,24 @@ object Diagnostics {
             .apply()
     }
 
+    /** What happened to the last pop-up ("shown", or why it was not). */
+    @Synchronized
+    fun popup(context: Context, result: String) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString("popup_result", result)
+            .putLong("popup_time", System.currentTimeMillis())
+            .apply()
+    }
+
+    /** The listener's connection to Android (lost after some app updates). */
+    @Synchronized
+    fun listener(context: Context, connected: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putBoolean("listener_connected", connected)
+            .putLong("listener_time", System.currentTimeMillis())
+            .apply()
+    }
+
     fun read(context: Context): String {
         val p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         return JSONObject().apply {
@@ -31,6 +49,12 @@ object Diagnostics {
             put("lastPackage", p.getString("last_pkg", null))
             put("lastResult", p.getString("last_result", null))
             put("lastTime", p.getLong("last_time", 0))
+            put("popupResult", p.getString("popup_result", null))
+            put("popupTime", p.getLong("popup_time", 0))
+            if (p.contains("listener_connected")) {
+                put("listenerConnected", p.getBoolean("listener_connected", false))
+            }
+            put("listenerTime", p.getLong("listener_time", 0))
         }.toString()
     }
 

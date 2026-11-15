@@ -170,6 +170,35 @@ class NotificationBridge {
     }
   }
 
+  /// Whether Rivero's payment pop-ups can appear: notifications allowed for
+  /// the app ("allowed") and the "Payments to add" channel not switched off
+  /// ("channelOff"). Allowed off-device.
+  static Future<({bool allowed, bool channelOff})> popupHealth() async {
+    if (!supported) return (allowed: true, channelOff: false);
+    try {
+      final json = await _channel.invokeMethod<String>('popupHealth');
+      final m = json == null
+          ? const <String, dynamic>{}
+          : (jsonDecode(json) as Map).cast<String, dynamic>();
+      return (
+        allowed: m['allowed'] as bool? ?? true,
+        channelOff: m['channelOff'] as bool? ?? false,
+      );
+    } on MissingPluginException {
+      return (allowed: true, channelOff: false);
+    }
+  }
+
+  /// Opens Rivero's notification settings page in Android.
+  static Future<void> openPopupSettings() async {
+    if (!supported) return;
+    try {
+      await _channel.invokeMethod<void>('openPopupSettings');
+    } on MissingPluginException {
+      // Not running on a device (tests).
+    }
+  }
+
   /// Whether Android lets Rivero run without battery restrictions (capture
   /// keeps working). True off-device.
   static Future<bool> batteryUnrestricted() async {

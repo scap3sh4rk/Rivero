@@ -12,6 +12,21 @@ import org.json.JSONObject
  * No READ_SMS: only notifications the user has granted listener access to.
  */
 class RiveroNotificationListener : NotificationListenerService() {
+    override fun onListenerConnected() {
+        super.onListenerConnected()
+        Diagnostics.listener(this, true)
+    }
+
+    // Android dropped the connection (it can after an app update, or under
+    // memory pressure): ask for it back instead of going deaf until reboot.
+    override fun onListenerDisconnected() {
+        Diagnostics.listener(this, false)
+        if (android.os.Build.VERSION.SDK_INT >= 24) {
+            requestRebind(android.content.ComponentName(this, RiveroNotificationListener::class.java))
+        }
+        super.onListenerDisconnected()
+    }
+
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         val extras = sbn.notification.extras
         // Rivero's own "test capture" notification exercises this exact path.
@@ -53,6 +68,9 @@ class RiveroNotificationListener : NotificationListenerService() {
             CaptureNotifier.notify(this, captureId, title, body, force = true)
         } else if (!MainActivity.isForeground) {
             CaptureNotifier.notify(this, captureId, title, body)
+        } else {
+            // Rivero is on screen: the payment shows in To review instead.
+            Diagnostics.popup(this, "rivero open")
         }
     }
 
@@ -64,6 +82,24 @@ class RiveroNotificationListener : NotificationListenerService() {
         var onQueued: (() -> Unit)? = null
 
         val LOCK = Any()
+
+        /** Asks Android to (re)connect the listener when access is on. Cheap,
+         *  and harmless when it is already connected. */
+        fun reconnect(context: android.content.Context) {
+            if (android.os.Build.VERSION.SDK_INT < 24) return
+            val me = android.content.ComponentName(context, RiveroNotificationListener::class.java)
+            val enabled = android.provider.Settings.Secure.getString(
+                context.contentResolver,
+                "enabled_notification_listeners",
+            )
+            if (enabled?.contains(me.flattenToString()) == true) {
+                try {
+                    requestRebind(me)
+                } catch (_: Exception) {
+                    // Not allowed right now; the next start tries again.
+                }
+            }
+        }
         private val MONEY = Regex("(?i)(rs\\.?|inr|₹)\\s?\\d|debited|credited|spent|mandate|autopay")
         // SMS apps + major UPI/bank apps; extend as needed.
         private val SOURCES = setOf(
