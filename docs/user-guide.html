@@ -63,10 +63,11 @@
 </table>
 
 <h2 id="home-your-daily-number">Home: your daily number</h2>
-<p>The big figure is <strong>Safe to spend per day</strong>. Below it: the total you can safely spend until payday, how many days that covers, and a bar showing how much of this cycle's spending money is left.</p>
+<p>The big figure is <strong>Safe to spend per day</strong>. Below it: the total you can safely spend until payday and how many days that covers. The card itself is a <strong>battery</strong>: its background fills with how much of this cycle's spending money is left, green while there is plenty, amber as it runs down, red near empty. Text over the filled part switches to a colour that stands out against it.</p>
 <ul>
 <li><strong>Tap the card</strong> to see "How this is calculated" with every line.</li>
-<li>The coloured dot shows how fresh the figures are: <span class="pill ok">Verified</span> updated in the last 24 hours, <span class="pill warn">Estimated</span> 1 to 3 days, <span class="pill bad">Stale</span> older than 3 days.</li>
+<li>When the figures may be out of date a small label says so: <span class="pill warn">Estimated</span> last update 1 to 3 days ago, <span class="pill bad">Stale</span> older than 3 days. Fresh figures (under 24 hours) show no label.</li>
+<li><strong>Choose what is on Home</strong> (Settings → Home screen): Plan, Owed to you, Next autopay, Spent this cycle, Goals, Net worth, Card bills, You owe, in any order. Small cards sit two to a row and always have the same size; long names end in "…".</li>
 <li>If the number shows "Short by", you have less spending money than you owe in bills before payday. Spending is not blocked; it is a warning.</li>
 </ul>
 <h3>To review</h3>
@@ -98,16 +99,20 @@
 <h3>Marking a category paid</h3>
 <p>Tap a plan-only category on the Plan tab. Choose <strong>Already paid</strong> and pick the day you paid: the payment is added to Activity on that day and the category counts as paid, without changing the balance (it already shows the payment). Or choose <strong>Paying now</strong>: the amount comes out of the salary account today. Deleting that entry in Activity makes the category unpaid again.</p>
 <h3>Goals</h3>
-<p>At the bottom of the Plan tab, <strong>Goals</strong> lets you save towards something ("Goa trip, ₹50,000 by June"). Link a goal to an <strong>account</strong> (its balance is the progress) or to a <strong>plan category</strong> (what you paid into it since the goal began). Each goal shows a progress ring, how much you still need each month, and whether you are on track or <em>behind by ₹…</em>. A goal never creates or moves money; it only reads it.</p>
+<p>At the bottom of the Plan tab (and on Home), <strong>Goals</strong> lets you save towards something ("Car, ₹5,00,000 by June"). Choose what counts towards it, in any mix: <strong>fixed deposits</strong> (with the interest earned so far), <strong>accounts</strong> and <strong>demat</strong>, what you pay into a <strong>plan category</strong> from now on, and <strong>cash, stocks, gold or anything else</strong> you value yourself (update the value when it changes). Each goal shows a progress ring, what each source adds, how much you still need each month, and whether you are on track or <em>behind by ₹…</em>. Tap a goal to edit it. Deleting is in the editor and asks first, with an Undo after. A goal never creates or moves money; it only reads it.</p>
 <h3>When salary arrives</h3>
 <p>If a salary credit is captured, Home offers to split it. A salary that lands a few days early (weekends, holidays) is treated as the next cycle's salary. Bonuses and refunds are only offered when the bank calls them salary.</p>
 
 <h2 id="accounts">Accounts</h2>
 <ul>
 <li>Tap the <strong>+</strong> at the bottom right to add an account or card: bank, wallet, cash, credit card, investment, or your own type. (Every page that adds something uses this same + in the same place.)</li>
-<li>The <strong>eye</strong> icon at the top of every page hides or shows all amounts.</li>
+<li>The <strong>eye</strong> icon at the top of every page hides or shows all amounts. Each account also has its own eye, and it wins: with everything hidden, showing one account shows only that one (the others stay hidden).</li>
+<li><strong>Sections:</strong> Bank &amp; cash, Investments &amp; demat, Fixed deposits, Credit cards and Loans. Tap a section's name (the small arrow) to fold it away; the <strong>arrange</strong> button at the top puts the sections in the order you like. Both are remembered.</li>
+<li><strong>Fixed deposits</strong> ask for the amount deposited, the interest rate, the day opened and the day it matures. Each shows its rate, when it matures (and in how many days) and what it will be worth then (interest added every quarter, in whole paise).</li>
+<li><strong>Net worth</strong> counts only the accounts you keep in it: switch "Count in net worth" off on an account to leave it out (it is still listed). Settings → "Show net worth on Accounts" hides the card altogether.</li>
+<li><strong>Bank icons</strong> (Settings): add a picture once per bank, and every account, card and payment of that bank uses it. Rivero ships no bank logos.</li>
 <li>Cards take a credit limit; the usage pill shows the percentage used, with ticks at 10% and 30%.</li>
-<li><strong>Billing cycle, per card:</strong> set the day the statement is generated and the day the bill is due. Each card then shows <em>days left in this billing cycle</em>, <em>Pay by &lt;date&gt;</em>, and whether the money in your bank and cash accounts covers the bill ("You can pay this" or "Short by …"). The Cards section totals what every card owes against what you hold.</li>
+<li><strong>Billing cycle, per card:</strong> set the day the statement is generated, the day the bill is due and the account the bill is paid from. Each card then shows <em>days left in this billing cycle</em>, <em>Pay by &lt;date&gt;</em>, and whether that account holds enough ("From HDFC Savings: enough" or "short by …"). Cards paid from the same account are judged together, against that account's balance ("with Amazon Pay, ₹18,000 in all"); cards with no paying account are judged together against your other money.</li>
 <li>Tap an account to open it: balance, recent activity, autopay on that account. <strong>Update balance</strong> sets what it really holds, recorded as a visible "Balance update" entry.</li>
 <li>Long-press and drag to reorder. Give each account a picture and colour.</li>
 <li>Tap <strong>Net worth</strong> for the breakdown.</li>
@@ -143,7 +148,7 @@
 <ul>
 <li><strong>People you borrowed from</strong>, with who, how much, where it arrived and, optionally, the date you will pay it back. Borrowing is not income. Tap one to record paying back some or all of it, from an account or in cash (paying back is not spending). <strong>They forgave it</strong> closes a debt.</li>
 <li>A debt dated before payday is held back from Safe to spend.</li>
-<li><strong>Bills &amp; commitments</strong> is on the same page: a total "to pay before payday" against what you hold, then each <strong>credit card</strong> (outstanding, due date, limit, available credit, can you pay it), each <strong>loan</strong>, and every <strong>autopay</strong> due before payday.</li>
+<li><strong>Bills &amp; commitments</strong> is on the same page. Each <strong>credit card</strong> shows only what matters: what is left to settle, the date to settle it by, and the account it is paid from with "enough" or "short by ₹…". Then each <strong>loan</strong> and every <strong>autopay</strong> due before payday. Tap a card to open it.</li>
 <li>Settings → "Count money owed to me" optionally adds what is owed to you to Safe to spend before it arrives. Leave it off if friends repay into a different account than your spending account.</li>
 </ul>
 
@@ -152,7 +157,8 @@
 <p>Settings → Autopay lists every recurring debit. Rivero adds them from bank messages ("mandate created", "will be debited on …") and by hand. Before payday it holds back what is still due, including <strong>every weekly debit left</strong> in the cycle, and the cap for variable-amount mandates.</p>
 <ul>
 <li>When the real debit is recorded (captured or typed in), the autopay moves to its next date. Matching uses the payee name and the amount.</li>
-<li>An autopay that passed its date without a debit shows <strong>Overdue</strong> and stays reserved for 5 days, then is assumed paid and moved on.</li>
+<li><strong>Kinds:</strong> each autopay is a SIP, subscription, loan EMI, insurance, bill, rent or other, with its own icon and colour, so a SIP never looks like Netflix. Rivero guesses from the name; tap an autopay → <strong>Edit</strong> to change the kind, payee, amount, how often, the account and the next date.</li>
+<li><strong>Overdue:</strong> an autopay whose date passed without its debit shows <strong>Overdue</strong> and stays kept aside in Safe to spend. Tap it to say what happened: <em>It was paid</em> (records the debit on its date; a SIP as an investment, not spending), <em>It failed</em> (keeps it aside until a retry date you pick), or <em>Skip this one</em>. If you say nothing, after 5 days it is assumed paid and moved on, <strong>unless the account it comes from holds less than the debit</strong>: then it most likely failed, so it stays overdue and kept aside until you decide.</li>
 <li>Month-end dates are handled properly: a 31st rolls to the 28th or 29th in February.</li>
 <li><strong>Looks like autopay:</strong> when the same payee was paid a similar amount (within 10%) every month or every week, at least three times in the last six months, the Autopay page suggests it ("Netflix ₹649 monthly"). <strong>Add autopay</strong> registers it so Safe to spend keeps it aside; <strong>Not autopay</strong> stops suggesting it.</li>
 </ul>
@@ -211,6 +217,9 @@
 <tr><td>Open on quick log</td><td>Start on the Log keypad instead of Home.</td></tr>
 <tr><td>Categories</td><td>Your spending categories, colours and order.</td></tr>
 <tr><td>Account types</td><td>Add your own (for example "Chit fund").</td></tr>
+<tr><td>Home screen</td><td>Which cards sit under Safe to spend, and their order.</td></tr>
+<tr><td>Bank icons</td><td>One picture per bank, used everywhere.</td></tr>
+<tr><td>Show net worth on Accounts</td><td>Hide the net worth card; each account can also be left out of it.</td></tr>
 <tr><td>Rules</td><td>Sort captured payments into categories, or ignore some, automatically.</td></tr>
 <tr><td>Reminders</td><td>Card bills, autopay and paying people back.</td></tr>
 <tr><td>Exchange rates</td><td>Shown when an account is not in rupees: what one unit is worth in ₹.</td></tr>
