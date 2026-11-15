@@ -13,6 +13,7 @@ import 'package:rivero/core/ingestion/models/raw_notification.dart';
 import 'package:rivero/core/ledger/ledger_service.dart';
 import 'package:rivero/core/plan/defaults.dart';
 import 'package:rivero/core/plan/salary_plan_service.dart';
+import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/reconciliation/reconciliation_service.dart';
 
 import '../../test_helper.dart';
@@ -628,5 +629,139 @@ void main() {
     );
     expect(names.where((x) => x.contains('Card Card')), isEmpty);
     expect(names.where((x) => x.contains('9999')), hasLength(1));
+  });
+
+  // ---- notification pop-up (approve from the notification) -------------
+
+  group('Pop-up: app notification and a later bank SMS are one payment', () {
+    Future<List<LedgerTransaction>> waiting() async => (await entries())
+        .where((t) => t.transactionState == TransactionState.needsReview)
+        .toList();
+
+    for (final gap in [90, 240, 1500]) {
+      test('SMS ${gap}s later, other payee name: Add on the pop-up '
+          'leaves nothing to review', () async {
+        await account('bank', 100000, mask: '4012');
+        await sms(
+          'Paid ₹300.00 to Cafe Coffee Day',
+          pkg: gpay,
+          title: 'Google Pay',
+          ago: Duration(seconds: gap),
+          id: 'push',
+        );
+        await sms(
+          'Rs 300.00 debited from A/c XX4012 to VPA ccdpayments@icici (UPI '
+          'Ref No 700000000001).',
+          id: 'bank-sms',
+        );
+        expect(await entries(), hasLength(1));
+        await CaptureDecisions(db).apply({
+          'push': {'action': 'accept', 'category': 'Food', 'note': null},
+        });
+        expect(await waiting(), isEmpty);
+        final t = (await entries()).single;
+        expect(t.category, 'Food');
+        expect(t.referenceNumber, '700000000001');
+        expect(await bal('bank'), 70000);
+      });
+    }
+
+    test('bank SMS first, the app notification after', () async {
+      await account('bank', 100000, mask: '4012');
+      await sms(
+        'Rs 300.00 debited from A/c XX4012 to VPA ccdpayments@icici (UPI '
+        'Ref No 700000000001).',
+        ago: const Duration(minutes: 2),
+      );
+      await sms('Paid ₹300.00 to Cafe Coffee Day', pkg: gpay, title: 'GPay');
+      expect(await entries(), hasLength(1));
+    });
+
+    test('two real payments of one amount stay two', () async {
+      await account('bank', 100000, mask: '4012');
+      await sms(
+        'Paid ₹300.00 to Cafe Coffee Day',
+        pkg: gpay,
+        title: 'Google Pay',
+        ago: const Duration(minutes: 12),
+      );
+      await sms(
+        'Rs 300.00 debited from A/c XX4012 to VPA ccdpayments@icici (UPI '
+        'Ref No 700000000001).',
+        ago: const Duration(minutes: 9),
+      );
+      await sms(
+        'Paid ₹300.00 to Pizza Hub',
+        pkg: 'com.phonepe.app',
+        title: 'PhonePe',
+        ago: const Duration(minutes: 2),
+      );
+      await sms(
+        'Rs 300.00 debited from A/c XX4012 to VPA pizzahub@okaxis (UPI Ref '
+        'No 700000000002).',
+      );
+      final all = await entries();
+      expect(all, hasLength(2));
+      expect(
+        all.map((t) => t.referenceNumber),
+        unorderedEquals(['700000000001', '700000000002']),
+      );
+    });
+
+    test('the bank SMS corrects the account the app guessed', () async {
+      await account('sbi', 500000, mask: '1111');
+      await account('hdfc', 500000, mask: '4012');
+      await sms(
+        'Paid ₹300.00 to Cafe Coffee Day',
+        pkg: gpay,
+        title: 'Google Pay',
+        ago: const Duration(minutes: 3),
+      );
+      await sms(
+        'Rs 300.00 debited from A/c XX4012 to VPA ccdpayments@icici (UPI '
+        'Ref No 700000000001).',
+      );
+      expect((await entries()).single.physicalAccountId, 'hdfc');
+    });
+  });
+
+  group('Pop-up on a message Rivero could not read', () {
+    const odd = 'Your a/c 4012 txn of INR300 at CCD done';
+
+    test('Add keeps the category and note for adding it from Home', () async {
+      await sms(
+        odd,
+        pkg: 'com.google.android.apps.messaging',
+        title: 'HDFCBK',
+        id: 'odd',
+      );
+      expect(
+        await CaptureDecisions(db).apply({
+          'odd': {'action': 'accept', 'category': 'Food', 'note': 'Coffee'},
+        }),
+        1,
+      );
+      final kept = await CaptureDecisions.unreadableChoices(db);
+      final p = LogPrefill.fromMessage(odd)
+          .withChoice((kept['odd'] as Map).cast<String, dynamic>());
+      expect(p.category, 'Food');
+      expect(p.note, 'Coffee');
+      expect(p.amountText, '300');
+      // Still waiting under "bank messages to check".
+      expect(await db.ingestionLogsDao.watchUnreadable().first, hasLength(1));
+    });
+
+    test('Ignore dismisses it', () async {
+      await sms(
+        odd,
+        pkg: 'com.google.android.apps.messaging',
+        title: 'HDFCBK',
+        id: 'odd',
+      );
+      await CaptureDecisions(db).apply({
+        'odd': {'action': 'ignore'},
+      });
+      expect(await db.ingestionLogsDao.watchUnreadable().first, isEmpty);
+    });
   });
 }

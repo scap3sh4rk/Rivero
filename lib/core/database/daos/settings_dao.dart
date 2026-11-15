@@ -49,6 +49,11 @@ abstract final class SettingKeys {
   static const primaryUpi = 'primary_upi_package';
   static const primaryUpiName = 'primary_upi_name';
 
+  /// Category and note picked on the notification of a bank message Rivero
+  /// could not read (JSON: log id -> {category, note}), offered again when
+  /// it is added from Home.
+  static const unreadableChoices = 'unreadable_choices_json';
+
   /// Money (paise) in the spending account that Safe to spend never counts.
   static const keepUntouched = 'keep_untouched_minor';
 

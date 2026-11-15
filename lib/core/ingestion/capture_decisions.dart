@@ -1,4 +1,8 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
+import 'package:rivero/core/database/daos/ingestion_logs_dao.dart';
+import 'package:rivero/core/database/daos/settings_dao.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/ledger/ledger_service.dart';
@@ -22,6 +26,45 @@ class CaptureDecisions {
     return own ?? await _repeated(captureId);
   }
 
+  /// A message Rivero could not read (it waits on Home under "bank
+  /// messages to check"): Ignore dismisses it; Add keeps the category and
+  /// note for when it is added from there. False if it is not such a one.
+  Future<bool> _unreadable(String captureId, Map<String, dynamic> d) async {
+    final log = await (db.select(
+      db.rawIngestionLogs,
+    )..where((l) => l.id.equals(captureId))).getSingleOrNull();
+    if (log == null ||
+        log.parseStatus != ParseStatus.failed ||
+        log.failureReason == IngestionLogsDao.autopayFailed) {
+      return false;
+    }
+    if (d['action'] == 'ignore') {
+      await db.ingestionLogsDao.updateParseStatus(
+        captureId,
+        ParseStatus.ignored,
+        failureReason: 'Dismissed',
+      );
+      return true;
+    }
+    final all = await unreadableChoices(db);
+    all[captureId] = {'category': d['category'], 'note': d['note']};
+    await db.settingsDao.set(SettingKeys.unreadableChoices, jsonEncode(all));
+    return true;
+  }
+
+  /// Choices kept by [_unreadable], by log id.
+  static Future<Map<String, dynamic>> unreadableChoices(
+    RiveroDatabase db,
+  ) async {
+    final raw = await db.settingsDao.get(SettingKeys.unreadableChoices);
+    if (raw == null) return {};
+    try {
+      return (jsonDecode(raw) as Map).cast<String, dynamic>();
+    } on FormatException {
+      return {};
+    }
+  }
+
   /// The entry a second notification for the same payment was matched to.
   Future<LedgerTransaction?> _repeated(String captureId) async {
     final log = await (db.select(
@@ -40,7 +83,10 @@ class CaptureDecisions {
     for (final e in decisions.entries) {
       final d = (e.value as Map).cast<String, dynamic>();
       final t = await entryFor(e.key);
-      if (t == null) continue;
+      if (t == null) {
+        if (await _unreadable(e.key, d)) applied++;
+        continue;
+      }
       // A choice made on the second notification of one payment: only an
       // "Add" for an entry still waiting counts. It never ignores or
       // removes what the first notification already settled.

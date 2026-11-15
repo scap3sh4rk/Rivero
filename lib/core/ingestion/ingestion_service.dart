@@ -171,6 +171,16 @@ class IngestionService {
           TransactionsCompanion(referenceNumber: Value(parsed.referenceNumber)),
         );
       }
+      // The payment app guessed the account; the bank's message names it.
+      // Still waiting for Accept, nothing was applied: just correct it.
+      if (resolved.sure &&
+          duplicate.physicalAccountId != accountId &&
+          duplicate.transactionState == TransactionState.needsReview &&
+          !duplicate.isInternalTransfer) {
+        await (database.update(database.transactions)
+              ..where((t) => t.id.equals(duplicate.id)))
+            .write(TransactionsCompanion(physicalAccountId: Value(accountId)));
+      }
       final applied =
           duplicate.transactionState == TransactionState.confirmed ||
           duplicate.transactionState == TransactionState.reconciled;
@@ -587,6 +597,9 @@ class IngestionService {
     );
     if (match.isDuplicate) return match.matchedTransaction;
 
+    final echo = await _appAndBankPair(parsed, signedAmount, notification);
+    if (echo != null) return echo;
+
     // A spend logged by hand can be hours away from the bank's message:
     // same account, same amount, within 6 hours, not yet matched to a
     // bank message (no reference).
@@ -651,6 +664,65 @@ class IngestionService {
     final a = existing.merchant.toLowerCase().trim();
     final b = (parsed.merchant ?? '').toLowerCase().trim();
     return b.isNotEmpty && a != b && !a.contains(b) && !b.contains(a);
+  }
+
+  /// The payment app's notification and the bank's message for one payment:
+  /// the bank's can come many minutes later and name the payee differently
+  /// ("Cafe Coffee Day" vs "ccdpayments@icici"). Within 30 minutes, same
+  /// amount and direction, one side from a payment app with no reference
+  /// and the other a bank message with one, they are one payment. Each side
+  /// pairs once, so two real payments of one amount stay two.
+  Future<LedgerTransaction?> _appAndBankPair(
+    ParsedTransaction parsed,
+    int signedAmount,
+    RawNotification n,
+  ) async {
+    bool fromApp(String? pkg) =>
+        pkg != null && parser.dltValidator.isFinancialSender(packageName: pkg);
+    final incomingFromApp =
+        fromApp(n.packageName) && parsed.referenceNumber == null;
+    final incomingFromBank =
+        !fromApp(n.packageName) && parsed.referenceNumber != null;
+    if (!incomingFromApp && !incomingFromBank) return null;
+
+    final near = await database.transactionsDao.findDuplicateCandidates(
+      amountMinorUnits: signedAmount,
+      timestamp: parsed.timestamp,
+      window: const Duration(minutes: 30),
+    );
+    LedgerTransaction? best;
+    for (final t in near) {
+      final logId = t.ingestionLogId;
+      if (logId == null || t.id.startsWith('plan-') || t.isInternalTransfer) {
+        continue;
+      }
+      final log = await (database.select(
+        database.rawIngestionLogs,
+      )..where((l) => l.id.equals(logId))).getSingleOrNull();
+      if (log == null) continue;
+      final ok = incomingFromBank
+          // An app notification not yet joined by its bank message.
+          ? fromApp(log.sourcePackage) && t.referenceNumber == null
+          // A bank message not yet joined by an app notification.
+          : !fromApp(log.sourcePackage) &&
+                t.referenceNumber != null &&
+                !await _joinedByApp(t.id, fromApp);
+      if (!ok) continue;
+      final gap = t.transactionTimestamp.difference(parsed.timestamp).abs();
+      if (best == null ||
+          gap < best.transactionTimestamp.difference(parsed.timestamp).abs()) {
+        best = t;
+      }
+    }
+    return best;
+  }
+
+  /// Whether a payment app's notification was already matched to [id].
+  Future<bool> _joinedByApp(String id, bool Function(String?) fromApp) async {
+    final logs = await (database.select(
+      database.rawIngestionLogs,
+    )..where((l) => l.matchedTransactionId.equals(id))).get();
+    return logs.any((l) => fromApp(l.sourcePackage));
   }
 
   /// This message repeats entry [transactionId]: remembered, so a choice

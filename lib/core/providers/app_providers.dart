@@ -507,6 +507,7 @@ class LogPrefill {
     required this.amountText,
     required this.note,
     this.income = false,
+    this.category,
   });
 
   /// Best guess from a raw message: the first amount that follows Rs / INR /
@@ -543,6 +544,22 @@ class LogPrefill {
   final String amountText;
   final String note;
   final bool income;
+
+  /// Picked on the message's notification, if anything was.
+  final String? category;
+
+  /// The same, with what was chosen on the notification ([choice] holds
+  /// "category" and "note", either may be null).
+  LogPrefill withChoice(Map<String, dynamic>? choice) {
+    final c = choice?['category'] as String?;
+    final n = (choice?['note'] as String?)?.trim();
+    return LogPrefill(
+      amountText: amountText,
+      note: n == null || n.isEmpty ? note : n,
+      income: income,
+      category: c == null || c.isEmpty ? category : c,
+    );
+  }
 }
 
 /// Set by "Add it" on a message Rivero could not read; the Log screen takes
