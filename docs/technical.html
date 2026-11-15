@@ -36,7 +36,7 @@
 <tr><th>Area</th><th>Choice</th></tr>
 <tr><td>Framework</td><td>Flutter 3.50 / Dart 3.14 (Android primary; iOS builds in CI, experimental)</td></tr>
 <tr><td>State</td><td>Riverpod (providers for streams, derived figures, settings)</td></tr>
-<tr><td>Storage</td><td>Drift over SQLite3 Multiple Ciphers (AES-256); schema version 12; key in Flutter Secure Storage</td></tr>
+<tr><td>Storage</td><td>Drift over SQLite3 Multiple Ciphers (AES-256); schema version 15; key in Flutter Secure Storage</td></tr>
 <tr><td>Money</td><td>Integer paise only; BigInt guards in the calculator</td></tr>
 <tr><td>Capture</td><td>Kotlin <code>NotificationListenerService</code> → Keystore-encrypted queue → Dart ingestion</td></tr>
 <tr><td>On-device ML</td><td>Google ML Kit text recognition (bill scan), no network</td></tr>
@@ -99,7 +99,9 @@ android/.../kotlin/          RiveroNotificationListener, CaptureQueue, MainActiv
 <tr><td><code>txn-manual-…</code></td><td>Entered by hand (eligible to absorb a later bank message)</td></tr>
 </table>
 <h3>Migrations</h3>
-<p>Versions 2–11 add columns and tables, repair data (v8 resets inflated carry-over, v9 clears obsolete bucket links), add indexes on transaction time, account, state and amount (v10), and add card billing days (<code>statement_day</code>, <code>payment_due_day</code>) and a debt <code>due_date</code> (v11), and a proof photo on debts while flooring every money account at zero (v12). Bank, wallet and cash balances never go below zero; cards and loans (debts) are stored as negative amounts owed. Restoring an older backup applies the same repairs.</p>
+<p>Versions 2–11 add columns and tables, repair data (v8 resets inflated carry-over, v9 clears obsolete bucket links), add indexes on transaction time, account, state and amount (v10), and add card billing days (<code>statement_day</code>, <code>payment_due_day</code>) and a debt <code>due_date</code> (v11), a proof photo on debts while flooring every money account at zero (v12), the card's paying account (v13), the balance's "as of" time and per-entry applied amounts (v14), and the autopay <code>kind</code>, per-account <code>include_in_net_worth</code> and fixed-deposit rate and dates (<code>fd_rate_bps</code>, <code>fd_start_date</code>, <code>fd_maturity_date</code>) (v15). Bank, wallet and cash balances never go below zero; cards and loans (debts) are stored as negative amounts owed. Restoring an older backup applies the same repairs.</p>
+
+<p>Settings-backed (JSON in <code>app_settings</code>, so no schema change and included in backups): Accounts section order and folding (<code>account_groups_json</code>), Home cards (<code>home_widgets_json</code>), bank pictures (<code>bank_icons_json</code>, files in <code>bank_icons/</code>, carried in backups and re-pointed on restore), goals with several sources (<code>goals_json</code>: account, plan category or user-valued asset). FD value: <code>FixedDeposit.valueOn</code> compounds quarterly in whole paise, simple interest for the part-quarter. Overdue autopays: <code>MandateTracker.rollOverdue</code> skips autopays whose account holds less than the debit; <code>upcomingMandates</code> keeps every unresolved overdue one reserved; <code>AutopayActions</code> records paid / retry date / skip.</p>
 
 <h2 id="the-ledger">The ledger</h2>
 <p><code>LedgerService</code> is the single writer of balance and budget effects. Every path (capture, confirm, manual entry, plan, import) goes through it.</p>
