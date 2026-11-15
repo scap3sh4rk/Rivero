@@ -22,7 +22,7 @@ class BentoTile extends StatelessWidget {
   /// tile has the same height.
   final String caption;
 
-  /// Optional small icon before the label.
+  /// Optional small icon (18px at most) before the value.
   final Widget? leading;
   final VoidCallback? onTap;
 
@@ -33,30 +33,29 @@ class BentoTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: RiveroTypography.labelSmall.copyWith(letterSpacing: 1.5),
+          ),
+          const SizedBox(height: RiveroSpacing.sm),
           Row(
             children: [
+              // Smaller than the value's line, so it never adds height.
               if (leading != null) ...[
                 leading!,
                 const SizedBox(width: RiveroSpacing.xs),
               ],
               Expanded(
                 child: Text(
-                  label,
+                  value,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: RiveroTypography.labelSmall.copyWith(
-                    letterSpacing: 1.5,
-                  ),
+                  style: RiveroTypography.displayMedium.copyWith(fontSize: 22),
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: RiveroSpacing.sm),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: RiveroTypography.displayMedium.copyWith(fontSize: 22),
           ),
           Text(
             caption.isEmpty ? ' ' : caption,

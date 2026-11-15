@@ -120,6 +120,7 @@ void main() {
       isVariableAmount: cap != null,
       maxCapMinorUnits: cap,
       frequency: MandateFrequency.monthly,
+      kind: MandateKind.other,
       physicalAccountId: 'a',
       startDate: now,
       nextExecutionDate: due,

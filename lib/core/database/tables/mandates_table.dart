@@ -45,6 +45,11 @@ class Mandates extends Table {
   /// Next scheduled auto-debit execution date.
   DateTimeColumn get nextExecutionDate => dateTime().nullable()();
 
+  /// What it is for (SIP, subscription, EMI...). "other" = not chosen yet;
+  /// screens then show a guess from the payee.
+  TextColumn get kind =>
+      textEnum<MandateKind>().withDefault(const Constant('other'))();
+
   /// Lifecycle state of the commitment.
   TextColumn get status => textEnum<MandateStatus>()();
 

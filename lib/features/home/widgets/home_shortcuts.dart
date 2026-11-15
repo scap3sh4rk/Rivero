@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:rivero/core/database/daos/mandates_dao.dart';
 import 'package:rivero/core/domain/account_role.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/dues/dues_service.dart';
 import 'package:rivero/core/engine/spending_summary.dart';
+import 'package:rivero/core/mandates/autopay_actions.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
@@ -95,10 +97,16 @@ class HomeShortcuts extends ConsumerWidget {
           BentoTile(
             key: const ValueKey('home-autopay'),
             label: 'NEXT AUTOPAY',
+            leading: next == null
+                ? null
+                : MandateKindIcon(AutopayActions.kindOf(next), size: 18),
             value: next == null ? 'None' : next.payee,
             caption: next == null
                 ? 'Nothing due'
-                : '${money(next.amountMinorUnits)} · '
+                : isOverdue(next, DateTime.now())
+                ? 'Overdue since '
+                      '${DateFormat('d MMM').format(next.nextExecutionDate!)}'
+                : '${money(mandateReserve(next))} · '
                       '${DateFormat('d MMM').format(next.nextExecutionDate!)}',
             onTap: () => MandatesScreen.open(context),
           ),

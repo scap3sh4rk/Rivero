@@ -68,4 +68,61 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 100));
   });
+
+  testWidgets('an autopay can be edited: kind, amount and how often', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final db = RiveroDatabase.memory();
+    addTearDown(db.close);
+    await DatabaseSeeder(db).seedIfEmpty();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [databaseProvider.overrideWithValue(db)],
+        child: const MaterialApp(home: MandatesScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    final m = (await tester.runAsync(
+      () => db.mandatesDao.watchActiveMandates().first,
+    ))!.first;
+    // Each card says what kind of autopay it is.
+    expect(find.byKey(ValueKey('kind-${m.id}')), findsOneWidget);
+
+    await tester.tap(find.text(m.payee));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.byKey(const ValueKey('autopay-edit')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Edit autopay'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('kind-chip-sip')));
+    await tester.enterText(
+      find.byKey(const ValueKey('autopay-amount')),
+      '2500',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('autopay-save')));
+    for (var i = 0; i < 5; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    final after = (await tester.runAsync(
+      () => db.mandatesDao.getMandateById(m.id),
+    ))!;
+    expect(after.kind, MandateKind.sip);
+    expect(after.amountMinorUnits, 250000);
+    expect(after.payee, m.payee);
+    expect(find.text('SIP'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 100));
+  });
 }

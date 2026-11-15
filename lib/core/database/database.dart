@@ -84,7 +84,7 @@ class RiveroDatabase extends _$RiveroDatabase {
   }
 
   @override
-  int get schemaVersion => 14;
+  int get schemaVersion => 15;
 
   @override
   MigrationStrategy get migration {
@@ -166,6 +166,16 @@ class RiveroDatabase extends _$RiveroDatabase {
             rawIngestionLogs,
             rawIngestionLogs.matchedTransactionId,
           );
+        }
+        if (from < 15) {
+          await m.addColumn(mandates, mandates.kind);
+          await m.addColumn(
+            physicalAccounts,
+            physicalAccounts.includeInNetWorth,
+          );
+          await m.addColumn(physicalAccounts, physicalAccounts.fdRateBps);
+          await m.addColumn(physicalAccounts, physicalAccounts.fdStartDate);
+          await m.addColumn(physicalAccounts, physicalAccounts.fdMaturityDate);
         }
       },
       beforeOpen: (details) async {

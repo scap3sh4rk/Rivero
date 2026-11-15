@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:rivero/core/database/daos/mandates_dao.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/card_cycle.dart';
+import 'package:rivero/core/mandates/autopay_actions.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
@@ -193,13 +194,10 @@ class BillsAndCommitments extends ConsumerWidget {
           ),
         for (final m in autopays)
           line(
-            const Icon(
-              Icons.autorenew_rounded,
-              color: RiveroColors.mandateWarning,
-              size: 28,
-            ),
+            MandateKindIcon(AutopayActions.kindOf(m), size: 40),
             m.payee,
-            'Autopay · ${isOverdue(m, now) ? 'overdue since ' : ''}'
+            '${AutopayActions.kindOf(m).label} · '
+            '${isOverdue(m, now) ? 'overdue since ' : ''}'
             '${DateFormat('d MMM').format(m.nextExecutionDate!)}',
             money(reserveUntil(m, cycle.cycleEndDate)),
             key: ValueKey('commit-autopay-${m.id}'),

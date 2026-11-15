@@ -85,6 +85,7 @@ void main() {
       creditLimitMinorUnits: card ? 10000000 : 0,
       isLiability: card,
       isActive: true,
+      includeInNetWorth: true,
       billsPaidFromAccountId: paidFrom,
       currencyCode: 'INR',
       sortOrder: 0,

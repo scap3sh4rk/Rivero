@@ -83,3 +83,97 @@ enum DueKind {
 
 /// Lifecycle of money owed to the user.
 enum DueStatus { open, settled, writtenOff }
+
+/// What an autopay is for, so the list shows it at a glance.
+enum MandateKind {
+  sip,
+  subscription,
+  emi,
+  insurance,
+  utility,
+  rent,
+  other;
+
+  String get label => switch (this) {
+    sip => 'SIP',
+    subscription => 'Subscription',
+    emi => 'Loan EMI',
+    insurance => 'Insurance',
+    utility => 'Bill',
+    rent => 'Rent',
+    other => 'Autopay',
+  };
+
+  /// A best guess from the payee's name, for autopays added before kinds
+  /// existed or found in bank messages ("Other" when unsure).
+  static MandateKind guess(String payee) {
+    final p = payee.toLowerCase();
+    // Whole words only: "premium" is not an "emi".
+    bool has(List<String> w) =>
+        w.any((k) => RegExp('\\b${RegExp.escape(k.trim())}\\b').hasMatch(p));
+    if (has([
+      'sip',
+      'mutual fund',
+      ' mf',
+      'mf ',
+      'amc',
+      'groww',
+      'zerodha',
+      'coin',
+      'kuvera',
+      'nippon',
+      'axis mf',
+      'hdfc mf',
+      'sbi mf',
+    ])) {
+      return sip;
+    }
+    if (has(['emi', 'loan', 'bajaj fin', 'finance'])) return emi;
+    if (has(['insurance', 'lic', 'policy', 'premium', 'life', 'health'])) {
+      return insurance;
+    }
+    if (has(['rent', 'landlord', 'nobroker'])) return rent;
+    if (has([
+      'netflix',
+      'spotify',
+      'prime',
+      'youtube',
+      'hotstar',
+      'apple',
+      'google one',
+      'icloud',
+      'subscription',
+      'zee5',
+      'sonyliv',
+      'jiocinema',
+      'audible',
+      'swiggy one',
+      'zomato gold',
+    ])) {
+      return subscription;
+    }
+    if (has([
+      'electricity',
+      'bescom',
+      'tneb',
+      'msedcl',
+      'broadband',
+      'fiber',
+      'airtel',
+      'jio',
+      'vodafone',
+      'vi ',
+      'act ',
+      'gas',
+      'water',
+      'dth',
+      'tata play',
+      'mobile',
+      'postpaid',
+      'bill',
+    ])) {
+      return utility;
+    }
+    return other;
+  }
+}

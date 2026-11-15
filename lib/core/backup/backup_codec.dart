@@ -157,6 +157,7 @@ class BackupCodec {
                 'creditLimitMinorUnits': 0,
                 'accountType': 'Bank',
                 'sortOrder': 0,
+                'includeInNetWorth': true,
                 ...j,
                 'imagePath': relink(j['imagePath']),
               }),
@@ -183,7 +184,9 @@ class BackupCodec {
             );
       }
       for (final j in list('mandates')) {
-        await db.into(db.mandates).insert(Mandate.fromJson(j));
+        await db
+            .into(db.mandates)
+            .insert(Mandate.fromJson({'kind': 'other', ...j}));
       }
       for (final j in list('associatedTitles')) {
         await db.into(db.associatedTitles).insert(AssociatedTitle.fromJson(j));
