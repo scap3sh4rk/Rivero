@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:rivero/design_system/look.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 
 /// Reusable dark container card following Rivero design specifications.
@@ -40,8 +41,14 @@ class _RiveroCardState extends State<RiveroCard> {
         (widget.isElevated
             ? RiveroColors.surfaceElevated
             : RiveroColors.surface);
-    final effectiveBorder = widget.borderColor ?? RiveroColors.borderSubtle;
-    final effectiveRadius = widget.borderRadius ?? RiveroRadii.borderMd;
+    // Outlines and corners follow Appearance; a colour given on purpose
+    // (a warning, an account tint) is always drawn.
+    final effectiveBorder =
+        widget.borderColor ??
+        (RiveroLook.current.borders
+            ? RiveroColors.borderSubtle
+            : Colors.transparent);
+    final effectiveRadius = widget.borderRadius ?? RiveroRadii.card;
 
     Widget cardContent = Container(
       margin: widget.margin,

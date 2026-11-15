@@ -8,6 +8,7 @@ import 'package:rivero/core/domain/card_cycle.dart';
 import 'package:rivero/core/domain/credit_utilization.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
+import 'package:rivero/design_system/look.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/account_color.dart';
 import 'package:rivero/design_system/widgets/bank_badge.dart';
@@ -204,6 +205,9 @@ class _AccountRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tint = accountColor(a);
     final money = ref.watch(accountMoneyMaskProvider)(a.id);
+    // Card size picked in Settings > Appearance (bank & cash, and cards).
+    final look = ref.watch(lookProvider);
+    final size = a.isLiability ? look.creditCards : look.bankCards;
     final hidden = ref.watch(hiddenBalancesProvider).contains(a.id);
     // Hide or show this one account's money (saved).
     final eye = IconButton(
@@ -221,33 +225,70 @@ class _AccountRow extends ConsumerWidget {
         color: RiveroColors.textMuted,
       ),
     );
+    final badge = BankBadge(
+      name: a.institution,
+      color: tint,
+      imagePath: a.imagePath,
+      size: switch (size) {
+        CardSize.compact => 40,
+        CardSize.standard => 48,
+        CardSize.large => 52,
+      },
+    );
     final header = Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        BankBadge(
-          name: a.institution,
-          color: tint,
-          imagePath: a.imagePath,
-          size: 52,
-        ),
+        badge,
         const SizedBox(width: RiveroSpacing.md),
-        Expanded(child: _identity()),
+        Expanded(child: _identity(lines: size == CardSize.compact ? 1 : 2)),
         eye,
       ],
     );
     return Padding(
-      padding: const EdgeInsets.only(bottom: RiveroSpacing.md),
+      padding: EdgeInsets.only(
+        bottom: size == CardSize.compact ? RiveroSpacing.sm : RiveroSpacing.md,
+      ),
       child: RiveroCard(
-        padding: const EdgeInsets.all(RiveroSpacing.xl),
+        padding: EdgeInsets.all(switch (size) {
+          CardSize.compact => RiveroSpacing.md,
+          CardSize.standard => RiveroSpacing.lg,
+          CardSize.large => RiveroSpacing.xl,
+        }),
         onTap: () => AccountDetailScreen.open(context, a.id),
         child: a.isLiability
-            ? _cardBody(header, money)
-            : _bankBody(header, money),
+            ? _cardBody(header, money, size)
+            : size == CardSize.large
+            ? _bankBody(header, money)
+            : _bankRow(badge, eye, money, size),
       ),
     );
   }
 
-  /// Bank, wallet or cash: name and digits in full, a large balance, and
+  /// Compact and standard bank & cash cards: one row, the balance on the
+  /// right. Standard lets the name and digits use two lines.
+  Widget _bankRow(
+    Widget badge,
+    Widget eye,
+    String Function(int) money,
+    CardSize size,
+  ) => Row(
+    children: [
+      badge,
+      const SizedBox(width: RiveroSpacing.md),
+      Expanded(child: _identity(lines: size == CardSize.compact ? 1 : 2)),
+      const SizedBox(width: RiveroSpacing.sm),
+      Text(
+        accountMoney(a, a.balanceMinorUnits, money),
+        key: ValueKey('balance-${a.id}'),
+        style: size == CardSize.compact
+            ? RiveroTypography.titleMedium
+            : RiveroTypography.financialMedium,
+      ),
+      eye,
+    ],
+  );
+
+  /// Large bank & cash cards: name and digits in full, a large balance, and
   /// what the balance is (when it was last confirmed, which card bills it
   /// pays).
   Widget _bankBody(Widget header, String Function(int) money) {
@@ -278,24 +319,45 @@ class _AccountRow extends ConsumerWidget {
   }
 
   /// Name, then bank ••mask · type: which account this is at a glance.
-  Widget _identity() => Column(
+  Widget _identity({int lines = 2}) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       Text(
         a.name,
-        maxLines: 2,
+        maxLines: lines,
         overflow: TextOverflow.ellipsis,
         style: RiveroTypography.titleMedium,
       ),
       const SizedBox(height: 2),
       Text(
         '${a.institution} ••${a.accountMask} · ${a.accountType}',
-        maxLines: 2,
+        maxLines: lines,
         overflow: TextOverflow.ellipsis,
         style: RiveroTypography.bodySmall,
       ),
     ],
   );
+
+  /// Just whether the bill can be paid (compact cards).
+  List<Widget> _affordLine(int owed, String Function(int) money) {
+    final afford = this.afford;
+    if (owed == 0 || afford == null) return const [];
+    final from = payer == null ? '' : ' from ${payer!.name}';
+    return [
+      Padding(
+        padding: const EdgeInsets.only(top: RiveroSpacing.sm),
+        child: Text(
+          afford.canPay
+              ? 'You can pay this$from'
+              : 'Short by ${money(afford.shortBy)}$from',
+          key: ValueKey('afford-${a.id}'),
+          style: RiveroTypography.labelLarge.copyWith(
+            color: afford.canPay ? RiveroColors.success : RiveroColors.danger,
+          ),
+        ),
+      ),
+    ];
+  }
 
   /// Billing cycle: days left until the statement, the due date, and whether
   /// the money you hold covers the bill.
@@ -370,7 +432,9 @@ class _AccountRow extends ConsumerWidget {
     ];
   }
 
-  Widget _cardBody(Widget header, String Function(int) money) {
+  /// Credit cards: compact = outstanding, usage and whether you can pay;
+  /// standard adds the billing cycle and limit; large shows it all bigger.
+  Widget _cardBody(Widget header, String Function(int) money, CardSize size) {
     final u = CreditUtilization.fromBalance(
       creditLimitMinorUnits: a.creditLimitMinorUnits,
       balanceMinorUnits: a.balanceMinorUnits,
@@ -391,7 +455,9 @@ class _AccountRow extends ConsumerWidget {
                   Text('Outstanding', style: RiveroTypography.bodySmall),
                   Text(
                     money(u.usedMinorUnits),
-                    style: RiveroTypography.financialMedium,
+                    style: size == CardSize.large
+                        ? RiveroTypography.financialLarge
+                        : RiveroTypography.financialMedium,
                   ),
                 ],
               ),
@@ -419,8 +485,13 @@ class _AccountRow extends ConsumerWidget {
               ),
           ],
         ),
-        ..._cycleSection(u.usedMinorUnits, money),
-        if (hasLimit) ...[
+        if (size == CardSize.compact)
+          ..._affordLine(u.usedMinorUnits, money)
+        else
+          ..._cycleSection(u.usedMinorUnits, money),
+        if (size == CardSize.compact)
+          const SizedBox.shrink()
+        else if (hasLimit) ...[
           const SizedBox(height: RiveroSpacing.md),
           _UsageBar(percent: u.utilizationPercent, color: u.statusColor),
           const SizedBox(height: RiveroSpacing.sm),

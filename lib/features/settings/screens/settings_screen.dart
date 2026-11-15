@@ -17,6 +17,7 @@ import 'package:rivero/design_system/widgets/rivero_card.dart';
 import 'package:rivero/features/backup/backup_screen.dart';
 import 'package:rivero/features/mandates/mandates_screen.dart';
 import 'package:rivero/features/settings/screens/account_types_screen.dart';
+import 'package:rivero/features/settings/screens/appearance_screen.dart';
 import 'package:rivero/features/settings/screens/capture_log_screen.dart';
 import 'package:rivero/features/settings/screens/categories_screen.dart';
 import 'package:rivero/features/settings/screens/exchange_rates_screen.dart';
@@ -103,41 +104,13 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => _pickPayDay(context, ref, salaryDay),
           ),
           _Row(
+            key: const ValueKey('appearance'),
             icon: Icons.palette_outlined,
-            title: 'Theme',
-            subtitle: _themeLabels[theme],
-            onTap: () => _pickTheme(context, ref, theme),
-          ),
-          _Row(
-            icon: Icons.text_fields_rounded,
-            title: 'Font',
-            subtitle: ref.watch(fontFamilyProvider),
-            onTap: () async {
-              final picked = await showPicker<String>(
-                context,
-                title: 'Font',
-                selected: ref.read(fontFamilyProvider),
-                options: [
-                  for (final f in RiveroFonts.families)
-                    PickerOption(
-                      f,
-                      f == RiveroFonts.families.first ? '$f (Slice-like)' : f,
-                      leading: Text(
-                        'Aa ₹1,250',
-                        style: TextStyle(
-                          fontFamily: f,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: RiveroColors.textPrimary,
-                        ),
-                      ),
-                    ),
-                ],
-              );
-              if (picked != null) {
-                ref.read(fontFamilyProvider.notifier).state = picked.value;
-              }
-            },
+            title: 'Appearance',
+            subtitle:
+                '${_themeLabels[theme]} · ${ref.watch(fontFamilyProvider)} · '
+                'colours, text and card sizes',
+            onTap: () => AppearanceScreen.open(context),
           ),
           _Row(
             icon: Icons.dialpad_rounded,
@@ -405,33 +378,6 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                 ],
               ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _pickTheme(
-    BuildContext context,
-    WidgetRef ref,
-    AppThemeMode current,
-  ) {
-    return showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: RiveroColors.surface,
-      builder: (ctx) => SafeArea(
-        child: RadioGroup<AppThemeMode>(
-          groupValue: current,
-          onChanged: (v) {
-            if (v != null) ref.read(themeModeProvider.notifier).state = v;
-            Navigator.pop(ctx);
-          },
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (final e in _themeLabels.entries)
-                RadioListTile<AppThemeMode>(value: e.key, title: Text(e.value)),
             ],
           ),
         ),

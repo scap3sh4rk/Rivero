@@ -28,6 +28,7 @@ import 'package:rivero/core/reconciliation/reconciliation_service.dart';
 import 'package:rivero/core/reconciliation/refund_matcher.dart';
 import 'package:rivero/core/security/app_lock.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
+import 'package:rivero/design_system/look.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 
 /// Provider indicating whether the app is in privacy mode (hiding balances).
@@ -45,6 +46,9 @@ final userSalaryDayProvider = StateProvider<int>((ref) => 1);
 
 /// Expected monthly salary in minor units (0 = not configured yet).
 final monthlySalaryProvider = StateProvider<int>((ref) => 0);
+
+/// Appearance: accent, background, weight, sizes... (Settings > Appearance).
+final lookProvider = StateProvider<Look>((ref) => const Look());
 
 /// Accounts whose balance is masked (tap the eye on an account to toggle).
 final hiddenBalancesProvider = StateProvider<Set<String>>((ref) => const {});
@@ -96,6 +100,9 @@ class SettingsSync {
         await dao.getInt(SettingKeys.monthlySalary) ?? 0;
     ref.read(keepUntouchedProvider.notifier).state =
         await dao.getInt(SettingKeys.keepUntouched) ?? 0;
+    ref.read(lookProvider.notifier).state = Look.fromJson(
+      await dao.get(SettingKeys.look),
+    );
     final hidden = await dao.get(SettingKeys.hiddenBalances);
     if (hidden != null) {
       try {
@@ -192,6 +199,7 @@ class SettingsSync {
         keepUntouchedProvider,
         (_, v) => save(SettingKeys.keepUntouched, '$v'),
       )
+      ..listen(lookProvider, (_, v) => save(SettingKeys.look, v.toJson()))
       ..listen(
         hiddenBalancesProvider,
         (_, v) => save(SettingKeys.hiddenBalances, jsonEncode(v.toList())),

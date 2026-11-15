@@ -54,6 +54,9 @@ abstract final class SettingKeys {
   /// it is added from Home.
   static const unreadableChoices = 'unreadable_choices_json';
 
+  /// Appearance choices (JSON, see Look).
+  static const look = 'look_json';
+
   /// Accounts whose balance is masked on screen (JSON list of ids).
   static const hiddenBalances = 'hidden_balances_json';
 
