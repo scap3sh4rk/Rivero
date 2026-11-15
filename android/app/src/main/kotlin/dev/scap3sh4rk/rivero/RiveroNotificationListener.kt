@@ -50,7 +50,7 @@ class RiveroNotificationListener : NotificationListenerService() {
         // replacing the fake bank alert, so the whole flow can be tried.
         if (isTest) {
             cancelNotification(sbn.key)
-            CaptureNotifier.notify(this, captureId, title, body)
+            CaptureNotifier.notify(this, captureId, title, body, force = true)
         } else if (!MainActivity.isForeground) {
             CaptureNotifier.notify(this, captureId, title, body)
         }
@@ -73,6 +73,10 @@ class RiveroNotificationListener : NotificationListenerService() {
             "com.axis.mobile", "com.dreamplug.androidapp", "in.org.npci.upiapp",
             "in.amazon.mShop.android.shopping", "com.sbi.lotusintouch", "com.naviapp",
             "com.mobikwik_new", "com.freecharge.android", "com.msf.kopl",
+            // Other SMS apps, and banks that only notify from their own app.
+            "com.truecaller", "com.microsoft.android.smsorganizer",
+            "indwin.c3.shareapp", "money.jupiter", "com.epifi.paisa",
+            "com.idfcfirstbank.optimus",
         )
         private const val CONFIG = "rivero_capture_config"
         private const val PRIMARY = "primary_upi_package"

@@ -37,6 +37,7 @@ PhysicalAccount _account(
   bool card = false,
   int limit = 0,
   String type = 'Savings',
+  String? billsFrom,
 }) => PhysicalAccount(
   id: id,
   name: id,
@@ -47,6 +48,7 @@ PhysicalAccount _account(
   accountType: type,
   currencyCode: 'INR',
   isLiability: card,
+  billsPaidFromAccountId: billsFrom,
   isActive: true,
   sortOrder: 0,
   createdAt: _now,
@@ -299,6 +301,70 @@ void main() {
       );
       expect(b.mandatesTotal, 64900);
       expect(b.result.effectiveSafeToSpend, 3000000 - 64900);
+    });
+
+    group('card bills paid from their own account', () {
+      final spend = _bucket(
+        'exp',
+        AccountRole.expense,
+        allocated: 3000000,
+        account: 'd',
+      );
+
+      test('money already in the card account is not counted again', () {
+        // Spent ₹5,000 on the Slice card and moved ₹5,000 to the Slice
+        // account; the expense account has ₹100 left of its own.
+        final b = _sts(
+          buckets: [spend],
+          accounts: [
+            _account('d', 10000),
+            _account('slice', 500000),
+            _account('card', -500000, card: true, billsFrom: 'slice'),
+          ],
+        );
+        expect(b.cardBillsTotal, 500000);
+        expect(b.cardBillsSetAside, 500000);
+        expect(b.cardBills, 0);
+        expect(b.result.effectiveSafeToSpend, 10000);
+      });
+
+      test('only the part not yet set aside comes out of spending', () {
+        final b = _sts(
+          buckets: [spend],
+          accounts: [
+            _account('d', 1000000),
+            _account('slice', 200000),
+            _account('card', -500000, card: true, billsFrom: 'slice'),
+          ],
+        );
+        expect(b.cardBills, 300000);
+        expect(b.result.effectiveSafeToSpend, 1000000 - 300000);
+      });
+
+      test('cards sharing one account share its balance', () {
+        final b = _sts(
+          buckets: [spend],
+          accounts: [
+            _account('d', 1000000),
+            _account('slice', 400000),
+            _account('c1', -300000, card: true, billsFrom: 'slice'),
+            _account('c2', -300000, card: true, billsFrom: 'slice'),
+          ],
+        );
+        expect(b.cardBillsSetAside, 400000);
+        expect(b.cardBills, 200000);
+      });
+
+      test('paid from the spending account itself: the whole bill counts', () {
+        final b = _sts(
+          buckets: [spend],
+          accounts: [
+            _account('d', 1000000),
+            _account('card', -500000, card: true, billsFrom: 'd'),
+          ],
+        );
+        expect(b.cardBills, 500000);
+      });
     });
 
     test('an overdrawn spending account is a deficit', () {

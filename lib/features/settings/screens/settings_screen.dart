@@ -8,6 +8,8 @@ import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/reminders/reminder_planner.dart';
 import 'package:rivero/core/security/app_lock.dart';
 import 'package:rivero/core/storage/media_store.dart';
+import 'package:rivero/core/utils/amount_parser.dart';
+import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/picker.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
@@ -15,6 +17,7 @@ import 'package:rivero/design_system/widgets/rivero_card.dart';
 import 'package:rivero/features/backup/backup_screen.dart';
 import 'package:rivero/features/mandates/mandates_screen.dart';
 import 'package:rivero/features/settings/screens/account_types_screen.dart';
+import 'package:rivero/features/settings/screens/appearance_screen.dart';
 import 'package:rivero/features/settings/screens/capture_log_screen.dart';
 import 'package:rivero/features/settings/screens/categories_screen.dart';
 import 'package:rivero/features/settings/screens/exchange_rates_screen.dart';
@@ -28,6 +31,44 @@ import 'package:url_launcher/url_launcher.dart';
 /// Settings as short rows: one line each, details one tap deeper.
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
+
+  Future<void> _keepUntouched(BuildContext context, WidgetRef ref) async {
+    final now = ref.read(keepUntouchedProvider);
+    final controller = TextEditingController(
+      text: now > 0 ? '${now ~/ 100}' : '',
+    );
+    final value = await showDialog<int>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Keep untouched'),
+        content: TextField(
+          key: const ValueKey('keep-untouched-field'),
+          controller: controller,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(
+            prefixText: '₹',
+            helperText: 'Leave empty to count everything',
+            helperMaxLines: 2,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.pop(ctx, parseAmountMinorUnits(controller.text)),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    // Not disposed here: the dialog is still animating out and uses it.
+    if (value == null) return;
+    ref.read(keepUntouchedProvider.notifier).state = value < 0 ? 0 : value;
+  }
 
   static const Map<AppThemeMode, String> _themeLabels = {
     AppThemeMode.dark: 'Dark',
@@ -63,41 +104,13 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => _pickPayDay(context, ref, salaryDay),
           ),
           _Row(
+            key: const ValueKey('appearance'),
             icon: Icons.palette_outlined,
-            title: 'Theme',
-            subtitle: _themeLabels[theme],
-            onTap: () => _pickTheme(context, ref, theme),
-          ),
-          _Row(
-            icon: Icons.text_fields_rounded,
-            title: 'Font',
-            subtitle: ref.watch(fontFamilyProvider),
-            onTap: () async {
-              final picked = await showPicker<String>(
-                context,
-                title: 'Font',
-                selected: ref.read(fontFamilyProvider),
-                options: [
-                  for (final f in RiveroFonts.families)
-                    PickerOption(
-                      f,
-                      f == RiveroFonts.families.first ? '$f (Slice-like)' : f,
-                      leading: Text(
-                        'Aa ₹1,250',
-                        style: TextStyle(
-                          fontFamily: f,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: RiveroColors.textPrimary,
-                        ),
-                      ),
-                    ),
-                ],
-              );
-              if (picked != null) {
-                ref.read(fontFamilyProvider.notifier).state = picked.value;
-              }
-            },
+            title: 'Appearance',
+            subtitle:
+                '${_themeLabels[theme]} · ${ref.watch(fontFamilyProvider)} · '
+                'colours, text and card sizes',
+            onTap: () => AppearanceScreen.open(context),
           ),
           _Row(
             icon: Icons.dialpad_rounded,
@@ -138,6 +151,18 @@ class SettingsScreen extends ConsumerWidget {
                           .state =
                       v,
             ),
+          ),
+          _Row(
+            key: const ValueKey('keep-untouched'),
+            icon: Icons.lock_outline_rounded,
+            title: 'Keep untouched',
+            subtitle: ref.watch(keepUntouchedProvider) > 0
+                ? '${CurrencyFormatter.format(ref.watch(keepUntouchedProvider))} '
+                      'in your spending account is never counted as safe '
+                      'to spend'
+                : 'Savings in your spending account? Set an amount Safe '
+                      'to spend never counts',
+            onTap: () => _keepUntouched(context, ref),
           ),
           _Row(
             icon: Icons.sell_outlined,
@@ -353,33 +378,6 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                 ],
               ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _pickTheme(
-    BuildContext context,
-    WidgetRef ref,
-    AppThemeMode current,
-  ) {
-    return showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: RiveroColors.surface,
-      builder: (ctx) => SafeArea(
-        child: RadioGroup<AppThemeMode>(
-          groupValue: current,
-          onChanged: (v) {
-            if (v != null) ref.read(themeModeProvider.notifier).state = v;
-            Navigator.pop(ctx);
-          },
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (final e in _themeLabels.entries)
-                RadioListTile<AppThemeMode>(value: e.key, title: Text(e.value)),
             ],
           ),
         ),

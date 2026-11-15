@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rivero/design_system/look.dart';
 
 /// Semantic colors for Rivero's design system.
 /// All hex codes strictly adhere to the approved architecture specifications.
@@ -10,23 +11,44 @@ abstract final class RiveroColors {
   // paper and deeper blue in light mode. One accent; colour is used for
   // meaning (categories, accounts, money in/out), not decoration.
 
+  /// One neutral in each background the user can pick (Appearance):
+  /// light paper / white, dark black / charcoal / midnight.
+  static Color _bg(int paper, int white, int black, int charcoal, int night) {
+    final look = RiveroLook.current;
+    if (isLight) {
+      return Color(
+        look.lightBackground == LightBackground.white ? white : paper,
+      );
+    }
+    return Color(switch (look.darkBackground) {
+      DarkBackground.black => black,
+      DarkBackground.charcoal => charcoal,
+      DarkBackground.midnight => night,
+    });
+  }
+
   // --- Core surfaces ---
   static Color get background =>
-      isLight ? const Color(0xFFF6F3EE) : const Color(0xFF000000);
+      _bg(0xFFF6F3EE, 0xFFF3F4F6, 0xFF000000, 0xFF121214, 0xFF060A12);
   static Color get surface =>
-      isLight ? const Color(0xFFFFFFFF) : const Color(0xFF0F0F11);
+      _bg(0xFFFFFFFF, 0xFFFFFFFF, 0xFF0F0F11, 0xFF1B1B1E, 0xFF0E1420);
   static Color get surfaceElevated =>
-      isLight ? const Color(0xFFEFEBE4) : const Color(0xFF18181B);
+      _bg(0xFFEFEBE4, 0xFFECEEF1, 0xFF18181B, 0xFF242428, 0xFF151D2D);
   static Color get surfaceInteractive =>
-      isLight ? const Color(0xFFE5E0D7) : const Color(0xFF232327);
+      _bg(0xFFE5E0D7, 0xFFE1E4E9, 0xFF232327, 0xFF2E2E33, 0xFF1D283C);
 
-  /// Text/icon colour that sits on [accent].
+  /// Text/icon colour that sits on [accent]: dark on a light accent, white
+  /// on a dark one, whichever accent was picked.
   static Color get onAccent =>
-      isLight ? const Color(0xFFFFFFFF) : const Color(0xFF04101F);
+      ThemeData.estimateBrightnessForColor(accent) == Brightness.light
+      ? const Color(0xFF04101F)
+      : const Color(0xFFFFFFFF);
 
   /// The one interactive accent (selection, primary buttons, active tab).
-  static Color get accent =>
-      isLight ? const Color(0xFF1A73D9) : const Color(0xFF4EA3F8);
+  static Color get accent {
+    final a = AccentChoice.all[RiveroLook.current.accent];
+    return isLight ? a.light : a.dark;
+  }
 
   // --- Role accents (shared with the category palette) ---
   static const Color salaryAccent = Color(0xFFF5B841); // amber
@@ -69,11 +91,11 @@ abstract final class RiveroColors {
 
   // --- Borders ---
   static Color get borderSubtle =>
-      isLight ? const Color(0xFFE3DED5) : const Color(0xFF1C1C1F);
+      _bg(0xFFE3DED5, 0xFFE3E5EA, 0xFF1C1C1F, 0xFF2A2A2E, 0xFF1A2333);
   static Color get borderMedium =>
-      isLight ? const Color(0xFFD4CEC3) : const Color(0xFF27272B);
+      _bg(0xFFD4CEC3, 0xFFD2D6DD, 0xFF27272B, 0xFF343439, 0xFF243047);
   static Color get borderHighlight =>
-      isLight ? const Color(0xFFBDB6A9) : const Color(0xFF36363C);
+      _bg(0xFFBDB6A9, 0xFFB8BEC8, 0xFF36363C, 0xFF44444A, 0xFF33415C);
 }
 
 /// Spacing scale based on an 8-point / 4-point harmonic grid.
@@ -106,6 +128,10 @@ abstract final class RiveroRadii {
   static const BorderRadius borderFull = BorderRadius.all(
     Radius.circular(full),
   );
+
+  /// Corners of cards, as picked in Appearance.
+  static BorderRadius get card =>
+      BorderRadius.circular(RiveroLook.current.corners);
 }
 
 /// Fonts bundled with the app (SIL Open Font License, see assets/fonts).
@@ -124,6 +150,16 @@ abstract final class RiveroFonts {
 
   /// Set by the app root before building, like [RiveroColors.isLight].
   static String current = families.first;
+
+  /// [current] at the weight picked in Appearance: a sibling family (see
+  /// pubspec) whose every weight is drawn one or two steps lighter or
+  /// heavier, so ALL text follows, whatever weight a screen asks for.
+  static String get active => switch (RiveroLook.current.weight) {
+    -1 => '$current Light',
+    1 => '$current Bold',
+    2 => '$current Heavy',
+    _ => current,
+  };
 }
 
 /// Typography scale implementing:
@@ -133,15 +169,15 @@ abstract final class RiveroFonts {
 abstract final class RiveroTypography {
   // --- Plus Jakarta Sans: Financial Counters & Display ---
   static TextStyle get financialHero => TextStyle(
-    fontFamily: RiveroFonts.current,
-    fontSize: 52,
+    fontFamily: RiveroFonts.active,
+    fontSize: 52 * RiveroLook.current.heroScale,
     fontWeight: FontWeight.w700,
     letterSpacing: -0.8,
     color: RiveroColors.textPrimary,
   );
 
   static TextStyle get financialLarge => TextStyle(
-    fontFamily: RiveroFonts.current,
+    fontFamily: RiveroFonts.active,
     fontSize: 28,
     fontWeight: FontWeight.w700,
     letterSpacing: -0.5,
@@ -149,7 +185,7 @@ abstract final class RiveroTypography {
   );
 
   static TextStyle get financialMedium => TextStyle(
-    fontFamily: RiveroFonts.current,
+    fontFamily: RiveroFonts.active,
     fontSize: 22,
     fontWeight: FontWeight.w600,
     letterSpacing: -0.3,
@@ -157,7 +193,7 @@ abstract final class RiveroTypography {
   );
 
   static TextStyle get displayLarge => TextStyle(
-    fontFamily: RiveroFonts.current,
+    fontFamily: RiveroFonts.active,
     fontSize: 24,
     fontWeight: FontWeight.w700,
     letterSpacing: -0.4,
@@ -165,7 +201,7 @@ abstract final class RiveroTypography {
   );
 
   static TextStyle get displayMedium => TextStyle(
-    fontFamily: RiveroFonts.current,
+    fontFamily: RiveroFonts.active,
     fontSize: 20,
     fontWeight: FontWeight.w600,
     letterSpacing: -0.2,
@@ -174,42 +210,42 @@ abstract final class RiveroTypography {
 
   // --- Inter: UI Text ---
   static TextStyle get titleLarge => TextStyle(
-    fontFamily: RiveroFonts.current,
+    fontFamily: RiveroFonts.active,
     fontSize: 18,
     fontWeight: FontWeight.w600,
     color: RiveroColors.textPrimary,
   );
 
   static TextStyle get titleMedium => TextStyle(
-    fontFamily: RiveroFonts.current,
+    fontFamily: RiveroFonts.active,
     fontSize: 16,
     fontWeight: FontWeight.w600,
     color: RiveroColors.textPrimary,
   );
 
   static TextStyle get bodyLarge => TextStyle(
-    fontFamily: RiveroFonts.current,
+    fontFamily: RiveroFonts.active,
     fontSize: 16,
     fontWeight: FontWeight.w400,
     color: RiveroColors.textPrimary,
   );
 
   static TextStyle get bodyMedium => TextStyle(
-    fontFamily: RiveroFonts.current,
+    fontFamily: RiveroFonts.active,
     fontSize: 14,
     fontWeight: FontWeight.w400,
     color: RiveroColors.textSecondary,
   );
 
   static TextStyle get bodySmall => TextStyle(
-    fontFamily: RiveroFonts.current,
+    fontFamily: RiveroFonts.active,
     fontSize: 12,
     fontWeight: FontWeight.w400,
     color: RiveroColors.textMuted,
   );
 
   static TextStyle get labelLarge => TextStyle(
-    fontFamily: RiveroFonts.current,
+    fontFamily: RiveroFonts.active,
     fontSize: 14,
     fontWeight: FontWeight.w600,
     letterSpacing: 0.1,
@@ -217,7 +253,7 @@ abstract final class RiveroTypography {
   );
 
   static TextStyle get labelSmall => TextStyle(
-    fontFamily: RiveroFonts.current,
+    fontFamily: RiveroFonts.active,
     fontSize: 11,
     fontWeight: FontWeight.w500,
     letterSpacing: 0.2,
@@ -254,8 +290,9 @@ abstract final class RiveroTheme {
 
   /// Builds the theme and points [RiveroColors] neutrals at the same mode,
   /// so widgets reading `RiveroColors.*` match the Material theme.
-  static ThemeData build({required bool light, String? font}) {
+  static ThemeData build({required bool light, String? font, Look? look}) {
     RiveroColors.isLight = light;
+    if (look != null) RiveroLook.current = look;
     if (font != null && RiveroFonts.families.contains(font)) {
       RiveroFonts.current = font;
     }
@@ -264,6 +301,7 @@ abstract final class RiveroTheme {
             surface: RiveroColors.surface,
             onSurface: RiveroColors.textPrimary,
             primary: RiveroColors.accent,
+            onPrimary: RiveroColors.onAccent,
             secondary: RiveroColors.accent,
             secondaryContainer: RiveroColors.accent.withValues(alpha: 0.2),
             error: RiveroColors.danger,
@@ -272,7 +310,7 @@ abstract final class RiveroTheme {
             surface: RiveroColors.surface,
             onSurface: RiveroColors.textPrimary,
             primary: RiveroColors.accent,
-            onPrimary: const Color(0xFF0B1220),
+            onPrimary: RiveroColors.onAccent,
             secondary: RiveroColors.accent,
             secondaryContainer: RiveroColors.accent.withValues(alpha: 0.2),
             onSecondary: RiveroColors.background,
@@ -281,7 +319,7 @@ abstract final class RiveroTheme {
           );
     return ThemeData(
       useMaterial3: true,
-      fontFamily: RiveroFonts.current,
+      fontFamily: RiveroFonts.active,
       brightness: light ? Brightness.light : Brightness.dark,
       scaffoldBackgroundColor: RiveroColors.background,
       colorScheme: scheme,
@@ -298,9 +336,7 @@ abstract final class RiveroTheme {
           ),
           foregroundColor: WidgetStateProperty.resolveWith(
             (states) => states.contains(WidgetState.selected)
-                ? (RiveroColors.isLight
-                      ? Colors.white
-                      : const Color(0xFF04101F))
+                ? RiveroColors.onAccent
                 : RiveroColors.textSecondary,
           ),
           side: WidgetStateProperty.all(BorderSide.none),

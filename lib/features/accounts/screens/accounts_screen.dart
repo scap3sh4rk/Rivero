@@ -8,6 +8,7 @@ import 'package:rivero/core/domain/card_cycle.dart';
 import 'package:rivero/core/domain/credit_utilization.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
+import 'package:rivero/design_system/look.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/account_color.dart';
 import 'package:rivero/design_system/widgets/bank_badge.dart';
@@ -36,6 +37,7 @@ class AccountsScreen extends ConsumerWidget {
     final bankTotal = rates
         .inHome(banks)
         .fold<int>(0, (s, a) => s + a.balanceMinorUnits);
+    final bills = CardBills.of(rates.inHome(accounts));
     final debt = rates
         .inHome(cards)
         .fold<int>(
@@ -86,8 +88,13 @@ class AccountsScreen extends ConsumerWidget {
                 index: i,
                 child: _AccountRow(
                   group[i],
-                  money: money,
-                  available: bankTotal < 0 ? 0 : bankTotal,
+                  afford: bills.byCard[group[i].id],
+                  payer: bills.payerOf[group[i].id],
+                  paysFor: [
+                    for (final e in bills.payerOf.entries)
+                      if (e.value.id == group[i].id)
+                        cards.firstWhere((c) => c.id == e.key).name,
+                  ],
                 ),
               ),
           ],
@@ -161,12 +168,7 @@ class AccountsScreen extends ConsumerWidget {
                 ),
               ),
           if (banks.isNotEmpty) section('Bank & cash', banks),
-          if (cards.isNotEmpty)
-            _CardsSummary(
-              owed: debt,
-              available: bankTotal < 0 ? 0 : bankTotal,
-              money: money,
-            ),
+          if (cards.isNotEmpty) _CardsSummary(afford: bills.all, money: money),
           if (cards.isNotEmpty) section('Cards', cards),
           if (accounts.length > 1)
             Padding(
@@ -185,69 +187,181 @@ class AccountsScreen extends ConsumerWidget {
 }
 
 /// A bank/cash account or a credit card, with what matters for each.
-class _AccountRow extends StatelessWidget {
-  const _AccountRow(this.a, {required this.money, required this.available});
+class _AccountRow extends ConsumerWidget {
+  const _AccountRow(this.a, {this.afford, this.payer, this.paysFor = const []});
 
   final PhysicalAccount a;
-  final String Function(int) money;
 
-  /// What bank and cash accounts hold, for "can you pay this card".
-  final int available;
+  /// Cards whose bills this account pays.
+  final List<String> paysFor;
+
+  /// Can this card's bill be paid (see CardBills); null for a loan.
+  final CardAffordability? afford;
+
+  /// The account the bill is paid from, when one is set.
+  final PhysicalAccount? payer;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final tint = accountColor(a);
+    final money = ref.watch(accountMoneyMaskProvider)(a.id);
+    // Card size picked in Settings > Appearance (bank & cash, and cards).
+    final look = ref.watch(lookProvider);
+    final size = a.isLiability ? look.creditCards : look.bankCards;
+    final hidden = ref.watch(hiddenBalancesProvider).contains(a.id);
+    // Hide or show this one account's money (saved).
+    final eye = IconButton(
+      key: ValueKey('hide-${a.id}'),
+      tooltip: hidden ? 'Show balance' : 'Hide balance',
+      visualDensity: VisualDensity.compact,
+      onPressed: () {
+        HapticFeedback.selectionClick();
+        final n = ref.read(hiddenBalancesProvider.notifier);
+        n.state = hidden ? ({...n.state}..remove(a.id)) : {...n.state, a.id};
+      },
+      icon: Icon(
+        hidden ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+        size: 20,
+        color: RiveroColors.textMuted,
+      ),
+    );
+    final badge = BankBadge(
+      name: a.institution,
+      color: tint,
+      imagePath: a.imagePath,
+      size: switch (size) {
+        CardSize.compact => 40,
+        CardSize.standard => 48,
+        CardSize.large => 52,
+      },
+    );
+    final header = Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        badge,
+        const SizedBox(width: RiveroSpacing.md),
+        Expanded(child: _identity(lines: size == CardSize.compact ? 1 : 2)),
+        eye,
+      ],
+    );
     return Padding(
-      padding: const EdgeInsets.only(bottom: RiveroSpacing.md),
+      padding: EdgeInsets.only(
+        bottom: size == CardSize.compact ? RiveroSpacing.sm : RiveroSpacing.md,
+      ),
       child: RiveroCard(
-        padding: const EdgeInsets.all(RiveroSpacing.xl),
+        padding: EdgeInsets.all(switch (size) {
+          CardSize.compact => RiveroSpacing.md,
+          CardSize.standard => RiveroSpacing.lg,
+          CardSize.large => RiveroSpacing.xl,
+        }),
         onTap: () => AccountDetailScreen.open(context, a.id),
         child: a.isLiability
-            ? _cardBody(tint)
-            : Row(
-                children: [
-                  BankBadge(
-                    name: a.institution,
-                    color: tint,
-                    imagePath: a.imagePath,
-                    size: 48,
-                  ),
-                  const SizedBox(width: RiveroSpacing.md),
-                  Expanded(child: _identity()),
-                  const SizedBox(width: RiveroSpacing.sm),
-                  Text(
-                    accountMoney(a, a.balanceMinorUnits, money),
-                    style: RiveroTypography.financialMedium,
-                  ),
-                ],
-              ),
+            ? _cardBody(header, money, size)
+            : size == CardSize.large
+            ? _bankBody(header, money)
+            : _bankRow(badge, eye, money, size),
       ),
     );
   }
 
+  /// Compact and standard bank & cash cards: one row, the balance on the
+  /// right. Standard lets the name and digits use two lines.
+  Widget _bankRow(
+    Widget badge,
+    Widget eye,
+    String Function(int) money,
+    CardSize size,
+  ) => Row(
+    children: [
+      badge,
+      const SizedBox(width: RiveroSpacing.md),
+      Expanded(child: _identity(lines: size == CardSize.compact ? 1 : 2)),
+      const SizedBox(width: RiveroSpacing.sm),
+      Text(
+        accountMoney(a, a.balanceMinorUnits, money),
+        key: ValueKey('balance-${a.id}'),
+        style: size == CardSize.compact
+            ? RiveroTypography.titleMedium
+            : RiveroTypography.financialMedium,
+      ),
+      eye,
+    ],
+  );
+
+  /// Large bank & cash cards: name and digits in full, a large balance, and
+  /// what the balance is (when it was last confirmed, which card bills it
+  /// pays).
+  Widget _bankBody(Widget header, String Function(int) money) {
+    final asOf = a.balanceAsOf;
+    final notes = [
+      if (asOf != null)
+        'Balance confirmed ${DateFormat('d MMM, h:mm a').format(asOf)}',
+      if (paysFor.isNotEmpty) 'Pays the ${paysFor.join(', ')} bill',
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        header,
+        const SizedBox(height: RiveroSpacing.lg),
+        Text('Balance', style: RiveroTypography.bodySmall),
+        Text(
+          accountMoney(a, a.balanceMinorUnits, money),
+          key: ValueKey('balance-${a.id}'),
+          style: RiveroTypography.financialLarge,
+        ),
+        for (final n in notes)
+          Padding(
+            padding: const EdgeInsets.only(top: RiveroSpacing.xs),
+            child: Text(n, style: RiveroTypography.bodySmall),
+          ),
+      ],
+    );
+  }
+
   /// Name, then bank ••mask · type: which account this is at a glance.
-  Widget _identity() => Column(
+  Widget _identity({int lines = 2}) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       Text(
         a.name,
-        maxLines: 1,
+        maxLines: lines,
         overflow: TextOverflow.ellipsis,
         style: RiveroTypography.titleMedium,
       ),
       const SizedBox(height: 2),
       Text(
         '${a.institution} ••${a.accountMask} · ${a.accountType}',
-        maxLines: 1,
+        maxLines: lines,
         overflow: TextOverflow.ellipsis,
         style: RiveroTypography.bodySmall,
       ),
     ],
   );
 
+  /// Just whether the bill can be paid (compact cards).
+  List<Widget> _affordLine(int owed, String Function(int) money) {
+    final afford = this.afford;
+    if (owed == 0 || afford == null) return const [];
+    final from = payer == null ? '' : ' from ${payer!.name}';
+    return [
+      Padding(
+        padding: const EdgeInsets.only(top: RiveroSpacing.sm),
+        child: Text(
+          afford.canPay
+              ? 'You can pay this$from'
+              : 'Short by ${money(afford.shortBy)}$from',
+          key: ValueKey('afford-${a.id}'),
+          style: RiveroTypography.labelLarge.copyWith(
+            color: afford.canPay ? RiveroColors.success : RiveroColors.danger,
+          ),
+        ),
+      ),
+    ];
+  }
+
   /// Billing cycle: days left until the statement, the due date, and whether
   /// the money you hold covers the bill.
-  List<Widget> _cycleSection(int owed) {
+  List<Widget> _cycleSection(int owed, String Function(int) money) {
     final cycle = CardCycle.of(
       statementDay: a.statementDay,
       paymentDueDay: a.paymentDueDay,
@@ -265,9 +379,10 @@ class _AccountRow extends StatelessWidget {
         ),
       ];
     }
-    final afford = CardAffordability(owed: owed, available: available);
+    final afford = this.afford;
     final due = DateFormat('d MMM').format(cycle.dueDate);
-    final color = owed == 0
+    final from = payer == null ? '' : ' from ${payer!.name}';
+    final color = owed == 0 || afford == null
         ? RiveroColors.textSecondary
         : afford.canPay
         ? RiveroColors.success
@@ -303,13 +418,13 @@ class _AccountRow extends StatelessWidget {
           ),
         ],
       ),
-      if (owed > 0)
+      if (owed > 0 && afford != null)
         Padding(
           padding: const EdgeInsets.only(top: RiveroSpacing.xs),
           child: Text(
             afford.canPay
-                ? 'You can pay this: ${money(afford.leftAfter)} left after'
-                : 'Short by ${money(afford.shortBy)} to pay this',
+                ? 'You can pay this$from: ${money(afford.leftAfter)} left after'
+                : 'Short by ${money(afford.shortBy)} to pay this$from',
             key: ValueKey('afford-${a.id}'),
             style: RiveroTypography.labelLarge.copyWith(color: color),
           ),
@@ -317,7 +432,9 @@ class _AccountRow extends StatelessWidget {
     ];
   }
 
-  Widget _cardBody(Color tint) {
+  /// Credit cards: compact = outstanding, usage and whether you can pay;
+  /// standard adds the billing cycle and limit; large shows it all bigger.
+  Widget _cardBody(Widget header, String Function(int) money, CardSize size) {
     final u = CreditUtilization.fromBalance(
       creditLimitMinorUnits: a.creditLimitMinorUnits,
       balanceMinorUnits: a.balanceMinorUnits,
@@ -326,18 +443,7 @@ class _AccountRow extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            BankBadge(
-              name: a.institution,
-              color: tint,
-              imagePath: a.imagePath,
-              size: 48,
-            ),
-            const SizedBox(width: RiveroSpacing.md),
-            Expanded(child: _identity()),
-          ],
-        ),
+        header,
         const SizedBox(height: RiveroSpacing.lg),
         Row(
           crossAxisAlignment: CrossAxisAlignment.end,
@@ -349,7 +455,9 @@ class _AccountRow extends StatelessWidget {
                   Text('Outstanding', style: RiveroTypography.bodySmall),
                   Text(
                     money(u.usedMinorUnits),
-                    style: RiveroTypography.financialMedium,
+                    style: size == CardSize.large
+                        ? RiveroTypography.financialLarge
+                        : RiveroTypography.financialMedium,
                   ),
                 ],
               ),
@@ -377,8 +485,13 @@ class _AccountRow extends StatelessWidget {
               ),
           ],
         ),
-        ..._cycleSection(u.usedMinorUnits),
-        if (hasLimit) ...[
+        if (size == CardSize.compact)
+          ..._affordLine(u.usedMinorUnits, money)
+        else
+          ..._cycleSection(u.usedMinorUnits, money),
+        if (size == CardSize.compact)
+          const SizedBox.shrink()
+        else if (hasLimit) ...[
           const SizedBox(height: RiveroSpacing.md),
           _UsageBar(percent: u.utilizationPercent, color: u.statusColor),
           const SizedBox(height: RiveroSpacing.sm),
@@ -442,20 +555,15 @@ class _UsageBar extends StatelessWidget {
 
 /// All cards together: what they owe against what you hold.
 class _CardsSummary extends StatelessWidget {
-  const _CardsSummary({
-    required this.owed,
-    required this.available,
-    required this.money,
-  });
+  const _CardsSummary({required this.afford, required this.money});
 
-  final int owed;
-  final int available;
+  final CardAffordability afford;
   final String Function(int) money;
 
   @override
   Widget build(BuildContext context) {
-    if (owed == 0) return const SizedBox.shrink();
-    final a = CardAffordability(owed: owed, available: available);
+    final a = afford;
+    if (a.owed == 0) return const SizedBox.shrink();
     final color = a.canPay ? RiveroColors.success : RiveroColors.danger;
     return Padding(
       padding: const EdgeInsets.only(top: RiveroSpacing.lg),
@@ -473,15 +581,15 @@ class _CardsSummary extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Cards owe ${money(owed)}',
+                    'Cards owe ${money(a.owed)}',
                     style: RiveroTypography.bodyLarge,
                   ),
                   Text(
+                    // Each card from its own account where one is set,
+                    // the rest from your other accounts (see CardBills).
                     a.canPay
-                        ? 'Your accounts hold ${money(available)}: you can '
-                              'pay every card'
-                        : 'Your accounts hold ${money(available)}: short by '
-                              '${money(a.shortBy)}',
+                        ? 'You can pay every card'
+                        : 'Short by ${money(a.shortBy)} to pay every card',
                     style: RiveroTypography.bodySmall.copyWith(color: color),
                   ),
                 ],

@@ -33,6 +33,12 @@ void main() {
   testWidgets(
     'HomeScreen renders all primary components and opens simulation',
     (tester) async {
+      // A phone-sized screen, so the list below the hero card is built.
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
       await tester.pumpWidget(
         ProviderScope(
           overrides: [databaseProvider.overrideWithValue(db)],

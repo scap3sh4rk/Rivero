@@ -114,6 +114,9 @@ class _RiveroAppState extends ConsumerState<RiveroApp>
 
   Timer? _midnight;
 
+  /// Theme, font and look of the last build (see build).
+  String? _styleKey;
+
   @override
   void dispose() {
     _midnight?.cancel();
@@ -190,23 +193,48 @@ class _RiveroAppState extends ConsumerState<RiveroApp>
       );
     final mode = ref.watch(themeModeProvider);
     final font = ref.watch(fontFamilyProvider);
+    final look = ref.watch(lookProvider);
     final light =
         mode == AppThemeMode.light ||
         (mode == AppThemeMode.system &&
             WidgetsBinding.instance.platformDispatcher.platformBrightness ==
                 Brightness.light);
-    // Colours are read statically, so remount the tree when the mode flips.
-    return KeyedSubtree(
-      key: ValueKey('$light-$font'),
-      child: MaterialApp(
-        title: 'Rivero',
-        debugShowCheckedModeBanner: false,
-        theme: RiveroTheme.build(light: light, font: font),
-        home: switch (ref.watch(onboardedProvider)) {
-          null => Scaffold(backgroundColor: RiveroColors.background),
-          _ => const AppLockGate(child: MainScreen()),
-        },
-      ),
+    // Colours, fonts and sizes are read from tokens, so after a change
+    // every widget is rebuilt in place: the open screen stays open (no
+    // remount back to Home while trying options in Appearance).
+    final styleKey = '$light-$font-${look.toJson()}';
+    if (_styleKey != null && _styleKey != styleKey) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        void rebuild(Element e) {
+          e
+            ..markNeedsBuild()
+            ..visitChildren(rebuild);
+        }
+
+        if (mounted) (context as Element).visitChildren(rebuild);
+      });
+    }
+    _styleKey = styleKey;
+    return MaterialApp(
+      title: 'Rivero',
+      debugShowCheckedModeBanner: false,
+      theme: RiveroTheme.build(light: light, font: font, look: look),
+      // Text size from Appearance, on top of the phone's own setting.
+      builder: (context, child) {
+        final mq = MediaQuery.of(context);
+        return MediaQuery(
+          data: mq.copyWith(
+            textScaler: TextScaler.linear(
+              mq.textScaler.scale(1) * look.textScale,
+            ),
+          ),
+          child: child!,
+        );
+      },
+      home: switch (ref.watch(onboardedProvider)) {
+        null => Scaffold(backgroundColor: RiveroColors.background),
+        _ => const AppLockGate(child: MainScreen()),
+      },
     );
   }
 }

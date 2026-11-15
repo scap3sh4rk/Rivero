@@ -8,6 +8,7 @@ import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/database/database_seeder.dart';
 import 'package:rivero/core/domain/custom_account_types.dart';
 import 'package:rivero/core/domain/log_category.dart';
+import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/dues/dues_service.dart';
 import 'package:rivero/core/engine/paycycle.dart';
 import 'package:rivero/core/engine/safe_to_spend_calculator.dart';
@@ -26,6 +27,8 @@ import 'package:rivero/core/reconciliation/internal_transfer_matcher.dart';
 import 'package:rivero/core/reconciliation/reconciliation_service.dart';
 import 'package:rivero/core/reconciliation/refund_matcher.dart';
 import 'package:rivero/core/security/app_lock.dart';
+import 'package:rivero/core/utils/currency_formatter.dart';
+import 'package:rivero/design_system/look.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 
 /// Provider indicating whether the app is in privacy mode (hiding balances).
@@ -43,6 +46,27 @@ final userSalaryDayProvider = StateProvider<int>((ref) => 1);
 
 /// Expected monthly salary in minor units (0 = not configured yet).
 final monthlySalaryProvider = StateProvider<int>((ref) => 0);
+
+/// Appearance: accent, background, weight, sizes... (Settings > Appearance).
+final lookProvider = StateProvider<Look>((ref) => const Look());
+
+/// Accounts whose balance is masked (tap the eye on an account to toggle).
+final hiddenBalancesProvider = StateProvider<Set<String>>((ref) => const {});
+
+/// Money formatting for one account: dots when its balance is hidden
+/// (or privacy mode is on).
+final accountMoneyMaskProvider =
+    Provider<String Function(int) Function(String accountId)>((ref) {
+      final privacy = ref.watch(privacyModeProvider);
+      final hidden = ref.watch(hiddenBalancesProvider);
+      return (id) =>
+          (v) => privacy || hidden.contains(id)
+          ? '••••'
+          : CurrencyFormatter.format(v);
+    });
+
+/// Money in the spending account Safe to spend leaves alone (paise).
+final keepUntouchedProvider = StateProvider<int>((ref) => 0);
 
 /// Whether unsettled credit-card spend is reserved out of Safe-to-Spend.
 final reserveCreditCardsProvider = StateProvider<bool>((ref) => true);
@@ -74,6 +98,21 @@ class SettingsSync {
         await dao.getInt(SettingKeys.salaryDay) ?? 1;
     ref.read(monthlySalaryProvider.notifier).state =
         await dao.getInt(SettingKeys.monthlySalary) ?? 0;
+    ref.read(keepUntouchedProvider.notifier).state =
+        await dao.getInt(SettingKeys.keepUntouched) ?? 0;
+    ref.read(lookProvider.notifier).state = Look.fromJson(
+      await dao.get(SettingKeys.look),
+    );
+    final hidden = await dao.get(SettingKeys.hiddenBalances);
+    if (hidden != null) {
+      try {
+        ref.read(hiddenBalancesProvider.notifier).state = {
+          for (final id in jsonDecode(hidden) as List) id as String,
+        };
+      } on FormatException {
+        // Unreadable: show every balance.
+      }
+    }
     ref.read(reserveCreditCardsProvider.notifier).state =
         (await dao.get(SettingKeys.reserveCreditCards)) != '0';
     ref.read(salaryAccountIdProvider.notifier).state = await dao.get(
@@ -155,6 +194,15 @@ class SettingsSync {
       ..listen(
         monthlySalaryProvider,
         (_, v) => save(SettingKeys.monthlySalary, '$v'),
+      )
+      ..listen(
+        keepUntouchedProvider,
+        (_, v) => save(SettingKeys.keepUntouched, '$v'),
+      )
+      ..listen(lookProvider, (_, v) => save(SettingKeys.look, v.toJson()))
+      ..listen(
+        hiddenBalancesProvider,
+        (_, v) => save(SettingKeys.hiddenBalances, jsonEncode(v.toList())),
       )
       ..listen(
         reserveCreditCardsProvider,
@@ -449,6 +497,10 @@ final stsBreakdownProvider = Provider<AsyncValue<StsBreakdown>>((ref) {
     }
   }
 
+  final cycle = ref.watch(currentPaycycleProvider);
+  final awaiting = ref.watch(awaitingSalaryProvider).value ?? false;
+  final salaryIn = ref.watch(pendingSalaryProvider).value != null;
+
   return AsyncValue.data(
     StsBreakdown.compute(
       buckets: bucketsAsync.value ?? const [],
@@ -456,7 +508,19 @@ final stsBreakdownProvider = Provider<AsyncValue<StsBreakdown>>((ref) {
       mandates: ref.watch(activeMandatesProvider).value ?? const [],
       dues: ref.watch(duesProvider).value ?? const [],
       salaryAccountId: ref.watch(salaryAccountIdProvider),
-      cycle: ref.watch(currentPaycycleProvider),
+      pending: [
+        for (final t in txns)
+          if (t.transactionState == TransactionState.needsReview) t,
+      ],
+      // New cycle, salary in, not split yet: last cycle's "paid" marks on
+      // rent and the like no longer hold.
+      paidMarksStale: awaiting && salaryIn,
+      // The first days of a cycle whose salary has not landed: the money
+      // left has to last until it does (a week in, it is simply late or
+      // not tracked, and the month is counted as usual).
+      salaryDueNow: awaiting && !salaryIn && cycle.elapsedDays <= 5,
+      keepUntouched: ref.watch(keepUntouchedProvider),
+      cycle: cycle,
       reserveCards: ref.watch(reserveCreditCardsProvider),
       includeOwed: ref.watch(includePendingReimbursementsProvider),
       lastSyncedAt: synced,
@@ -481,6 +545,7 @@ class LogPrefill {
     required this.amountText,
     required this.note,
     this.income = false,
+    this.category,
   });
 
   /// Best guess from a raw message: the first amount that follows Rs / INR /
@@ -517,6 +582,22 @@ class LogPrefill {
   final String amountText;
   final String note;
   final bool income;
+
+  /// Picked on the message's notification, if anything was.
+  final String? category;
+
+  /// The same, with what was chosen on the notification ([choice] holds
+  /// "category" and "note", either may be null).
+  LogPrefill withChoice(Map<String, dynamic>? choice) {
+    final c = choice?['category'] as String?;
+    final n = (choice?['note'] as String?)?.trim();
+    return LogPrefill(
+      amountText: amountText,
+      note: n == null || n.isEmpty ? note : n,
+      income: income,
+      category: c == null || c.isEmpty ? category : c,
+    );
+  }
 }
 
 /// Set by "Add it" on a message Rivero could not read; the Log screen takes

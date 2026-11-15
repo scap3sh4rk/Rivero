@@ -50,7 +50,7 @@ body:
     id: version
     attributes:
       label: Rivero version
-      description: The release tag, e.g. v0.2.0-4
+      description: The release tag, e.g. v1.0.0-12
     validations:
       required: true
   - type: input

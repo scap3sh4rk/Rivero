@@ -68,6 +68,10 @@ class TraiDltValidator {
     'com.sbi.lotusintouch': 'YONO SBI',
     'com.axis.mobile': 'Axis Mobile',
     'com.msf.kopl': 'Kotak Mobile Banking',
+    'indwin.c3.shareapp': 'slice',
+    'money.jupiter': 'Jupiter',
+    'com.epifi.paisa': 'Fi',
+    'com.idfcfirstbank.optimus': 'IDFC FIRST Bank',
   };
 
   /// Returns true if the sender header follows standard TRAI DLT commercial format.

@@ -1,6 +1,8 @@
+import 'package:rivero/core/database/daos/accounts_dao.dart';
 import 'package:rivero/core/database/daos/mandates_dao.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/account_role.dart';
+import 'package:rivero/core/domain/custom_account_types.dart';
 import 'package:rivero/core/dues/dues_service.dart';
 import 'package:rivero/core/engine/paycycle.dart';
 import 'package:rivero/core/engine/safe_to_spend_calculator.dart';
@@ -24,12 +26,16 @@ class StsBreakdown {
     required this.mandates,
     required this.mandatesTotal,
     required this.cardBills,
+    required this.cardBillsTotal,
     required this.owedToYou,
     required this.debtsDue,
     required this.owedIncluded,
     required this.setAside,
     required this.spendingAccountBalance,
     required this.reservedInAccount,
+    required this.waitingInAccount,
+    required this.waitingOnCards,
+    required this.keptUntouched,
     required this.daysToPayday,
     required this.result,
     required this.cycleEnd,
@@ -43,6 +49,10 @@ class StsBreakdown {
     required bool reserveCards,
     required bool includeOwed,
     String? salaryAccountId,
+    List<LedgerTransaction> pending = const [],
+    bool paidMarksStale = false,
+    bool salaryDueNow = false,
+    int keepUntouched = 0,
     DateTime? now,
     DateTime? lastSyncedAt,
     SafeToSpendCalculator calculator = const SafeToSpendCalculator(),
@@ -56,11 +66,6 @@ class StsBreakdown {
         .where((b) => b.role != AccountRole.expense)
         .fold<int>(0, (s, b) => s + b.allocatedMinorUnits);
 
-    final cards = reserveCards
-        ? accounts
-              .where((a) => a.isLiability && a.balanceMinorUnits < 0)
-              .fold<int>(0, (s, a) => s - a.balanceMinorUnits)
-        : 0;
     final owed = DuesService.totalOutstanding(dues);
     // Money you promised to pay back before payday is already spoken for.
     final debtsDue = DuesService.youOweDueBy(dues, cycle.cycleEndDate);
@@ -75,6 +80,64 @@ class StsBreakdown {
     final accountBalance = linkedAccounts.isEmpty
         ? null
         : linkedAccounts.fold<int>(0, (s, a) => s + a.balanceMinorUnits);
+
+    // Card bills. A card can be paid from its own account (the user moves
+    // each card spend there, e.g. a Slice savings account): what that
+    // account already holds is set aside, so only the rest comes out of
+    // spending money. Cards paid from the same account share its balance.
+    // Only revolving credit is a bill to pay before payday. A loan or an
+    // overdraft is long-term debt: its instalments are autopays, and its
+    // whole principal must never be taken out of this month's money.
+    final owing = reserveCards
+        ? accounts
+              .where(
+                (a) =>
+                    a.isLiability &&
+                    !StandardAccountTypes.isLongTermDebt(a.accountType),
+              )
+              .toList()
+        : const <PhysicalAccount>[];
+    // Payments still waiting for Accept (newer than the account's stated
+    // balance) are counted already, so the number does not wait for a tap.
+    int waiting(PhysicalAccount a) => pending
+        .where(
+          (t) =>
+              t.physicalAccountId == a.id &&
+              t.amountMinorUnits < 0 &&
+              // A card bill being paid moves money to the card: neutral.
+              !t.isInternalTransfer &&
+              AccountsDao.movesBalance(a, t.transactionTimestamp),
+        )
+        .fold<int>(0, (s, t) => s - t.amountMinorUnits);
+    final cardsWaiting = owing.fold<int>(0, (s, a) => s + waiting(a));
+    final cardsTotal =
+        owing
+            .where((a) => a.balanceMinorUnits < 0)
+            .fold<int>(0, (s, a) => s - a.balanceMinorUnits) +
+        cardsWaiting;
+    final byPayer = <String, int>{};
+    for (final c in owing) {
+      final owes =
+          (c.balanceMinorUnits < 0 ? -c.balanceMinorUnits : 0) + waiting(c);
+      if (owes == 0) continue;
+      final payer = accounts
+          .where(
+            (a) =>
+                a.id == c.billsPaidFromAccountId &&
+                !a.isLiability &&
+                !linked.contains(a.id), // paid from spending: nothing apart
+          )
+          .firstOrNull;
+      if (payer != null) {
+        byPayer[payer.id] = (byPayer[payer.id] ?? 0) + owes;
+      }
+    }
+    var cardsCovered = 0;
+    byPayer.forEach((id, owed) {
+      final held = accounts.firstWhere((a) => a.id == id).balanceMinorUnits;
+      cardsCovered += owed < held ? owed : (held > 0 ? held : 0);
+    });
+    final cards = cardsTotal - cardsCovered;
 
     // Autopay taken from another bank account (a SIP from the salary
     // account) does not touch spending money; from the spending account or
@@ -118,21 +181,34 @@ class StsBreakdown {
                 0,
                 (s, b) =>
                     s +
-                    (b.allocatedMinorUnits - b.spentMinorUnits).clamp(
-                      0,
-                      b.allocatedMinorUnits,
-                    ),
+                    // "Paid" marks from last cycle say nothing about this
+                    // one once its salary has arrived.
+                    (b.allocatedMinorUnits -
+                            (paidMarksStale ? 0 : b.spentMinorUnits))
+                        .clamp(0, b.allocatedMinorUnits),
               );
     final budgetLeft = planned + carried - spent;
-    final inAccount = accountBalance == null ? null : accountBalance - reserved;
-    final usable = inAccount ?? budgetLeft;
+    final spendWaiting = linkedAccounts.fold<int>(0, (s, a) => s + waiting(a));
+    // Money the user asked never to count (savings kept in the same
+    // account): only meaningful against a real balance.
+    final kept = accountBalance == null || keepUntouched < 0
+        ? 0
+        : keepUntouched;
+    final inAccount = accountBalance == null
+        ? null
+        : accountBalance - reserved - spendWaiting - kept;
+    // No account and no plan yet: nothing is known, which is zero, never a
+    // shortfall made of the first spends logged.
+    final usable = inAccount ?? (planned + carried > 0 ? budgetLeft : 0);
 
     final result = calculator.calculate(
       expenseBalance: usable,
       upcomingMandates: dueTotal + debtsDue,
       unsettledCreditCardLiability: cards,
       pendingReimbursements: owed,
-      daysRemainingInCycle: cycle.daysRemaining,
+      // Pay day has come but the salary has not: what is left only has to
+      // last until it lands, not the whole new month.
+      daysRemainingInCycle: salaryDueNow ? 1 : cycle.daysRemaining,
       lastSyncedAt: lastSyncedAt ?? at,
       asOf: at,
       includePendingReimbursements: includeOwed,
@@ -145,12 +221,16 @@ class StsBreakdown {
       mandates: due,
       mandatesTotal: dueTotal,
       cardBills: cards,
+      cardBillsTotal: cardsTotal,
       owedToYou: owed,
       debtsDue: debtsDue,
       owedIncluded: includeOwed,
       setAside: setAside,
       spendingAccountBalance: accountBalance,
       reservedInAccount: reserved,
+      waitingInAccount: spendWaiting,
+      waitingOnCards: cardsWaiting,
+      keptUntouched: kept,
       daysToPayday: result.daysRemainingInCycle,
       result: result,
       cycleEnd: cycle.cycleEndDate,
@@ -166,8 +246,15 @@ class StsBreakdown {
   final List<Mandate> mandates;
   final int mandatesTotal;
 
-  /// Unpaid card spend reserved (0 when the card toggle is off).
+  /// Unpaid card spend taken from spending money (0 when the card toggle
+  /// is off): the total minus what the cards' own accounts already hold.
   final int cardBills;
+
+  /// Everything owed on cards (before money set aside for them).
+  final int cardBillsTotal;
+
+  /// Card bills already covered by money kept in the cards' own accounts.
+  int get cardBillsSetAside => cardBillsTotal - cardBills;
   final int owedToYou;
 
   /// Money you borrowed that you promised to repay before payday.
@@ -184,6 +271,15 @@ class StsBreakdown {
 
   /// Part of that balance promised to plan-only categories.
   final int reservedInAccount;
+
+  /// Captured payments not accepted yet that are already counted here:
+  /// out of the spending account, and on cards.
+  final int waitingInAccount;
+  final int waitingOnCards;
+  int get waitingForReview => waitingInAccount + waitingOnCards;
+
+  /// Money in the spending account the user chose to keep untouched.
+  final int keptUntouched;
   final int daysToPayday;
 
   /// Last moment of this pay cycle.
@@ -202,12 +298,19 @@ class StsBreakdown {
   /// plan has promised elsewhere), or null when no account is linked.
   int? get accountAvailable => spendingAccountBalance == null
       ? null
-      : spendingAccountBalance! - reservedInAccount;
+      : spendingAccountBalance! -
+            reservedInAccount -
+            waitingInAccount -
+            keptUntouched;
 
   /// Safe to spend follows the linked spending account's real balance.
   bool get fromAccount => accountAvailable != null;
 
   /// What is left to spend: the account's free money, or (no account
   /// linked) the budget left. Every screen shows this one number.
-  int get usable => accountAvailable ?? budgetLeft;
+  int get usable => accountAvailable ?? (hasPlan ? budgetLeft : 0);
+
+  /// False until there is something to measure against: a spending budget,
+  /// or an account the spending draws from.
+  bool get hasPlan => fromAccount || planTotal > 0;
 }

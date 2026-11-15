@@ -66,6 +66,16 @@ class StsBreakdownSheet extends ConsumerWidget {
                     'Still to pay from it (rent, family…)',
                     '− ${money(b.reservedInAccount)}',
                   ),
+                if (b.waitingInAccount > 0)
+                  _line(
+                    'Payments waiting for your Accept',
+                    '− ${money(b.waitingInAccount)}',
+                  ),
+                if (b.keptUntouched > 0)
+                  _line(
+                    'Kept untouched (your choice in Settings)',
+                    '− ${money(b.keptUntouched)}',
+                  ),
                 _total('Left to spend', money(b.usable), warn: b.overBudget),
                 _note(
                   'Your bank balance is the truth: whatever you spend, '
@@ -108,14 +118,24 @@ class StsBreakdownSheet extends ConsumerWidget {
                   money(reserveUntil(m, b.cycleEnd)),
                 ),
               if (b.debtsDue > 0)
-                _line(
-                  'Money you owe, due before payday',
-                  '− ${money(b.debtsDue)}',
-                ),
+                _line('Borrowed money to pay back', '− ${money(b.debtsDue)}'),
               _line(
                 'Credit card bills to pay',
                 b.cardBills == 0 ? '₹0' : '− ${money(b.cardBills)}',
               ),
+              if (b.waitingOnCards > 0)
+                _sub(
+                  'Includes ${money(b.waitingOnCards)} of card payments '
+                      'waiting for your Accept',
+                  '',
+                ),
+              if (b.cardBillsSetAside > 0)
+                _sub(
+                  'Already set aside in card accounts: '
+                      '${money(b.cardBillsSetAside)} of '
+                      '${money(b.cardBillsTotal)}',
+                  '',
+                ),
               if (b.owedIncluded && b.owedToYou > 0)
                 _line('Owed to you (counted)', '+ ${money(b.owedToYou)}')
               else if (b.owedToYou > 0)

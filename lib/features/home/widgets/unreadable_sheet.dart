@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:rivero/core/database/daos/ingestion_logs_dao.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
+import 'package:rivero/core/ingestion/capture_decisions.dart';
 import 'package:rivero/core/ingestion/message_redactor.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
@@ -110,8 +111,19 @@ class UnreadableSheet extends ConsumerWidget {
                                 onPressed: () async {
                                   // Open Log with what Rivero could read of
                                   // the message already filled in.
+                                  // Plus the category and note picked on
+                                  // its notification, if Add was tapped.
+                                  final db = ref.read(databaseProvider);
+                                  final choices =
+                                      await CaptureDecisions.unreadableChoices(
+                                        db,
+                                      );
                                   ref.read(logPrefillProvider.notifier).state =
-                                      LogPrefill.fromMessage(l.rawPayload);
+                                      LogPrefill.fromMessage(l.rawPayload)
+                                          .withChoice(
+                                            (choices[l.id] as Map?)
+                                                ?.cast<String, dynamic>(),
+                                          );
                                   await dismiss(l.id);
                                   ref
                                           .read(

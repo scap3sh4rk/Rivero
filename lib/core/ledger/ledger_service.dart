@@ -1,7 +1,9 @@
 import 'package:drift/drift.dart';
+import 'package:rivero/core/database/daos/accounts_dao.dart';
 import 'package:rivero/core/database/daos/settings_dao.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/account_role.dart';
+import 'package:rivero/core/domain/custom_account_types.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/ingestion/mandate_tracker.dart';
 import 'package:rivero/core/ingestion/models/raw_notification.dart';
@@ -90,6 +92,13 @@ class LedgerService {
           merchant: 'Balance update',
           category: 'Adjustment',
         );
+        // From now on this balance is the truth: older entries accepted or
+        // deleted later are already inside it.
+        await db.accountsDao.setKnownBalance(
+          accountId,
+          newBalanceMinorUnits,
+          DateTime.now(),
+        );
         return diff;
       });
 
@@ -108,10 +117,15 @@ class LedgerService {
         (t.transactionState == TransactionState.confirmed ||
             t.transactionState == TransactionState.reconciled);
     if (applied) {
-      await db.accountsDao.adjustAccountBalance(
-        t.physicalAccountId,
-        -t.amountMinorUnits,
-      );
+      // Only if this entry is what moved the balance (see balanceAsOf).
+      // Undo what it really changed: a balance that stopped at zero took
+      // less than the full amount.
+      if (await _movesBalance(t)) {
+        await db.accountsDao.adjustAccountBalance(
+          t.physicalAccountId,
+          -(t.appliedMinorUnits ?? t.amountMinorUnits),
+        );
+      }
       final spend = await _budgetSpend(t);
       if (spend != 0) {
         final bucketId =
@@ -146,9 +160,19 @@ class LedgerService {
     await db.transactionsDao.deleteTransaction(transactionId);
   });
 
-  /// Ids of entries Rivero creates in pairs (plan moves, card-bill legs).
+  /// Ids of entries Rivero creates in pairs (plan moves, card-bill legs,
+  /// the cash side of an ATM withdrawal).
   static bool _pairedByApp(String id) =>
-      id.startsWith('plan-') || id.startsWith('cc-');
+      id.startsWith('plan-') || id.startsWith('cc-') || id.startsWith('atm-');
+
+  /// Whether [t] and its linked [partner] are accepted or ignored together:
+  /// pairs Rivero made, and the two messages of one card bill (the bank's
+  /// debit and the card's "payment received").
+  static bool _decidedTogether(LedgerTransaction t, String partner) =>
+      _pairedByApp(partner) ||
+      _pairedByApp(t.id) ||
+      (t.isInternalTransfer &&
+          t.transactionType == TransactionType.creditCardSettlement);
 
   /// Deletes a transaction; if it is one leg of a transfer Rivero created
   /// (plan move, card bill), the other leg goes too so the two accounts
@@ -189,7 +213,7 @@ class LedgerService {
     await applyEffects(t);
     // The other leg of a card bill Rivero created goes with it.
     final partner = t.linkedTransactionId;
-    if (partner != null && (_pairedByApp(partner) || _pairedByApp(t.id))) {
+    if (partner != null && _decidedTogether(t, partner)) {
       await confirm(partner);
     }
     await _adoptReportedBalance(t);
@@ -204,12 +228,14 @@ class LedgerService {
         t.transactionState == TransactionState.confirmed ||
         t.transactionState == TransactionState.reconciled;
     if (applied) return; // Applied money is undone by deleting, not ignoring.
+    // Already ignored: also what stops two linked legs calling each other.
+    if (t.transactionState == TransactionState.ignored) return;
     await db.transactionsDao.updateTransactionState(
       transactionId,
       TransactionState.ignored,
     );
     final partner = t.linkedTransactionId;
-    if (partner != null && (_pairedByApp(partner) || _pairedByApp(t.id))) {
+    if (partner != null && _decidedTogether(t, partner)) {
       await ignore(partner);
     }
   });
@@ -217,27 +243,39 @@ class LedgerService {
   /// A confirmed capture's bank message said "Avl bal": that is the truth
   /// for the account, unless something newer has happened there since.
   Future<void> _adoptReportedBalance(LedgerTransaction t) async {
+    // Its own message, and any second message for the same payment (the
+    // payment app spoke first, the bank's SMS with the balance came after).
     final logId = t.ingestionLogId;
-    if (logId == null) return;
-    final log = await (db.select(
-      db.rawIngestionLogs,
-    )..where((l) => l.id.equals(logId))).getSingleOrNull();
-    if (log == null) return;
-    final reported = const FinancialParser()
-        .parse(
-          RawNotification(
-            id: log.id,
-            body: log.rawPayload,
-            receivedAt: log.receivedAt,
-            sender: log.senderHeader,
-          ),
-        )
-        ?.balanceMinorUnits;
+    final logs =
+        await (db.select(db.rawIngestionLogs)
+              ..where(
+                (l) => logId == null
+                    ? l.matchedTransactionId.equals(t.id)
+                    : l.id.equals(logId) | l.matchedTransactionId.equals(t.id),
+              )
+              ..orderBy([(l) => OrderingTerm.desc(l.receivedAt)]))
+            .get();
+    int? reported;
+    for (final log in logs) {
+      reported = const FinancialParser()
+          .parse(
+            RawNotification(
+              id: log.id,
+              body: log.rawPayload,
+              receivedAt: log.receivedAt,
+              sender: log.senderHeader,
+            ),
+          )
+          ?.balanceMinorUnits;
+      if (reported != null) break;
+    }
     if (reported == null) return;
     final acc = await db.accountsDao.getPhysicalAccountById(
       t.physicalAccountId,
     );
     if (acc == null || acc.isLiability) return;
+    // Older than what is already known about this account: not news.
+    if (!AccountsDao.movesBalance(acc, t.transactionTimestamp)) return;
     final newer =
         await (db.select(db.transactions)..where(
               (x) =>
@@ -253,16 +291,43 @@ class LedgerService {
             ))
             .get();
     if (newer.isNotEmpty) return;
-    await db.accountsDao.updateAccountBalance(t.physicalAccountId, reported);
+    await db.accountsDao.setKnownBalance(
+      t.physicalAccountId,
+      reported,
+      t.transactionTimestamp,
+    );
+  }
+
+  /// Whether [t] still has to move its account's balance: false when the
+  /// balance was stated (typed in, or reported by the bank) at or after
+  /// [t]'s time, because [t] is then already inside it.
+  Future<bool> _movesBalance(LedgerTransaction t) async {
+    final acc = await db.accountsDao.getPhysicalAccountById(
+      t.physicalAccountId,
+    );
+    return acc == null || AccountsDao.movesBalance(acc, t.transactionTimestamp);
   }
 
   /// Applies balance and budget effects of [t]. Call exactly once, when the
   /// transaction becomes confirmed.
   Future<void> applyEffects(LedgerTransaction t) async {
-    await db.accountsDao.adjustAccountBalance(
-      t.physicalAccountId,
-      t.amountMinorUnits,
+    // An entry older than the account's last stated balance (an older
+    // capture accepted late, a spend logged for yesterday) is already
+    // inside that balance: it is recorded, but the balance stays.
+    var applied = 0;
+    if (await _movesBalance(t)) {
+      final before = await _balance(t.physicalAccountId);
+      await db.accountsDao.adjustAccountBalance(
+        t.physicalAccountId,
+        t.amountMinorUnits,
+      );
+      applied = await _balance(t.physicalAccountId) - before;
+    }
+    // Kept so deleting the entry undoes exactly this (see remove).
+    await (db.update(db.transactions)..where((x) => x.id.equals(t.id))).write(
+      TransactionsCompanion(appliedMinorUnits: Value(applied)),
     );
+    if (await _cashFromAtm(t)) return; // moved to Cash: not spent yet
     await _markCategoryPaid(t, sign: 1);
     // Paying an autopay (captured or typed in) moves it to its next date,
     // so it is not reserved and spent at the same time.
@@ -281,6 +346,57 @@ class LedgerService {
     if (bucketId != null) {
       await db.accountsDao.recordBucketSpend(bucketId, spend);
     }
+  }
+
+  Future<int> _balance(String accountId) async =>
+      (await db.accountsDao.getPhysicalAccountById(accountId))
+          ?.balanceMinorUnits ??
+      0;
+
+  /// Cash taken from an ATM goes into the Cash account when there is
+  /// exactly one: a move between the user's own money, spent only when the
+  /// cash is. Without a Cash account it stays a plain spend. Returns true
+  /// when the cash side was recorded.
+  Future<bool> _cashFromAtm(LedgerTransaction t) async {
+    if (t.transactionType != TransactionType.atmWithdrawal ||
+        t.amountMinorUnits >= 0 ||
+        t.linkedTransactionId != null) {
+      return false;
+    }
+    final cash = (await db.accountsDao.getAllActivePhysicalAccounts())
+        .where(
+          (a) =>
+              a.accountType == StandardAccountTypes.cash &&
+              !a.isLiability &&
+              a.id != t.physicalAccountId,
+        )
+        .toList();
+    if (cash.length != 1) return false;
+    final id = 'atm-${t.id}';
+    await db.transactionsDao.insertTransaction(
+      TransactionsCompanion(
+        id: Value(id),
+        physicalAccountId: Value(cash.single.id),
+        amountMinorUnits: Value(-t.amountMinorUnits),
+        transactionType: const Value(TransactionType.internalTransfer),
+        transactionState: const Value(TransactionState.confirmed),
+        merchant: const Value('Cash withdrawn'),
+        category: const Value('Cash'),
+        transactionTimestamp: Value(t.transactionTimestamp),
+        createdAt: Value(DateTime.now()),
+        isInternalTransfer: const Value(true),
+        linkedTransactionId: Value(t.id),
+      ),
+    );
+    await (db.update(db.transactions)..where((x) => x.id.equals(t.id))).write(
+      TransactionsCompanion(
+        isInternalTransfer: const Value(true),
+        linkedTransactionId: Value(id),
+      ),
+    );
+    final leg = await db.transactionsDao.getTransactionById(id);
+    if (leg != null) await applyEffects(leg);
+    return true;
   }
 
   /// Turns two matched legs into an internal transfer (money moved between the
@@ -344,6 +460,11 @@ class LedgerService {
       t.physicalAccountId,
     );
     if (account == null || account.isLiability) return 0;
+    // Cash moved into the Cash account (see _cashFromAtm) is not spent.
+    if (t.isInternalTransfer &&
+        t.transactionType == TransactionType.atmWithdrawal) {
+      return 0;
+    }
     final amount = t.amountMinorUnits;
     if (amount < 0 && _cashOutflows.contains(t.transactionType)) {
       return -amount;

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:rivero/core/currency/currency.dart';
 import 'package:rivero/core/database/database.dart';
+import 'package:rivero/core/domain/card_cycle.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/amount_parser.dart';
@@ -80,10 +81,17 @@ class AccountDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final account =
-        (ref.watch(activePhysicalAccountsProvider).value ?? const [])
-            .where((a) => a.id == accountId)
-            .firstOrNull;
+    final all = ref.watch(activePhysicalAccountsProvider).value ?? const [];
+    final account = all.where((a) => a.id == accountId).firstOrNull;
+    // A card's bills-paid-from account (see CreateAccountSheet).
+    final payer = account?.isLiability ?? false
+        ? all.where((a) => a.id == account!.billsPaidFromAccountId).firstOrNull
+        : null;
+    // Same rule as the Accounts page (cards sharing an account share it).
+    final afford = account == null
+        ? null
+        : CardBills.of(ref.watch(exchangeRatesProvider).inHome(all))
+              .byCard[account.id];
     if (account == null) {
       // Removed (or still loading): nothing to show.
       return Scaffold(
@@ -95,7 +103,10 @@ class AccountDetailScreen extends ConsumerWidget {
         ),
       );
     }
-    final privacy = ref.watch(privacyModeProvider);
+    // Privacy mode, or this account's own balance hidden on Accounts.
+    final privacy =
+        ref.watch(privacyModeProvider) ||
+        ref.watch(hiddenBalancesProvider).contains(accountId);
     String money(int v) => privacy ? '••••' : CurrencyFormatter.format(v);
     final txns = (ref.watch(allTransactionsStreamProvider).value ?? const [])
         .where((t) => t.physicalAccountId == accountId)
@@ -117,6 +128,23 @@ class AccountDetailScreen extends ConsumerWidget {
         showProfile: false,
         leading: BackButton(onPressed: () => Navigator.of(context).pop()),
         actions: [
+          IconButton(
+            key: const ValueKey('detail-hide'),
+            tooltip: ref.watch(hiddenBalancesProvider).contains(accountId)
+                ? 'Show balance'
+                : 'Hide balance',
+            onPressed: () {
+              final n = ref.read(hiddenBalancesProvider.notifier);
+              n.state = n.state.contains(accountId)
+                  ? ({...n.state}..remove(accountId))
+                  : {...n.state, accountId};
+            },
+            icon: Icon(
+              ref.watch(hiddenBalancesProvider).contains(accountId)
+                  ? Icons.visibility_off_outlined
+                  : Icons.visibility_outlined,
+            ),
+          ),
           IconButton(
             key: const ValueKey('update-balance'),
             tooltip: 'Update balance',
@@ -181,6 +209,25 @@ class AccountDetailScreen extends ConsumerWidget {
                           '${money(account.creditLimitMinorUnits)} limit',
                           style: RiveroTypography.bodySmall,
                         ),
+                      if (payer != null) ...[
+                        const SizedBox(height: RiveroSpacing.xs),
+                        Text(
+                          // Is the money kept for this card's bill enough?
+                          'Paid from ${payer.name}, which holds '
+                          '${money(payer.balanceMinorUnits)}'
+                          '${afford == null
+                              ? ''
+                              : afford.canPay
+                              ? ' · enough for the bill'
+                              : ' · ${money(afford.shortBy)} short'}',
+                          key: const ValueKey('card-payer'),
+                          style: RiveroTypography.bodySmall.copyWith(
+                            color: afford?.canPay ?? true
+                                ? RiveroColors.success
+                                : RiveroColors.warning,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -272,9 +319,7 @@ class NetWorthSheet extends ConsumerWidget {
       leading: ColorDot(accountColor(a)),
       title: Text(a.name),
       trailing: Text(
-        negative
-            ? '− ${accountMoney(a, a.balanceMinorUnits.abs(), money)}'
-            : accountMoney(a, a.balanceMinorUnits, money),
+        '${negative ? '− ' : ''}${accountMoney(a, a.balanceMinorUnits.abs(), ref.watch(accountMoneyMaskProvider)(a.id))}',
       ),
       onTap: () {
         Navigator.pop(context);

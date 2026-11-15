@@ -157,7 +157,9 @@ class FinancialParser {
     final accountType = _determineAccountType(text);
     final referenceNumber = _extractReferenceNumber(text);
     final balanceMinorUnits = _extractBalance(text);
-    final merchant = _extractMerchant(text, notification.title);
+    final merchant =
+        _extractMerchant(text, notification.title) ??
+        (isDebit ? null : _extractPayer(text));
 
     final institution = dltValidator.resolveFinancialInstitutionName(
       senderHeader: notification.sender,
@@ -359,6 +361,25 @@ class FinancialParser {
     }
 
     return null;
+  }
+
+  /// Who sent money that came in: "... from PARTHIV K Ref ...". Only used
+  /// for credits, when nothing better was found.
+  static final RegExp _payerRegex = RegExp(
+    r'\bfrom\s+([A-Za-z][A-Za-z\s\.]{1,30}?)(?=\s+(?:on|ref|avl|bal|imps|neft|rtgs|upi|via|info)\b|[\.,:;]|$)',
+    caseSensitive: false,
+  );
+
+  String? _extractPayer(String text) {
+    final m = _payerRegex.firstMatch(text)?.group(1)?.trim();
+    if (m == null || m.length < 2) return null;
+    if (RegExp(
+      r'^(?:a\/c|acct|account|your|ac|card|bank|wallet)\b',
+      caseSensitive: false,
+    ).hasMatch(m)) {
+      return null;
+    }
+    return _cleanMerchantName(m);
   }
 
   String _cleanMerchantName(String raw) {

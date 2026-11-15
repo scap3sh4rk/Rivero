@@ -92,6 +92,27 @@ class AccountsDao extends DatabaseAccessor<RiveroDatabase>
     return updatedRows > 0;
   }
 
+  /// The balance is known to be [balanceMinorUnits] as of [asOf] (typed by
+  /// the user, or reported by the bank). See `balanceAsOf`.
+  Future<void> setKnownBalance(
+    String accountId,
+    int balanceMinorUnits,
+    DateTime asOf,
+  ) async {
+    await updateAccountBalance(accountId, balanceMinorUnits);
+    await (update(physicalAccounts)..where((a) => a.id.equals(accountId)))
+        .write(PhysicalAccountsCompanion(balanceAsOf: Value(asOf)));
+  }
+
+  /// Whether an entry dated [at] still has to move [account]'s balance
+  /// (false when the balance was stated after that moment). Times are kept
+  /// to the second, so an entry in the very second of the statement counts
+  /// as new: that is the entry that brought the statement.
+  static bool movesBalance(PhysicalAccount account, DateTime at) {
+    final known = account.balanceAsOf;
+    return known == null || !at.isBefore(known);
+  }
+
   /// Adjust account balance by an offset (positive for credit, negative for debit).
   Future<bool> adjustAccountBalance(
     String accountId,
@@ -117,6 +138,12 @@ class AccountsDao extends DatabaseAccessor<RiveroDatabase>
 
   /// Deactivate (soft delete) a physical account.
   Future<bool> deactivatePhysicalAccount(String accountId) async {
+    // Cards must not count on a hidden account to pay their bills.
+    await (update(
+      physicalAccounts,
+    )..where((a) => a.billsPaidFromAccountId.equals(accountId))).write(
+      const PhysicalAccountsCompanion(billsPaidFromAccountId: Value(null)),
+    );
     // Plan categories must not keep routing money into a hidden account.
     await (update(
       allocationBuckets,

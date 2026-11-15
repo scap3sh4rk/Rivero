@@ -18,6 +18,12 @@ class PhysicalAccounts extends Table {
   /// Current balance strictly stored as integer minor units (paise in INR).
   IntColumn get balanceMinorUnits => integer().withDefault(const Constant(0))();
 
+  /// The moment [balanceMinorUnits] was last known to be true: the user
+  /// typed it, or a bank message reported it. An entry dated at or before
+  /// this is already inside the balance, so recording, accepting or deleting
+  /// it later must not move the balance again. Null = never stated.
+  DateTimeColumn get balanceAsOf => dateTime().nullable()();
+
   /// Credit limit in minor units (for credit cards / credit lines, e.g. 15000000 for ₹1,50,000).
   IntColumn get creditLimitMinorUnits =>
       integer().withDefault(const Constant(0))();
@@ -26,6 +32,12 @@ class PhysicalAccounts extends Table {
   /// and the day its payment is due. Null = not set.
   IntColumn get statementDay => integer().nullable()();
   IntColumn get paymentDueDay => integer().nullable()();
+
+  /// Credit cards: the account their bills are paid from, when the user
+  /// keeps card money apart (e.g. moves each card spend to a separate
+  /// account). Money already there is not taken from spending money again.
+  /// Null = paid from spending money.
+  TextColumn get billsPaidFromAccountId => text().nullable()();
 
   /// Custom account type / category (e.g. "Salary", "Savings", "Credit Card", "Cash", or custom).
   TextColumn get accountType =>

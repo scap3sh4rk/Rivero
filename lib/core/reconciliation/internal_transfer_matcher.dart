@@ -30,6 +30,30 @@ class InternalTransferMatcher {
     TransactionType.investmentRedemption,
   };
 
+  /// The named other side of an entry, or null when the message gave none.
+  static String? _party(String merchant) {
+    final m = merchant.toLowerCase().trim();
+    if (m.length < 3 || m.startsWith('unknown')) return null;
+    // Labels, not names: they say nothing about who was on the other side.
+    const generic = {
+      'transfer',
+      'payment',
+      'deposit',
+      'cash',
+      'self',
+      'imps',
+      'neft',
+      'rtgs',
+      'upi',
+      'bank',
+      'atm',
+      'refund',
+      'salary',
+      'balance update',
+    };
+    return generic.contains(m) ? null : m;
+  }
+
   /// Scans [unlinkedTransactions] and returns all identified transfer pairs.
   List<TransferPairMatch> findTransferPairs({
     required List<LedgerTransaction> unlinkedTransactions,
@@ -77,11 +101,17 @@ class InternalTransferMatcher {
           continue;
         }
 
-        // Time delta must fall within tolerance window
+        // Time delta must fall within tolerance window. Both messages
+        // naming the same person (your own name on an IMPS or NEFT between
+        // your accounts) is strong evidence on its own: those can land
+        // hours apart and carry a different reference on each side.
         final delta = debit.transactionTimestamp
             .difference(credit.transactionTimestamp)
             .abs();
-        if (delta > searchWindow) {
+        final sameParty =
+            _party(debit.merchant) != null &&
+            _party(debit.merchant) == _party(credit.merchant);
+        if (delta > (sameParty ? const Duration(hours: 24) : searchWindow)) {
           continue;
         }
 
@@ -92,8 +122,10 @@ class InternalTransferMatcher {
         final dr = debit.referenceNumber;
         final cr = credit.referenceNumber;
         final bothRefs = dr != null && cr != null;
-        if (bothRefs && dr != cr) continue;
-        if (!bothRefs && delta > const Duration(seconds: 120)) continue;
+        if (!sameParty) {
+          if (bothRefs && dr != cr) continue;
+          if (!bothRefs && delta > const Duration(seconds: 120)) continue;
+        }
         // A salary is only a transfer when the bank says so (same ref).
         final looksLikeSalary =
             credit.transactionType == TransactionType.income &&

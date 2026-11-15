@@ -58,6 +58,11 @@ class Transactions extends Table {
   /// Linked partner transaction leg (for transfers, refunds, or reimbursements).
   TextColumn get linkedTransactionId => text().nullable()();
 
+  /// What this entry really changed its account's balance by when it was
+  /// applied: less than the amount when the balance stopped at zero, 0 when
+  /// the balance already included it. Null = the full amount (older rows).
+  IntColumn get appliedMinorUnits => integer().nullable()();
+
   /// Optional user annotations.
   TextColumn get userNotes => text().nullable()();
 
