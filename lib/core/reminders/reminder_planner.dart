@@ -68,9 +68,7 @@ abstract final class ReminderPlanner {
     final f = DateFormat('d MMM');
     String money(int v) => CurrencyFormatter.format(v);
     bool upcoming(DateTime t) => t.isAfter(now) && t.isBefore(until);
-    final bank = accounts
-        .where((a) => !a.isLiability && a.isActive)
-        .fold<int>(0, (s, a) => s + a.balanceMinorUnits);
+    final bills = CardBills.of(accounts);
 
     if (prefs.cardBills) {
       for (final c in accounts.where((a) => a.isLiability && a.isActive)) {
@@ -81,10 +79,15 @@ abstract final class ReminderPlanner {
           now: now,
         );
         if (owed == 0 || cycle == null) continue;
-        final afford = CardAffordability(owed: owed, available: bank);
+        final afford = bills.byCard[c.id];
+        if (afford == null) continue; // a loan: its instalments are autopays
+        final from = bills.payerOf[c.id]?.name;
         final tail = afford.canPay
-            ? 'Your accounts can cover it.'
-            : 'Short by ${money(afford.shortBy)}.';
+            ? (from == null
+                  ? 'Your accounts can cover it.'
+                  : '$from can cover it.')
+            : 'Short by ${money(afford.shortBy)}'
+                  '${from == null ? '' : ' in $from'}.';
         for (final daysBefore in const [3, 1]) {
           final at = _at9(cycle.dueDate.subtract(Duration(days: daysBefore)));
           if (!upcoming(at)) continue;

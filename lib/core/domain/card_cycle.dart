@@ -1,3 +1,6 @@
+import 'package:rivero/core/database/database.dart';
+import 'package:rivero/core/domain/custom_account_types.dart';
+
 /// A credit card's billing cycle: the statement is generated on
 /// `statementDay` each month and the bill is due on `paymentDueDay`.
 /// Every card can have its own.
@@ -108,4 +111,87 @@ class CardAffordability {
 
   /// What is left after paying.
   int get leftAfter => canPay ? available - owed : 0;
+}
+
+/// Whether each card's bill can be paid, the same way everywhere (Accounts,
+/// the card's own page, Bills, reminders) and the same way Safe to spend
+/// sets money aside:
+/// * a card with a "bills paid from" account is paid from that account
+///   alone; cards sharing one share its balance;
+/// * other cards are paid from the bank and cash accounts that are not
+///   holding money for a card;
+/// * loans and overdrafts are long-term debt, not a bill: left out.
+/// `accounts` are in the home currency (`ExchangeRates.inHome`).
+class CardBills {
+  CardBills._(this.byCard, this.payerOf, this.all);
+
+  factory CardBills.of(List<PhysicalAccount> accounts) {
+    int owedOn(PhysicalAccount a) =>
+        a.balanceMinorUnits < 0 ? -a.balanceMinorUnits : 0;
+    final banks = {
+      for (final a in accounts)
+        if (!a.isLiability && a.isActive) a.id: a,
+    };
+    final cards = [
+      for (final a in accounts)
+        if (a.isLiability &&
+            a.isActive &&
+            !StandardAccountTypes.isLongTermDebt(a.accountType))
+          a,
+    ];
+    final payerOf = <String, PhysicalAccount>{};
+    final groupOwed = <String, int>{};
+    for (final c in cards) {
+      final p = banks[c.billsPaidFromAccountId];
+      if (p == null) continue;
+      payerOf[c.id] = p;
+      groupOwed[p.id] = (groupOwed[p.id] ?? 0) + owedOn(c);
+    }
+    int held(PhysicalAccount a) =>
+        a.balanceMinorUnits < 0 ? 0 : a.balanceMinorUnits;
+    final pool = banks.values
+        .where((b) => !groupOwed.containsKey(b.id))
+        .fold<int>(0, (s, b) => s + held(b));
+
+    final byCard = <String, CardAffordability>{};
+    var covered = 0;
+    var owedTotal = 0;
+    var spill = 0; // what payer accounts cannot cover
+    for (final c in cards) {
+      owedTotal += owedOn(c);
+      final p = payerOf[c.id];
+      if (p == null) {
+        byCard[c.id] = CardAffordability(owed: owedOn(c), available: pool);
+        spill += owedOn(c);
+      } else {
+        byCard[c.id] = CardAffordability(
+          owed: groupOwed[p.id]!,
+          available: held(p),
+        );
+      }
+    }
+    for (final e in groupOwed.entries) {
+      final h = held(banks[e.key]!);
+      covered += e.value < h ? e.value : h;
+      spill += e.value > h ? e.value - h : 0;
+    }
+    // Whatever the card accounts cannot cover comes from the other money.
+    covered += spill < pool ? spill : pool;
+    return CardBills._(
+      byCard,
+      payerOf,
+      CardAffordability(owed: owedTotal, available: covered),
+    );
+  }
+
+  /// Per card id (cards only; loans and overdrafts have none). For a card
+  /// with its own account, [CardAffordability.owed] is everything that
+  /// account pays (all cards sharing it).
+  final Map<String, CardAffordability> byCard;
+
+  /// The account a card's bills are paid from, if one is set.
+  final Map<String, PhysicalAccount> payerOf;
+
+  /// Every card together.
+  final CardAffordability all;
 }

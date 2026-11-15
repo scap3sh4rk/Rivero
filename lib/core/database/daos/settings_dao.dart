@@ -54,6 +54,9 @@ abstract final class SettingKeys {
   /// it is added from Home.
   static const unreadableChoices = 'unreadable_choices_json';
 
+  /// Accounts whose balance is masked on screen (JSON list of ids).
+  static const hiddenBalances = 'hidden_balances_json';
+
   /// Money (paise) in the spending account that Safe to spend never counts.
   static const keepUntouched = 'keep_untouched_minor';
 

@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/card_cycle.dart';
 
 void main() {
@@ -64,5 +65,75 @@ void main() {
     const short = CardAffordability(owed: 800000, available: 500000);
     expect(short.canPay, isFalse);
     expect(short.shortBy, 300000);
+  });
+
+  group('CardBills: whether each card can be paid', () {
+    final at = DateTime(2026, 11, 15);
+    PhysicalAccount acc(
+      String id,
+      int balance, {
+      bool card = false,
+      String? paidFrom,
+      String type = 'Savings',
+    }) => PhysicalAccount(
+      id: id,
+      name: id,
+      institution: id,
+      accountMask: '••••',
+      accountType: type,
+      balanceMinorUnits: balance,
+      creditLimitMinorUnits: card ? 10000000 : 0,
+      isLiability: card,
+      isActive: true,
+      billsPaidFromAccountId: paidFrom,
+      currencyCode: 'INR',
+      sortOrder: 0,
+      createdAt: at,
+      updatedAt: at,
+    );
+
+    test('a card with its own account is judged on that account alone', () {
+      final b = CardBills.of([
+        acc('salary', 10000000), // ₹1 lakh, not for this card
+        acc('slicebank', 30000),
+        acc('slice', -50000, card: true, paidFrom: 'slicebank'),
+      ]);
+      expect(b.byCard['slice']!.canPay, isFalse);
+      expect(b.byCard['slice']!.shortBy, 20000);
+      expect(b.payerOf['slice']!.id, 'slicebank');
+      // All cards together: the salary account can top up the rest.
+      expect(b.all.canPay, isTrue);
+    });
+
+    test('cards sharing an account share its balance', () {
+      final b = CardBills.of([
+        acc('pot', 100000),
+        acc('a', -60000, card: true, paidFrom: 'pot'),
+        acc('b', -60000, card: true, paidFrom: 'pot'),
+      ]);
+      expect(b.byCard['a']!.canPay, isFalse);
+      expect(b.byCard['a']!.shortBy, 20000);
+      expect(b.all.shortBy, 20000);
+    });
+
+    test('other cards are paid from accounts not holding money for a card', () {
+      final b = CardBills.of([
+        acc('spend', 40000),
+        acc('slicebank', 500000),
+        acc('slice', -10000, card: true, paidFrom: 'slicebank'),
+        acc('hdfc', -50000, card: true),
+      ]);
+      expect(b.byCard['hdfc']!.shortBy, 10000);
+      expect(b.byCard['slice']!.canPay, isTrue);
+    });
+
+    test('loans are not bills', () {
+      final b = CardBills.of([
+        acc('bank', 100000),
+        acc('home', -250000000, card: true, type: 'Home Loan'),
+      ]);
+      expect(b.byCard, isEmpty);
+      expect(b.all.owed, 0);
+    });
   });
 }

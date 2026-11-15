@@ -27,6 +27,7 @@ import 'package:rivero/core/reconciliation/internal_transfer_matcher.dart';
 import 'package:rivero/core/reconciliation/reconciliation_service.dart';
 import 'package:rivero/core/reconciliation/refund_matcher.dart';
 import 'package:rivero/core/security/app_lock.dart';
+import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 
 /// Provider indicating whether the app is in privacy mode (hiding balances).
@@ -44,6 +45,21 @@ final userSalaryDayProvider = StateProvider<int>((ref) => 1);
 
 /// Expected monthly salary in minor units (0 = not configured yet).
 final monthlySalaryProvider = StateProvider<int>((ref) => 0);
+
+/// Accounts whose balance is masked (tap the eye on an account to toggle).
+final hiddenBalancesProvider = StateProvider<Set<String>>((ref) => const {});
+
+/// Money formatting for one account: dots when its balance is hidden
+/// (or privacy mode is on).
+final accountMoneyMaskProvider =
+    Provider<String Function(int) Function(String accountId)>((ref) {
+      final privacy = ref.watch(privacyModeProvider);
+      final hidden = ref.watch(hiddenBalancesProvider);
+      return (id) =>
+          (v) => privacy || hidden.contains(id)
+          ? '••••'
+          : CurrencyFormatter.format(v);
+    });
 
 /// Money in the spending account Safe to spend leaves alone (paise).
 final keepUntouchedProvider = StateProvider<int>((ref) => 0);
@@ -80,6 +96,16 @@ class SettingsSync {
         await dao.getInt(SettingKeys.monthlySalary) ?? 0;
     ref.read(keepUntouchedProvider.notifier).state =
         await dao.getInt(SettingKeys.keepUntouched) ?? 0;
+    final hidden = await dao.get(SettingKeys.hiddenBalances);
+    if (hidden != null) {
+      try {
+        ref.read(hiddenBalancesProvider.notifier).state = {
+          for (final id in jsonDecode(hidden) as List) id as String,
+        };
+      } on FormatException {
+        // Unreadable: show every balance.
+      }
+    }
     ref.read(reserveCreditCardsProvider.notifier).state =
         (await dao.get(SettingKeys.reserveCreditCards)) != '0';
     ref.read(salaryAccountIdProvider.notifier).state = await dao.get(
@@ -165,6 +191,10 @@ class SettingsSync {
       ..listen(
         keepUntouchedProvider,
         (_, v) => save(SettingKeys.keepUntouched, '$v'),
+      )
+      ..listen(
+        hiddenBalancesProvider,
+        (_, v) => save(SettingKeys.hiddenBalances, jsonEncode(v.toList())),
       )
       ..listen(
         reserveCreditCardsProvider,

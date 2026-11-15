@@ -91,6 +91,7 @@ class BillsAndCommitments extends ConsumerWidget {
         .where((a) => !a.isLiability)
         .fold<int>(0, (s, a) => s + a.balanceMinorUnits);
     final available = bankTotal < 0 ? 0 : bankTotal;
+    final bills = CardBills.of(accounts);
 
     final due = upcomingMandates(mandates, now, cycle.cycleEndDate);
     final accountIds = accounts.map((a) => a.id).toSet();
@@ -190,7 +191,10 @@ class BillsAndCommitments extends ConsumerWidget {
               now: now,
             );
             final owed = owedOn(c);
-            final afford = CardAffordability(owed: owed, available: available);
+            final afford =
+                bills.byCard[c.id] ??
+                CardAffordability(owed: owed, available: available);
+            final payer = bills.payerOf[c.id];
             final sub =
                 StringBuffer(
                   cc == null
@@ -211,7 +215,8 @@ class BillsAndCommitments extends ConsumerWidget {
               c.name,
               owed == 0
                   ? sub.toString()
-                  : '$sub\n${afford.canPay ? 'You can pay this' : 'Short by ${money(afford.shortBy)}'}',
+                  : '$sub\n${afford.canPay ? 'You can pay this' : 'Short by ${money(afford.shortBy)}'}'
+                        '${payer == null ? '' : ' from ${payer.name}'}',
               money(owed),
               subColor: owed > 0 && !afford.canPay ? RiveroColors.danger : null,
               key: ValueKey('commit-card-${c.id}'),

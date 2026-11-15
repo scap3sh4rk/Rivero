@@ -24,6 +24,37 @@ void main() {
     await db.close();
   });
 
+  testWidgets('one account balance can be hidden, and shown again', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [databaseProvider.overrideWithValue(db)],
+        child: const MaterialApp(home: AccountsScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
+
+    Text balance(String id) =>
+        tester.widget<Text>(find.byKey(ValueKey('balance-$id')));
+    expect(balance('acc-salary').data, isNot('••••'));
+    await tester.tap(find.byKey(const ValueKey('hide-acc-salary')));
+    await tester.pump();
+    expect(balance('acc-salary').data, '••••');
+    expect(balance('acc-expense').data, isNot('••••')); // only that one
+    await tester.tap(find.byKey(const ValueKey('hide-acc-salary')));
+    await tester.pump();
+    expect(balance('acc-salary').data, isNot('••••'));
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 50));
+  });
+
   testWidgets(
     'AccountsScreen displays Net Worth, Credit Lines, and Bank Accounts',
     (tester) async {
