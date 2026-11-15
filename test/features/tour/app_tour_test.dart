@@ -4,7 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rivero/core/database/daos/settings_dao.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/providers/app_providers.dart';
+import 'package:rivero/features/budgets/screens/budgets_screen.dart';
+import 'package:rivero/features/goals/goals_screen.dart';
 import 'package:rivero/features/home/widgets/get_started_card.dart';
+import 'package:rivero/features/mandates/mandates_screen.dart';
 import 'package:rivero/main.dart';
 
 import '../../test_helper.dart';
@@ -50,10 +53,32 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Start here: your accounts'), findsOneWidget);
     expect(container.read(selectedNavIndexProvider), 1);
-    for (var i = 0; i < 5; i++) {
+    Future<void> next() async {
       await tester.tap(find.byKey(const ValueKey('tour-next')));
-      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
     }
+
+    // The tour opens Plan, then Goals over it.
+    await next();
+    expect(find.text('Then: your salary plan'), findsOneWidget);
+    expect(find.byType(BudgetsScreen), findsOneWidget);
+    await next();
+    expect(find.text('Goals'), findsWidgets);
+    expect(find.byType(GoalsScreen), findsOneWidget);
+    // Log closes them again.
+    await next();
+    expect(find.byType(BudgetsScreen), findsNothing);
+    expect(container.read(selectedNavIndexProvider), 3);
+    await next(); // Activity
+    await next(); // Owed
+    expect(container.read(selectedNavIndexProvider), 0);
+    // Autopay lives on Owed: the tour opens it.
+    await next();
+    expect(find.text('Autopay lives on Owed'), findsOneWidget);
+    expect(find.byType(MandatesScreen), findsOneWidget);
+    await next();
+    expect(find.byType(MandatesScreen), findsNothing);
     expect(find.text('Let Rivero capture payments'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('tour-next')));
     for (var i = 0; i < 6; i++) {

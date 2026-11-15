@@ -16,7 +16,6 @@ import 'package:rivero/design_system/widgets/picker.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
 import 'package:rivero/features/backup/backup_screen.dart';
-import 'package:rivero/features/mandates/mandates_screen.dart';
 import 'package:rivero/features/settings/screens/account_types_screen.dart';
 import 'package:rivero/features/settings/screens/appearance_screen.dart';
 import 'package:rivero/features/settings/screens/bank_icons_screen.dart';
@@ -31,7 +30,77 @@ import 'package:rivero/features/settings/widgets/capture_disclosure.dart';
 import 'package:rivero/features/tour/app_tour.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-/// Settings as short rows: one line each, details one tap deeper.
+/// The groups on the Settings page. Each opens a page with its settings.
+enum SettingsSection {
+  look(
+    'Appearance & Home',
+    Icons.palette_outlined,
+    'Theme, fonts, Home cards, bank icons',
+  ),
+  money(
+    'Money & Safe to spend',
+    Icons.account_balance_wallet_outlined,
+    'Pay day, card bills, money owed',
+  ),
+  sorting(
+    'Categories & rules',
+    Icons.sell_outlined,
+    'Categories, capture rules, account types',
+  ),
+  capture(
+    'Capture',
+    Icons.notifications_active_outlined,
+    'Notification access, UPI app, test',
+    androidOnly: true,
+  ),
+  reminders(
+    'Reminders',
+    Icons.alarm_rounded,
+    'Card bills, autopay, money owed',
+    androidOnly: true,
+  ),
+  privacy(
+    'Privacy & security',
+    Icons.shield_outlined,
+    'Hide amounts, app lock, net worth',
+  ),
+  data('Backup & data', Icons.cloud_outlined, 'Backup, export, import, delete');
+
+  SettingsSection(
+    this.title,
+    this.icon,
+    this.summary, {
+    this.androidOnly = false,
+  });
+
+  final String title;
+  final IconData icon;
+  final String summary;
+  final bool androidOnly;
+}
+
+/// One group's settings on its own page.
+class _SectionPage extends ConsumerWidget {
+  const _SectionPage(this.section);
+
+  final SettingsSection section;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => Scaffold(
+    backgroundColor: RiveroColors.background,
+    appBar: RiveroAppBar(
+      title: section.title,
+      showProfile: false,
+      leading: BackButton(onPressed: () => Navigator.of(context).pop()),
+    ),
+    body: ListView(
+      padding: const EdgeInsets.only(bottom: RiveroSpacing.huge),
+      children: const SettingsScreen().rowsFor(context, ref, section),
+    ),
+  );
+}
+
+/// Settings: a few groups, every setting one tap deeper.
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
@@ -81,11 +150,15 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final salaryDay = ref.watch(userSalaryDayProvider);
-    final paycycle = ref.watch(currentPaycycleProvider);
     final theme = ref.watch(themeModeProvider);
-    final types = ref.watch(customAccountTypesProvider);
-
+    final salaryDay = ref.watch(userSalaryDayProvider);
+    String summary(SettingsSection s) => switch (s) {
+      SettingsSection.look =>
+        '${_themeLabels[theme]} · ${ref.watch(fontFamilyProvider)} · '
+            'Home cards · bank icons',
+      SettingsSection.money => 'Pay day $salaryDay · card bills · money owed',
+      _ => s.summary,
+    };
     return Scaffold(
       backgroundColor: RiveroColors.background,
       appBar: RiveroAppBar(
@@ -95,17 +168,53 @@ class SettingsScreen extends ConsumerWidget {
             ? BackButton(onPressed: () => Navigator.of(context).pop())
             : null,
       ),
+      // A short list of groups; every setting is one tap deeper.
       body: ListView(
-        padding: const EdgeInsets.only(bottom: RiveroSpacing.huge),
+        padding: const EdgeInsets.only(
+          top: RiveroSpacing.sm,
+          bottom: RiveroSpacing.huge,
+        ),
         children: [
-          const _Header('General'),
+          for (final s in SettingsSection.values)
+            if (!s.androidOnly || NotificationBridge.supported)
+              _Row(
+                key: ValueKey('section-${s.name}'),
+                icon: s.icon,
+                title: s.title,
+                subtitle: summary(s),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => _SectionPage(s)),
+                ),
+              ),
           _Row(
-            icon: Icons.event_outlined,
-            title: 'Pay day',
-            subtitle:
-                'Day $salaryDay · ${paycycle.daysRemaining} days to next pay',
-            onTap: () => _pickPayDay(context, ref, salaryDay),
+            icon: Icons.tour_outlined,
+            title: 'Take the tour',
+            subtitle: 'A quick walk through every part of Rivero',
+            onTap: () {
+              final nav = Navigator.of(context)..pop();
+              AppTour.show(nav.context);
+            },
           ),
+          const SizedBox(height: RiveroSpacing.xl),
+          const _DeveloperCard(),
+        ],
+      ),
+    );
+  }
+
+  /// The rows of one group.
+  List<Widget> rowsFor(
+    BuildContext context,
+    WidgetRef ref,
+    SettingsSection section,
+  ) {
+    final salaryDay = ref.watch(userSalaryDayProvider);
+    final paycycle = ref.watch(currentPaycycleProvider);
+    final theme = ref.watch(themeModeProvider);
+    final types = ref.watch(customAccountTypesProvider);
+    switch (section) {
+      case SettingsSection.look:
+        return [
           _Row(
             key: const ValueKey('appearance'),
             icon: Icons.palette_outlined,
@@ -116,19 +225,35 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => AppearanceScreen.open(context),
           ),
           _Row(
+            icon: Icons.dashboard_customize_outlined,
+            title: 'Home screen',
+            subtitle: 'Choose the cards under Safe to spend',
+            onTap: () => HomeWidgetsScreen.open(context),
+          ),
+          _Row(
+            icon: Icons.account_balance_outlined,
+            title: 'Bank icons',
+            subtitle: 'One picture per bank, used everywhere',
+            onTap: () => BankIconsScreen.open(context),
+          ),
+          _Row(
             icon: Icons.dialpad_rounded,
             title: 'Open on quick log',
+            subtitle: 'Start on the Log keypad instead of Home',
             trailing: Switch(
               value: ref.watch(openOnLogProvider),
               onChanged: (v) => ref.read(openOnLogProvider.notifier).state = v,
             ),
           ),
-          const _Header('Money'),
+        ];
+      case SettingsSection.money:
+        return [
           _Row(
-            icon: Icons.autorenew_rounded,
-            title: 'Autopay',
-            subtitle: 'Recurring debits across all banks',
-            onTap: () => MandatesScreen.open(context),
+            icon: Icons.event_outlined,
+            title: 'Pay day',
+            subtitle:
+                'Day $salaryDay · ${paycycle.daysRemaining} days to next pay',
+            onTap: () => _pickPayDay(context, ref, salaryDay),
           ),
           _Row(
             icon: Icons.credit_card_outlined,
@@ -168,31 +293,24 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => _keepUntouched(context, ref),
           ),
           _Row(
+            icon: Icons.currency_exchange_rounded,
+            title: 'Exchange rates',
+            subtitle:
+                foreignCurrencies(
+                  ref.watch(activePhysicalAccountsProvider).value ?? const [],
+                ).isEmpty
+                ? 'All accounts are in rupees'
+                : 'For accounts not in rupees',
+            onTap: () => ExchangeRatesScreen.open(context),
+          ),
+        ];
+      case SettingsSection.sorting:
+        return [
+          _Row(
             icon: Icons.sell_outlined,
             title: 'Categories',
             subtitle: 'Used by Log and Activity',
             onTap: () => CategoriesScreen.open(context),
-          ),
-          if (foreignCurrencies(
-            ref.watch(activePhysicalAccountsProvider).value ?? const [],
-          ).isNotEmpty)
-            _Row(
-              icon: Icons.currency_exchange_rounded,
-              title: 'Exchange rates',
-              subtitle: 'For accounts not in rupees',
-              onTap: () => ExchangeRatesScreen.open(context),
-            ),
-          _Row(
-            icon: Icons.account_balance_outlined,
-            title: 'Bank icons',
-            subtitle: 'One picture per bank, used everywhere',
-            onTap: () => BankIconsScreen.open(context),
-          ),
-          _Row(
-            icon: Icons.dashboard_customize_outlined,
-            title: 'Home screen',
-            subtitle: 'Choose the cards under Safe to spend',
-            onTap: () => HomeWidgetsScreen.open(context),
           ),
           _Row(
             icon: Icons.rule_rounded,
@@ -206,34 +324,17 @@ class SettingsScreen extends ConsumerWidget {
             subtitle: '${types.length}',
             onTap: () => AccountTypesScreen.open(context),
           ),
-          if (NotificationBridge.supported) ...[
-            const _Header('Capture'),
-            const _CaptureRows(),
-            const _Header('Reminders'),
-            const _ReminderRows(),
-          ],
-          const _Header('Backup'),
-          _Row(
-            icon: Icons.cloud_outlined,
-            title: 'Backup & restore',
-            subtitle: 'Google Drive or a file, encrypted',
-            onTap: () => BackupScreen.open(context),
-          ),
-          const _Header('Privacy'),
-          _Row(
-            icon: Icons.account_balance_outlined,
-            title: 'Show net worth on Accounts',
-            subtitle: 'Each account can also be left out of it',
-            trailing: Switch(
-              key: const ValueKey('show-net-worth'),
-              value: ref.watch(showNetWorthProvider),
-              onChanged: (v) =>
-                  ref.read(showNetWorthProvider.notifier).state = v,
-            ),
-          ),
+        ];
+      case SettingsSection.capture:
+        return const [_CaptureRows()];
+      case SettingsSection.reminders:
+        return const [_ReminderRows()];
+      case SettingsSection.privacy:
+        return [
           _Row(
             icon: Icons.visibility_off_outlined,
             title: 'Hide amounts',
+            subtitle: 'Each account also has its own eye',
             trailing: Switch(
               key: const ValueKey('privacy-switch'),
               value: ref.watch(privacyModeProvider),
@@ -250,31 +351,31 @@ class SettingsScreen extends ConsumerWidget {
               onChanged: (v) => _setAppLock(context, ref, v),
             ),
           ),
+          _Row(
+            icon: Icons.account_balance_outlined,
+            title: 'Show net worth on Accounts',
+            subtitle: 'Each account can also be left out of it',
+            trailing: Switch(
+              key: const ValueKey('show-net-worth'),
+              value: ref.watch(showNetWorthProvider),
+              onChanged: (v) =>
+                  ref.read(showNetWorthProvider.notifier).state = v,
+            ),
+          ),
           const _Row(
             icon: Icons.lock_outline_rounded,
             title: 'Encrypted on this phone',
             subtitle: 'No cloud, no SMS permission',
           ),
-          const _Header('Experimental'),
+        ];
+      case SettingsSection.data:
+        return [
           _Row(
-            icon: Icons.upload_file_outlined,
-            title: NotificationBridge.supported
-                ? 'Import bank statement (PDF or CSV)'
-                : 'Import bank statement (CSV)',
-            subtitle: 'Adds past transactions to an account',
-            onTap: () => importStatement(context, ref),
+            icon: Icons.cloud_outlined,
+            title: 'Backup & restore',
+            subtitle: 'Google Drive or a file, encrypted',
+            onTap: () => BackupScreen.open(context),
           ),
-          const _Header('Help'),
-          _Row(
-            icon: Icons.tour_outlined,
-            title: 'Take the tour',
-            subtitle: 'A quick walk through every part of Rivero',
-            onTap: () {
-              final nav = Navigator.of(context)..pop();
-              AppTour.show(nav.context);
-            },
-          ),
-          const _Header('Data'),
           _Row(
             icon: Icons.ios_share_rounded,
             title: 'Export data',
@@ -282,24 +383,28 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => exportData(context, ref),
           ),
           _Row(
+            icon: Icons.upload_file_outlined,
+            title: NotificationBridge.supported
+                ? 'Import bank statement (PDF or CSV)'
+                : 'Import bank statement (CSV)',
+            subtitle: 'Adds past transactions to an account (experimental)',
+            onTap: () => importStatement(context, ref),
+          ),
+          _Row(
             icon: Icons.delete_forever_outlined,
             title: 'Delete all data',
             subtitle: 'Erases everything and shows the tour again',
             onTap: () => _confirmWipe(context, ref),
           ),
-          if (kDebugMode) ...[
+          if (kDebugMode)
             _Row(
               icon: Icons.science_outlined,
               title: 'Load demo data',
               subtitle: 'Replaces everything with sample data',
               onTap: () => _confirmReset(context, ref),
             ),
-          ],
-          const SizedBox(height: RiveroSpacing.xl),
-          const _DeveloperCard(),
-        ],
-      ),
-    );
+        ];
+    }
   }
 
   Future<void> _setAppLock(BuildContext context, WidgetRef ref, bool on) async {
@@ -436,25 +541,6 @@ class SettingsScreen extends ConsumerWidget {
           .showSnackBar(const SnackBar(content: Text('Demo data loaded')));
     }
   }
-}
-
-class _Header extends StatelessWidget {
-  const _Header(this.text);
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(
-      RiveroSpacing.xl,
-      RiveroSpacing.xl,
-      RiveroSpacing.xl,
-      RiveroSpacing.xs,
-    ),
-    child: Text(
-      text.toUpperCase(),
-      style: RiveroTypography.labelSmall.copyWith(letterSpacing: 1.2),
-    ),
-  );
 }
 
 /// Slice-style settings row: round outlined icon, title, optional subtitle.

@@ -134,6 +134,8 @@ void main() {
     expect(h, greaterThanOrEqualTo(3000 * 0.28));
     // A small net line sits below them.
     expect(find.byKey(const ValueKey('owed-net')), findsOneWidget);
+    // Autopay lives on the Owed tab.
+    expect(find.byKey(const ValueKey('owed-autopay')), findsOneWidget);
     expect(find.text('All square'), findsOneWidget);
     expect(find.byType(Scrollable), findsNothing);
 

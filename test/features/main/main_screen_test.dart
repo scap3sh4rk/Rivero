@@ -93,7 +93,7 @@ void main() {
     await tester.tap(find.byTooltip('Profile & Settings').first);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 600));
-    expect(find.text('Pay day'), findsOneWidget);
+    expect(find.byKey(const ValueKey('section-money')), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 50));
