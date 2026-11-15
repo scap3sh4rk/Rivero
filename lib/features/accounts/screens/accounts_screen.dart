@@ -11,6 +11,7 @@ import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/look.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/account_color.dart';
+import 'package:rivero/design_system/widgets/balance_mask.dart';
 import 'package:rivero/design_system/widgets/bank_badge.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
@@ -205,7 +206,7 @@ class _AccountRow extends ConsumerWidget {
     // Card size picked in Settings > Appearance (bank & cash, and cards).
     final look = ref.watch(lookProvider);
     final size = a.isLiability ? look.creditCards : look.bankCards;
-    final hidden = ref.watch(hiddenBalancesProvider).contains(a.id);
+    final hidden = accountMasked(ref, a.id);
     // Hide or show this one account's money (saved).
     final eye = IconButton(
       key: ValueKey('hide-${a.id}'),
@@ -213,8 +214,7 @@ class _AccountRow extends ConsumerWidget {
       visualDensity: VisualDensity.compact,
       onPressed: () {
         HapticFeedback.selectionClick();
-        final n = ref.read(hiddenBalancesProvider.notifier);
-        n.state = hidden ? ({...n.state}..remove(a.id)) : {...n.state, a.id};
+        toggleAccountMask(ref, a.id);
       },
       icon: Icon(
         hidden ? Icons.visibility_off_outlined : Icons.visibility_outlined,

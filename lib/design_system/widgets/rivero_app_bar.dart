@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
+import 'package:rivero/design_system/widgets/balance_mask.dart';
 import 'package:rivero/features/settings/screens/settings_screen.dart';
 
 /// Slice-style top bar: big left-aligned title, optional actions, and a round
@@ -111,7 +112,7 @@ class _EyeButton extends ConsumerWidget {
         hidden ? Icons.visibility_off_outlined : Icons.visibility_outlined,
         color: RiveroColors.textSecondary,
       ),
-      onPressed: () => ref.read(privacyModeProvider.notifier).state = !hidden,
+      onPressed: () => setHideAll(ref, hide: !hidden),
     );
   }
 }

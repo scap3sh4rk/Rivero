@@ -10,6 +10,7 @@ import 'package:rivero/core/utils/amount_parser.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/account_color.dart';
+import 'package:rivero/design_system/widgets/balance_mask.dart';
 import 'package:rivero/design_system/widgets/bank_badge.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
@@ -104,9 +105,7 @@ class AccountDetailScreen extends ConsumerWidget {
       );
     }
     // Privacy mode, or this account's own balance hidden on Accounts.
-    final privacy =
-        ref.watch(privacyModeProvider) ||
-        ref.watch(hiddenBalancesProvider).contains(accountId);
+    final privacy = accountMasked(ref, accountId);
     String money(int v) => privacy ? '••••' : CurrencyFormatter.format(v);
     final txns = (ref.watch(allTransactionsStreamProvider).value ?? const [])
         .where(
@@ -134,17 +133,10 @@ class AccountDetailScreen extends ConsumerWidget {
         actions: [
           IconButton(
             key: const ValueKey('detail-hide'),
-            tooltip: ref.watch(hiddenBalancesProvider).contains(accountId)
-                ? 'Show balance'
-                : 'Hide balance',
-            onPressed: () {
-              final n = ref.read(hiddenBalancesProvider.notifier);
-              n.state = n.state.contains(accountId)
-                  ? ({...n.state}..remove(accountId))
-                  : {...n.state, accountId};
-            },
+            tooltip: privacy ? 'Show balance' : 'Hide balance',
+            onPressed: () => toggleAccountMask(ref, accountId),
             icon: Icon(
-              ref.watch(hiddenBalancesProvider).contains(accountId)
+              privacy
                   ? Icons.visibility_off_outlined
                   : Icons.visibility_outlined,
             ),

@@ -11,6 +11,7 @@ import 'package:rivero/core/storage/media_store.dart';
 import 'package:rivero/core/utils/amount_parser.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
+import 'package:rivero/design_system/widgets/balance_mask.dart';
 import 'package:rivero/design_system/widgets/picker.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
@@ -211,8 +212,7 @@ class SettingsScreen extends ConsumerWidget {
             trailing: Switch(
               key: const ValueKey('privacy-switch'),
               value: ref.watch(privacyModeProvider),
-              onChanged: (v) =>
-                  ref.read(privacyModeProvider.notifier).state = v,
+              onChanged: (v) => setHideAll(ref, hide: v),
             ),
           ),
           _Row(

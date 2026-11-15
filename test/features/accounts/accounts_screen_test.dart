@@ -55,6 +55,53 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
   });
 
+  testWidgets("with everything hidden, one account's eye reveals only it", (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [databaseProvider.overrideWithValue(db)],
+        child: const MaterialApp(home: AccountsScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(AccountsScreen)),
+    );
+    Text balance(String id) =>
+        tester.widget<Text>(find.byKey(ValueKey('balance-$id')));
+
+    // The global eye hides everything.
+    await tester.tap(find.byKey(const ValueKey('toggle-balances')));
+    await tester.pump();
+    expect(balance('acc-salary').data, '••••');
+    expect(balance('acc-expense').data, '••••');
+
+    // Showing one account wins over the global switch: only it is shown.
+    await tester.tap(find.byKey(const ValueKey('hide-acc-salary')));
+    await tester.pump();
+    expect(container.read(privacyModeProvider), isFalse);
+    expect(balance('acc-salary').data, isNot('••••'));
+    expect(balance('acc-expense').data, '••••');
+
+    // The global eye then hides all, and shows all again.
+    await tester.tap(find.byKey(const ValueKey('toggle-balances')));
+    await tester.pump();
+    expect(balance('acc-salary').data, '••••');
+    await tester.tap(find.byKey(const ValueKey('toggle-balances')));
+    await tester.pump();
+    expect(balance('acc-salary').data, isNot('••••'));
+    expect(balance('acc-expense').data, isNot('••••'));
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 50));
+  });
+
   testWidgets(
     'AccountsScreen displays Net Worth, Credit Lines, and Bank Accounts',
     (tester) async {
