@@ -142,9 +142,37 @@ class BillsAndCommitments extends ConsumerWidget {
       );
     }
 
+    // A small title per group; credit cards also show what they owe in all.
+    Widget group(String title, {String? total, Key? key}) => Padding(
+      padding: const EdgeInsets.only(
+        top: RiveroSpacing.sm,
+        bottom: RiveroSpacing.sm,
+      ),
+      child: Row(
+        children: [
+          Expanded(child: Text(title, style: RiveroTypography.titleMedium)),
+          if (total != null)
+            Text(
+              total,
+              key: key,
+              style: RiveroTypography.titleMedium.copyWith(
+                color: RiveroColors.warning,
+              ),
+            ),
+        ],
+      ),
+    );
+    final cardsOwed = cards.fold<int>(0, (s, c) => s + owedOn(c));
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (cards.isNotEmpty)
+          group(
+            'Credit cards',
+            total: 'Owe ${money(cardsOwed)}',
+            key: const ValueKey('cards-owed-total'),
+          ),
         // Each card: what is left to settle, by when, and from which
         // account (enough there, or short by how much). Nothing else.
         for (final c in cards)
@@ -179,6 +207,7 @@ class BillsAndCommitments extends ConsumerWidget {
               key: ValueKey('commit-card-${c.id}'),
             );
           }(),
+        if (loans.isNotEmpty) group('Loans'),
         for (final l in loans)
           line(
             BankBadge(
@@ -192,6 +221,7 @@ class BillsAndCommitments extends ConsumerWidget {
             money(owedOn(l)),
             key: ValueKey('commit-loan-${l.id}'),
           ),
+        if (autopays.isNotEmpty) group('Autopay before payday'),
         for (final m in autopays)
           line(
             MandateKindIcon(AutopayActions.kindOf(m), size: 40),

@@ -176,6 +176,12 @@ void main() {
     expect(find.byKey(const ValueKey('commitments-total')), findsNothing);
     expect(find.textContaining('You hold'), findsNothing);
     expect(find.byKey(const ValueKey('commit-card-acc-cc')), findsOneWidget);
+    // Credit cards together: what they owe in all, beside the title.
+    expect(find.text('Credit cards'), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.byKey(const ValueKey('cards-owed-total'))).data,
+      startsWith('Owe ₹'),
+    );
     expect(find.textContaining('Settle by'), findsWidgets);
     expect(find.textContaining('From '), findsWidgets);
     expect(find.textContaining('limit'), findsNothing);
