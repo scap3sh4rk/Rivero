@@ -63,7 +63,7 @@
 </table>
 
 <h2 id="home-your-daily-number">Home: your daily number</h2>
-<p>The big figure is <strong>Safe to spend per day</strong>. Below it: the total you can safely spend until payday and how many days that covers. The card itself is a <strong>battery</strong>: its background fills with how much of this cycle's spending money is left, green while there is plenty, amber as it runs down, red near empty. Text over the filled part switches to a colour that stands out against it.</p>
+<p>The big figure is <strong>Safe to spend per day</strong>. Below it: the total you can safely spend until payday and how many days that covers. The card itself is a <strong>battery</strong>: its background fills with how much of this cycle's spending money is left, green while there is plenty, amber as it runs down, brick red near empty. The fill is a light tint, so the text keeps one colour and reads clearly wherever the fill ends.</p>
 <ul>
 <li><strong>Tap the card</strong> to see "How this is calculated" with every line.</li>
 <li>When the figures may be out of date a small label says so: <span class="pill warn">Estimated</span> last update 1 to 3 days ago, <span class="pill bad">Stale</span> older than 3 days. Fresh figures (under 24 hours) show no label.</li>
@@ -106,15 +106,15 @@
 <h2 id="accounts">Accounts</h2>
 <ul>
 <li>Tap the <strong>+</strong> at the bottom right to add an account or card: bank, wallet, cash, credit card, investment, or your own type. (Every page that adds something uses this same + in the same place.)</li>
-<li>The <strong>eye</strong> icon at the top of every page hides or shows all amounts. Each account also has its own eye, and it wins: with everything hidden, showing one account shows only that one (the others stay hidden).</li>
+<li>The <strong>eye</strong> icon at the top of the money pages hides or shows all amounts (Settings and Log have none). Each account also has its own eye, and it wins: with everything hidden, showing one account shows only that one (the others stay hidden).</li>
 <li><strong>Sections:</strong> Bank &amp; cash, Investments &amp; demat, Fixed deposits, Credit cards and Loans. Tap a section's name (the small arrow) to fold it away; the <strong>arrange</strong> button at the top puts the sections in the order you like. Both are remembered.</li>
 <li><strong>Fixed deposits</strong> ask for the amount deposited, the interest rate, the day opened and the day it matures. Each shows its rate, when it matures (and in how many days) and what it will be worth then (interest added every quarter, in whole paise).</li>
 <li><strong>Net worth</strong> counts only the accounts you keep in it: switch "Count in net worth" off on an account to leave it out (it is still listed). Settings → Privacy &amp; security → "Show net worth on Accounts" hides the card altogether.</li>
-<li><strong>Bank icons</strong> (Settings): add a picture once per bank, and every account, card and payment of that bank uses it. Rivero ships no bank logos.</li>
+<li><strong>Bank icons</strong> (Settings → Appearance &amp; Home): add a picture once per bank, any bank, even a small one ("Another bank"), and every account, card and payment of that bank uses it. When adding or editing an account, <strong>Choose from your bank icons</strong> gives it any of those pictures. Rivero ships no bank logos.</li>
 <li>Cards take a credit limit; the usage pill shows the percentage used, with ticks at 10% and 30%.</li>
 <li><strong>Billing cycle, per card:</strong> set the day the statement is generated, the day the bill is due and the account the bill is paid from. Each card then shows <em>days left in this billing cycle</em>, <em>Pay by &lt;date&gt;</em>, and whether that account holds enough ("From HDFC Savings: enough" or "short by …"). Cards paid from the same account are judged together, against that account's balance ("with Amazon Pay, ₹18,000 in all"); cards with no paying account are judged together against your other money.</li>
 <li>Tap an account to open it: balance, recent activity, autopay on that account. <strong>Update balance</strong> sets what it really holds, recorded as a visible "Balance update" entry.</li>
-<li>Long-press and drag to reorder. Give each account a picture and colour.</li>
+<li>Long-press and drag to reorder. Give each account a picture and a colour: 12 colours, each in four shades.</li>
 <li>Tap <strong>Net worth</strong> for the breakdown.</li>
 <li>Removing an account hides it; past transactions stay, and plan categories that pointed to it are un-linked.</li>
 <li><strong>Other currencies:</strong> a bank or cash account can be in USD, EUR, GBP, AED, SGD, CAD or AUD (cards stay in rupees). Its balance shows in its own currency. Set what one unit is worth in Settings → <strong>Exchange rates</strong>; totals, net worth, Safe to spend and spending then count it in rupees at that rate. Until a rate is set, the account is left out of totals and Accounts tells you so. Rates are typed in; Rivero never downloads them.</li>
@@ -208,17 +208,19 @@
 
 <h2 id="settings-you-may-want">Settings you may want</h2>
 <p>Settings (the profile button at the top right) is a short list of groups, each opening its own page: <strong>Appearance &amp; Home</strong> (theme, fonts, Home cards, bank icons, open on quick log), <strong>Money &amp; Safe to spend</strong> (pay day, card bills, money owed, keep untouched, exchange rates), <strong>Categories &amp; rules</strong> (categories, capture rules, account types), <strong>Capture</strong> and <strong>Reminders</strong> (Android), <strong>Privacy &amp; security</strong> (hide amounts, app lock, net worth card) and <strong>Backup &amp; data</strong> (backup, export, import, delete all). <strong>Take the tour</strong> sits on the first page.</p>
+<p>Forms: every input has a faint outline and space around it, and every list of choices opens as a <strong>dropdown right under its field</strong> (as wide as the field, scrolling when long, never past the screen edges).</p>
 <table>
 <tr><th>Setting</th><th>Effect</th></tr>
 <tr><td>Pay day</td><td>Day of the month your cycle starts. Changing it keeps this month's plan.</td></tr>
 <tr><td>Theme and Font</td><td>Dark ("Ink &amp; Sky"), light, or follow the system; six bundled fonts.</td></tr>
-<tr><td>Take the tour</td><td>Replays the guided tour of every tab.</td></tr>
+<tr><td>Take the tour</td><td>Closes Settings and replays the guided tour from Home: every tab, plus the Plan, Goals and Autopay pages.</td></tr>
+<tr><td>Accent colour</td><td>Settings → Appearance &amp; Home → Appearance: 19 accents for buttons, selection and the active tab.</td></tr>
 <tr><td>My main UPI app</td><td>The UPI app (from those installed) whose notifications are always read.</td></tr>
 <tr><td>Accept payments automatically</td><td>Off by default: each capture waits for Accept or Ignore.</td></tr>
 <tr><td>Open on quick log</td><td>Start on the Log keypad instead of Home.</td></tr>
-<tr><td>Categories</td><td>Your spending categories, colours and order.</td></tr>
+<tr><td>Categories</td><td>Your spending categories, colours (12 colours, four shades each) and order.</td></tr>
 <tr><td>Account types</td><td>Add your own (for example "Chit fund").</td></tr>
-<tr><td>Home screen</td><td>Which cards sit under Safe to spend, and their order.</td></tr>
+<tr><td>Home screen</td><td>Which cards sit under Safe to spend, and their order. Goals can be switched on once you have set a goal (Plan → Goals).</td></tr>
 <tr><td>Bank icons</td><td>One picture per bank, used everywhere.</td></tr>
 <tr><td>Show net worth on Accounts</td><td>Hide the net worth card; each account can also be left out of it.</td></tr>
 <tr><td>Rules</td><td>Sort captured payments into categories, or ignore some, automatically.</td></tr>
