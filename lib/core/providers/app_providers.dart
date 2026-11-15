@@ -61,6 +61,9 @@ final accountGroupPrefsProvider = StateProvider<AccountGroupPrefs>(
 /// Home cards the user picked, in order (names; null = the defaults).
 final homeWidgetsProvider = StateProvider<List<String>?>((ref) => null);
 
+/// Pictures the user added per bank (BankIcons.key -> file path).
+final bankIconsProvider = StateProvider<Map<String, String>>((ref) => const {});
+
 /// Show the net worth card on Accounts.
 final showNetWorthProvider = StateProvider<bool>((ref) => true);
 
@@ -116,6 +119,15 @@ class SettingsSync {
     );
     ref.read(accountGroupPrefsProvider.notifier).state =
         AccountGroupPrefs.fromJson(await dao.get(SettingKeys.accountGroups));
+    final icons = await dao.get(SettingKeys.bankIcons);
+    if (icons != null) {
+      try {
+        ref.read(bankIconsProvider.notifier).state = (jsonDecode(icons) as Map)
+            .cast<String, String>();
+      } on FormatException {
+        // Unreadable: initials instead.
+      }
+    }
     final homeWidgets = await dao.get(SettingKeys.homeWidgets);
     if (homeWidgets != null) {
       try {
@@ -228,6 +240,10 @@ class SettingsSync {
       ..listen(
         accountGroupPrefsProvider,
         (_, v) => save(SettingKeys.accountGroups, v.toJson()),
+      )
+      ..listen(
+        bankIconsProvider,
+        (_, v) => save(SettingKeys.bankIcons, jsonEncode(v)),
       )
       ..listen(homeWidgetsProvider, (_, v) {
         if (v != null) save(SettingKeys.homeWidgets, jsonEncode(v));

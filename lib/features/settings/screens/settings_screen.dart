@@ -19,6 +19,7 @@ import 'package:rivero/features/backup/backup_screen.dart';
 import 'package:rivero/features/mandates/mandates_screen.dart';
 import 'package:rivero/features/settings/screens/account_types_screen.dart';
 import 'package:rivero/features/settings/screens/appearance_screen.dart';
+import 'package:rivero/features/settings/screens/bank_icons_screen.dart';
 import 'package:rivero/features/settings/screens/capture_log_screen.dart';
 import 'package:rivero/features/settings/screens/categories_screen.dart';
 import 'package:rivero/features/settings/screens/exchange_rates_screen.dart';
@@ -181,6 +182,12 @@ class SettingsScreen extends ConsumerWidget {
               subtitle: 'For accounts not in rupees',
               onTap: () => ExchangeRatesScreen.open(context),
             ),
+          _Row(
+            icon: Icons.account_balance_outlined,
+            title: 'Bank icons',
+            subtitle: 'One picture per bank, used everywhere',
+            onTap: () => BankIconsScreen.open(context),
+          ),
           _Row(
             icon: Icons.dashboard_customize_outlined,
             title: 'Home screen',

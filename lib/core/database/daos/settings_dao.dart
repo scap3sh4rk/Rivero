@@ -55,6 +55,9 @@ abstract final class SettingKeys {
 
   /// Home cards the user picked, in order (JSON list of names).
   static const homeWidgets = 'home_widgets_json';
+
+  /// Pictures per bank (JSON: BankIcons.key -> file path).
+  static const bankIcons = 'bank_icons_json';
   static const primaryUpi = 'primary_upi_package';
   static const primaryUpiName = 'primary_upi_name';
 

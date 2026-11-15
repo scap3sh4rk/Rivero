@@ -435,7 +435,12 @@ class _DueTile extends StatelessWidget {
           opacity: open ? 1 : 0.55,
           child: Row(
             children: [
-              BankBadge(name: d.person, size: 40, circle: true),
+              BankBadge(
+                name: d.person,
+                size: 40,
+                circle: true,
+                bankIcon: false,
+              ),
               const SizedBox(width: RiveroSpacing.md),
               Expanded(
                 child: Column(

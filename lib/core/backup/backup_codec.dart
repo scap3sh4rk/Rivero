@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:cryptography/cryptography.dart';
 import 'package:path/path.dart' as p;
+import 'package:rivero/core/database/daos/settings_dao.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/storage/media_store.dart';
 
@@ -104,6 +105,17 @@ class BackupCodec {
     for (final t in txns) {
       await add(t['attachmentPath'] as String?, MediaStore.bills);
     }
+    final settings = rows(await db.select(db.appSettings).get());
+    for (final row in settings) {
+      if (row['key'] != SettingKeys.bankIcons) continue;
+      try {
+        for (final path in (jsonDecode(row['value'] as String) as Map).values) {
+          await add(path as String?, MediaStore.bankIcons);
+        }
+      } on FormatException {
+        // Unreadable setting: no pictures to carry.
+      }
+    }
     return {
       'schema': db.schemaVersion,
       'createdAt': DateTime.now().toUtc().toIso8601String(),
@@ -113,7 +125,7 @@ class BackupCodec {
       'mandates': rows(await db.select(db.mandates).get()),
       'associatedTitles': rows(await db.select(db.associatedTitles).get()),
       'dues': rows(await db.select(db.dues).get()),
-      'appSettings': rows(await db.select(db.appSettings).get()),
+      'appSettings': settings,
       'media': media,
     };
   }
@@ -195,7 +207,24 @@ class BackupCodec {
         await db.into(db.dues).insert(Due.fromJson(j));
       }
       for (final j in list('appSettings')) {
-        await db.into(db.appSettings).insert(AppSetting.fromJson(j));
+        var row = j;
+        // Bank pictures were written back under new paths: point at them.
+        if (j['key'] == SettingKeys.bankIcons) {
+          try {
+            final icons = (jsonDecode(j['value'] as String) as Map)
+                .cast<String, String>();
+            row = {
+              ...j,
+              'value': jsonEncode({
+                for (final e in icons.entries)
+                  if (relink(e.value) case final String path) e.key: path,
+              }),
+            };
+          } on FormatException {
+            row = {...j, 'value': '{}'};
+          }
+        }
+        await db.into(db.appSettings).insert(AppSetting.fromJson(row));
       }
       // The same repairs the database migrations make (see database.dart).
       if (schema < 8) {

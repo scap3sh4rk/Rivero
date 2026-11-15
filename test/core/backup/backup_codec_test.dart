@@ -11,6 +11,7 @@ import 'package:rivero/core/domain/account_role.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/dues/dues_service.dart';
 import 'package:rivero/core/storage/media_store.dart';
+import 'package:rivero/design_system/widgets/bank_badge.dart';
 
 import '../../test_helper.dart';
 
@@ -117,6 +118,49 @@ void main() {
         .where((b) => b.role != AccountRole.expense)
         .map((b) => b.linkedPhysicalAccountId);
     expect(links.every((l) => l == null), isTrue);
+  });
+
+  test('bank pictures travel with the backup and are found again', () async {
+    final tmp = Directory.systemTemp.createTempSync('rivero_bank_icons');
+    MediaStore.rootOverride = tmp;
+    addTearDown(() => MediaStore.rootOverride = null);
+    final src = File('${tmp.path}/logo.png')..writeAsBytesSync([1, 2, 3]);
+    final icon = await MediaStore.keep(
+      src.path,
+      folder: MediaStore.bankIcons,
+      name: BankIcons.key('HDFC Bank'),
+    );
+    final a = RiveroDatabase.memory();
+    addTearDown(a.close);
+    await a.settingsDao.set(
+      SettingKeys.bankIcons,
+      jsonEncode({BankIcons.key('HDFC Bank'): icon}),
+    );
+    final data = await BackupCodec.export(a);
+    await MediaStore.wipe();
+
+    final b = RiveroDatabase.memory();
+    addTearDown(b.close);
+    await BackupCodec.restore(b, data);
+    final icons = (jsonDecode(
+      (await b.settingsDao.get(SettingKeys.bankIcons))!,
+    ) as Map).cast<String, String>();
+    final path = BankIcons.lookup(icons, 'HDFC Bank Millennia')!;
+    expect(File(path).readAsBytesSync(), [1, 2, 3]);
+  });
+
+  test('a bank picture is found however the name is written', () {
+    final icons = {
+      'hdfc': '/x/hdfc.png',
+      'icicibank': '/x/icici.png',
+      'bankofbaroda': '/x/bob.png',
+    };
+    expect(BankIcons.lookup(icons, 'HDFC'), '/x/hdfc.png');
+    expect(BankIcons.lookup(icons, 'hdfc credit card'), '/x/hdfc.png');
+    expect(BankIcons.lookup(icons, 'ICICI'), '/x/icici.png');
+    expect(BankIcons.lookup(icons, 'ICICI Bank'), '/x/icici.png');
+    expect(BankIcons.lookup(icons, 'Bank of India'), isNull);
+    expect(BankIcons.lookup(icons, 'SBI'), isNull);
   });
 
   test('Google errors are explained, not shown raw', () {
