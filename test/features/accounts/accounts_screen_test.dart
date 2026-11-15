@@ -141,6 +141,13 @@ void main() {
 
     // Its own section, with what it will be worth.
     expect(find.text('Fixed deposits'), findsOneWidget);
+    // Section headers say how many accounts, never an amount.
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('section-count-deposit')))
+          .data,
+      '1 account',
+    );
     expect(find.byKey(const ValueKey('fd-maturity-fd')), findsOneWidget);
     expect(find.textContaining('7.00% a year'), findsOneWidget);
     // Left out of net worth, and the card says so.

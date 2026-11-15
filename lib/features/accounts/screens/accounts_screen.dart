@@ -76,9 +76,6 @@ class AccountsScreen extends ConsumerWidget {
     Widget section(AccountGroup g) {
       final group = groups[g]!;
       final folded = prefs.collapsed.contains(g);
-      final total = g == AccountGroup.card || g == AccountGroup.loan
-          ? rates.inHome(group).fold<int>(0, (s, a) => s + owedOn(a))
-          : rates.inHome(group).fold<int>(0, (s, a) => s + a.balanceMinorUnits);
       return Column(
         key: ValueKey('section-${g.name}'),
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -110,10 +107,13 @@ class AccountsScreen extends ConsumerWidget {
                     ),
                   ),
                   const Spacer(),
+                  // Only how many: a total here would show money the
+                  // accounts' own eyes hide.
                   Text(
-                    '${group.length} · '
-                    '${g == AccountGroup.card || g == AccountGroup.loan ? 'owe ' : ''}'
-                    '${money(total)}',
+                    group.length == 1
+                        ? '1 account'
+                        : '${group.length} accounts',
+                    key: ValueKey('section-count-${g.name}'),
                     style: RiveroTypography.bodySmall,
                   ),
                 ],
