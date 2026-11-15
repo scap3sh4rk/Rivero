@@ -121,14 +121,42 @@ void main() {
     await done(tester);
   });
 
-  testWidgets('Activity rows show which account the money moved through', (
-    tester,
-  ) async {
+  testWidgets('Activity rows show the bank (first word) under the amount; '
+      'the detail sheet shows it opposite the amount', (tester) async {
     await pump(tester, const TransactionsScreen());
     final expense = (await tester.runAsync(
       () => db.accountsDao.getPhysicalAccountById('acc-expense'),
     ))!;
-    expect(find.text(expense.name), findsWidgets);
+    final first = expense.institution.split(' ').first;
+    final bank = find.byKey(const ValueKey('row-bank-txn-review-1'));
+    expect(bank, findsOneWidget);
+    expect(
+      find.descendant(of: bank, matching: find.text(first)),
+      findsOneWidget,
+    );
+    // Under the amount: same right edge, lower down.
+    final amount = find.text('₹450.00').first;
+    expect(
+      tester.getBottomRight(bank).dx,
+      closeTo(tester.getBottomRight(amount).dx, 1),
+    );
+    expect(
+      tester.getTopLeft(bank).dy,
+      greaterThan(tester.getTopLeft(amount).dy),
+    );
+
+    await tester.tap(find.text('Zomato'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    final detail = find.byKey(const ValueKey('detail-account'));
+    expect(detail, findsOneWidget);
+    expect(
+      find.descendant(
+        of: detail,
+        matching: find.textContaining(expense.institution),
+      ),
+      findsOneWidget,
+    );
     await done(tester);
   });
 }

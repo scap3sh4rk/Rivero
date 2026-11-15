@@ -13,6 +13,7 @@ import 'package:rivero/core/ingestion/capture_decisions.dart';
 import 'package:rivero/core/ingestion/ingestion_service.dart';
 import 'package:rivero/core/ingestion/models/raw_notification.dart';
 import 'package:rivero/core/ingestion/platform/notification_bridge.dart';
+import 'package:rivero/core/ingestion/trai_dlt_validator.dart';
 import 'package:rivero/core/ledger/ledger_service.dart';
 import 'package:rivero/core/plan/defaults.dart';
 import 'package:rivero/core/plan/salary_plan_service.dart';
@@ -822,5 +823,75 @@ void main() {
         expect(t.transactionState, isNot(TransactionState.needsReview));
       },
     );
+  });
+
+  // ---- the real Union Bank SMS (15 Nov 2026) ---------------------------
+
+  group('Union Bank SMS from JX-UNIONB-S via Samsung Messages', () {
+    const body =
+        'Union Bank of India A/c*0485 Dr Rs25.00 on 15-11-26 19:19 by MB '
+        '631977745590 Fv.IRANI, Bal Rs701.83 Not U?Call 18002333/SMS BLOCK '
+        '0485 to 8879635472';
+    Future<void> arrive(String id, String title) => NotificationBridge(capture)
+        .ingestJson(
+          jsonEncode([
+            {
+              'id': id,
+              'package': 'com.samsung.android.messaging',
+              'title': title,
+              'body': body,
+              'time': now.millisecondsSinceEpoch,
+            },
+          ]),
+        );
+
+    test('the sender with its "-S" suffix is a bank', () {
+      expect(
+        const TraiDltValidator().isFinancialSender(senderHeader: 'JX-UNIONB-S'),
+        isTrue,
+      );
+      expect(
+        const TraiDltValidator().isFinancialSender(senderHeader: 'VM-HDFCBK-T'),
+        isTrue,
+      );
+    });
+
+    test('pop-up Add records it in Activity', () async {
+      await account('ubi', 100000, mask: '0485');
+      await arrive('ubi-1', 'JX-UNIONB-S');
+      await CaptureDecisions(db).apply({
+        'ubi-1': {'action': 'accept', 'category': 'Food', 'note': null},
+      });
+      final t = (await entries()).single;
+      expect(t.transactionState, isNot(TransactionState.needsReview));
+      expect(t.merchant, 'IRANI');
+      expect(t.category, 'Food');
+      expect(t.amountMinorUnits, -2500);
+      expect(t.physicalAccountId, 'ubi');
+    });
+
+    test('already logged by hand: the pop-up files that entry, nothing is '
+        'counted twice', () async {
+      await account('ubi', 100000, mask: '0485');
+      final typed = await ledger.recordManual(
+        accountId: 'ubi',
+        amountMinorUnits: -2500,
+        type: TransactionType.expense,
+        merchant: 'Other',
+        category: 'Other',
+        at: now.subtract(const Duration(hours: 1)),
+      );
+      await arrive('ubi-2', '+919701122455'); // forwarded copy
+      await CaptureDecisions(db).apply({
+        'ubi-2': {'action': 'accept', 'category': 'Food', 'note': 'Sandwich'},
+      });
+      final all = await entries();
+      expect(all, hasLength(1));
+      expect(all.single.id, typed);
+      expect(all.single.category, 'Food');
+      expect(all.single.userNotes, 'Sandwich');
+      // The bank's own "Bal Rs701.83" is the truth for the account.
+      expect(await bal('ubi'), 70183);
+    });
   });
 }

@@ -52,9 +52,8 @@ class AppTour extends ConsumerStatefulWidget {
       3,
       Icons.dialpad_rounded,
       'Log a payment in two taps',
-      'On Home, the centre button turns into this keypad: tap it. Type the '
-          'amount, pick a category, add a description if you like, and Save. '
-          'Use it for cash, or anything Rivero did not capture.',
+      'Type the amount, pick a category, add a description if you like, '
+          'and Save. Use it for cash, or anything Rivero did not capture.',
     ),
     _Step(
       4,

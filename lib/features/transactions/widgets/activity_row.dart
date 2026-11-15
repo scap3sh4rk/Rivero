@@ -29,6 +29,12 @@ class ActivityRow extends ConsumerWidget {
   /// The bank or card it moved through (off on that account's own page).
   final bool showAccount;
 
+  /// The bank's first word ("Union" for "Union Bank of India").
+  static String shortBank(PhysicalAccount a) {
+    final name = a.institution.trim().isEmpty ? a.name : a.institution;
+    return name.trim().split(RegExp(r'\s+')).first;
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final account = showAccount
@@ -74,30 +80,6 @@ class ActivityRow extends ConsumerWidget {
                       color: pending ? RiveroColors.warning : null,
                     ),
                   ),
-                  if (account != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Row(
-                        children: [
-                          BankBadge(
-                            name: account.institution,
-                            color: accountColor(account),
-                            imagePath: account.imagePath,
-                            size: 16,
-                            circle: true,
-                          ),
-                          const SizedBox(width: RiveroSpacing.xs),
-                          Flexible(
-                            child: Text(
-                              account.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: RiveroTypography.bodySmall,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   if (note != null)
                     Text(
                       note,
@@ -109,17 +91,46 @@ class ActivityRow extends ConsumerWidget {
                 ],
               ),
             ),
-            Text(
-              privacy ? '••••' : '${credit ? '+' : ''}$amount',
-              style: RiveroTypography.titleMedium.copyWith(
-                fontSize: 15,
-                color: ignored
-                    ? RiveroColors.textMuted
-                    : credit
-                    ? RiveroColors.success
-                    : RiveroColors.textPrimary,
-                decoration: ignored ? TextDecoration.lineThrough : null,
-              ),
+            const SizedBox(width: RiveroSpacing.sm),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  privacy ? '••••' : '${credit ? '+' : ''}$amount',
+                  style: RiveroTypography.titleMedium.copyWith(
+                    fontSize: 15,
+                    color: ignored
+                        ? RiveroColors.textMuted
+                        : credit
+                        ? RiveroColors.success
+                        : RiveroColors.textPrimary,
+                    decoration: ignored ? TextDecoration.lineThrough : null,
+                  ),
+                ),
+                // Which bank: its icon and first word, under the amount.
+                if (account != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Row(
+                      key: ValueKey('row-bank-${t.id}'),
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        BankBadge(
+                          name: account.institution,
+                          color: accountColor(account),
+                          imagePath: account.imagePath,
+                          size: 16,
+                          circle: true,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          ActivityRow.shortBank(account),
+                          style: RiveroTypography.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
             ),
           ],
         ),

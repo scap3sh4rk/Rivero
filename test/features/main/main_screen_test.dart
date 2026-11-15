@@ -65,15 +65,8 @@ void main() {
     await open('Accounts');
     expect(find.text('Bank & cash'), findsOneWidget);
 
-    // Log has no button of its own: on Home the centre button is the Log
-    // keypad, and on Log it is Home again.
-    await open('Home');
-    expect(container.read(selectedNavIndexProvider), 2);
-    await open('Home');
-    expect(container.read(selectedNavIndexProvider), 3);
+    await open('Log');
     expect(find.byKey(const ValueKey('key-5')), findsOneWidget);
-    await open('Home');
-    expect(container.read(selectedNavIndexProvider), 2);
 
     await open('Activity');
     expect(find.text('Activity'), findsWidgets);

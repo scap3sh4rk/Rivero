@@ -100,12 +100,18 @@ class CaptureDecisions {
         }
         continue;
       }
-      // A choice made on the second notification of one payment: only an
-      // "Add" for an entry still waiting counts. It never ignores or
-      // removes what the first notification already settled.
+      // A choice made on the second notification of one payment (or on a
+      // payment already logged by hand): it never ignores or removes what
+      // is already recorded. An Add still files it: the category and
+      // description picked are applied to that entry.
       if (t.ingestionLogId != e.key &&
           (d['action'] == 'ignore' ||
               t.transactionState != TransactionState.needsReview)) {
+        if (d['action'] != 'ignore' &&
+            t.transactionState != TransactionState.ignored) {
+          await _label(t, d);
+          applied++;
+        }
         continue;
       }
       if (d['action'] == 'ignore') {
@@ -117,20 +123,7 @@ class CaptureDecisions {
             ? await ledger.removeWithPlanPartner(t.id)
             : await ledger.ignore(t.id);
       } else {
-        final category = d['category'] as String?;
-        final note = d['note'] as String?;
-        await (db.update(
-          db.transactions,
-        )..where((x) => x.id.equals(t.id))).write(
-          TransactionsCompanion(
-            category: category == null || category.isEmpty
-                ? const Value.absent()
-                : Value(category),
-            userNotes: note == null || note.isEmpty
-                ? const Value.absent()
-                : Value(note),
-          ),
-        );
+        await _label(t, d);
         await ledger.confirm(t.id);
         await ReconciliationService(database: db).reconcileAll();
       }
@@ -143,6 +136,26 @@ class CaptureDecisions {
       );
     }
     return applied;
+  }
+
+  /// Writes the category and description picked on a pop-up to [t].
+  Future<void> _label(LedgerTransaction t, Map<String, dynamic> d) async {
+    final category = d['category'] as String?;
+    final note = (d['note'] as String?)?.trim();
+    if ((category == null || category.isEmpty) &&
+        (note == null || note.isEmpty)) {
+      return;
+    }
+    await (db.update(db.transactions)..where((x) => x.id.equals(t.id))).write(
+      TransactionsCompanion(
+        category: category == null || category.isEmpty
+            ? const Value.absent()
+            : Value(category),
+        userNotes: note == null || note.isEmpty
+            ? const Value.absent()
+            : Value(note),
+      ),
+    );
   }
 
   Future<Map<String, dynamic>> _waiting() async {

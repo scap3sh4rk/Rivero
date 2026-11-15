@@ -166,40 +166,48 @@ class _TransactionDetailSheetState
               ),
             ),
             const SizedBox(height: RiveroSpacing.lg),
-            Text(
-              privacy
-                  ? '₹••••'
-                  : '${credit ? '+' : ''}'
-                        '${CurrencyFormatter.format(t.amountMinorUnits.abs())}',
-              style: RiveroTypography.financialLarge.copyWith(
-                color: credit ? RiveroColors.success : null,
-              ),
-            ),
-            // Which bank or card it moved through, right under the amount.
-            if (account != null)
-              Padding(
-                padding: const EdgeInsets.only(top: RiveroSpacing.xs),
-                child: Row(
-                  key: const ValueKey('detail-account'),
-                  children: [
-                    BankBadge(
-                      name: account.institution,
-                      color: accountColor(account),
-                      imagePath: account.imagePath,
-                      size: 20,
-                      circle: true,
+            // The amount on the left; the bank it moved through on the
+            // right, its icon with the bank's name under it.
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    privacy
+                        ? '₹••••'
+                        : '${credit ? '+' : ''}'
+                              '${CurrencyFormatter.format(t.amountMinorUnits.abs())}',
+                    style: RiveroTypography.financialLarge.copyWith(
+                      color: credit ? RiveroColors.success : null,
                     ),
-                    const SizedBox(width: RiveroSpacing.xs),
-                    Flexible(
-                      child: Text(
-                        '${credit ? 'Into' : 'From'} ${account.name} '
-                        '••${account.accountMask}',
-                        style: RiveroTypography.bodySmall,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
+                if (account != null)
+                  Column(
+                    key: const ValueKey('detail-account'),
+                    children: [
+                      BankBadge(
+                        name: account.institution,
+                        color: accountColor(account),
+                        imagePath: account.imagePath,
+                        size: 40,
+                        circle: true,
+                      ),
+                      const SizedBox(height: 4),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 110),
+                        child: Text(
+                          '${account.institution}\n••${account.accountMask}',
+                          textAlign: TextAlign.center,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: RiveroTypography.bodySmall,
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
             const SizedBox(height: RiveroSpacing.sm),
             Text(t.merchant, style: RiveroTypography.titleMedium),
             Text(

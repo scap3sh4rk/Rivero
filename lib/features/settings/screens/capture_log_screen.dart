@@ -7,6 +7,7 @@ import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/ingestion/platform/notification_bridge.dart';
 import 'package:rivero/core/ingestion/trai_dlt_validator.dart';
 import 'package:rivero/core/providers/app_providers.dart';
+import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
@@ -161,6 +162,29 @@ class _CaptureLogScreenState extends ConsumerState<CaptureLogScreen> {
   @override
   Widget build(BuildContext context) {
     final logs = ref.watch(recentCaptureLogsProvider).value ?? const [];
+    final txns = ref.watch(allTransactionsStreamProvider).value ?? const [];
+    // Where each message went: the entry it made, or the one it repeats.
+    LedgerTransaction? entryOf(RawIngestionLog l) =>
+        txns.where((t) => t.ingestionLogId == l.id).firstOrNull ??
+        txns.where((t) => t.id == l.matchedTransactionId).firstOrNull;
+    String? outcome(RawIngestionLog l) {
+      final t = entryOf(l);
+      if (t == null) return null;
+      final what =
+          '${CurrencyFormatter.format(t.amountMinorUnits.abs())} · '
+          '${t.merchant} · ${t.category}';
+      final state = switch (t.transactionState) {
+        TransactionState.needsReview => 'waiting for Accept',
+        TransactionState.ignored => 'ignored',
+        _ => 'in Activity',
+      };
+      return t.ingestionLogId == l.id
+          ? 'Recorded: $what ($state)'
+          : 'Same payment as: $what, '
+                '${DateFormat('d MMM, h:mm a').format(t.transactionTimestamp)} '
+                '($state)';
+    }
+
     return Scaffold(
       backgroundColor: RiveroColors.background,
       appBar: RiveroAppBar(
@@ -226,6 +250,17 @@ class _CaptureLogScreenState extends ConsumerState<CaptureLogScreen> {
                       overflow: TextOverflow.ellipsis,
                       style: RiveroTypography.bodyMedium,
                     ),
+                    if (outcome(l) case final o?)
+                      Padding(
+                        padding: const EdgeInsets.only(top: RiveroSpacing.xs),
+                        child: Text(
+                          o,
+                          key: ValueKey('outcome-${l.id}'),
+                          style: RiveroTypography.bodySmall.copyWith(
+                            color: RiveroColors.accent,
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),

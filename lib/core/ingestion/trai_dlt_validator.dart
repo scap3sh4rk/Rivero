@@ -10,8 +10,12 @@ class TraiDltValidator {
   /// Regex pattern matching standard 2-character circle prefix + dash + 3..6 character entity code,
   /// or 2-character circle prefix + exactly 6-character entity code without dash.
   /// Examples: "VK-HDFCBK", "AD-ICICIB", "VM-SBINB", "BPAXISBK", "JDKOTAKB".
+  /// Since 2025 headers also end in a category letter: "JX-UNIONB-S"
+  /// (service), "-T" (transactional), "-P" (promotional), "-G"
+  /// (government).
   static final RegExp dltHeaderRegex = RegExp(
-    r'^(?:[a-zA-Z]{2}-([a-zA-Z0-9]{3,6})|[a-zA-Z]{2}([a-zA-Z0-9]{6}))$',
+    '^(?:[a-zA-Z]{2}-([a-zA-Z0-9]{3,6})|[a-zA-Z]{2}([a-zA-Z0-9]{6}))'
+    r'(?:-[a-zA-Z])?$',
   );
 
   /// Known entity prefixes and bank code mappings.
@@ -48,6 +52,7 @@ class TraiDltValidator {
     'FEDBNK': 'Federal Bank',
     'CANBNK': 'Canara Bank',
     'UNIONB': 'Union Bank of India',
+    'UBOIBK': 'Union Bank of India',
     'PAYTMB': 'Paytm Payments Bank',
     'PAYTM': 'Paytm',
     'AIRTEL': 'Airtel Payments Bank',
