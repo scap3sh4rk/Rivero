@@ -65,11 +65,6 @@ class ReviewInbox extends ConsumerWidget {
     if (pending.isEmpty) return unreadableCard!;
     final privacy = ref.watch(privacyModeProvider);
 
-    Future<void> confirm(LedgerTransaction t) async {
-      await ref.read(ledgerServiceProvider).confirm(t.id);
-      await ref.read(reconciliationServiceProvider).reconcileAll();
-    }
-
     Future<void> ignore(LedgerTransaction t) =>
         ref.read(ledgerServiceProvider).ignore(t.id);
 
@@ -137,7 +132,9 @@ class ReviewInbox extends ConsumerWidget {
                       const SizedBox(width: RiveroSpacing.sm),
                       Expanded(
                         child: FilledButton(
-                          onPressed: () => confirm(t),
+                          // Accept asks for the category right here, on
+                          // Home (and an optional description).
+                          onPressed: () => QuickReviewSheet.show(context, t.id),
                           style: FilledButton.styleFrom(
                             shape: const StadiumBorder(),
                           ),

@@ -53,6 +53,31 @@ class FinancialParser {
     caseSensitive: false,
   );
 
+  /// Bank shorthand: "Dr Rs25.00" (money out), "Cr Rs500" (money in), as
+  /// Union Bank and others write it. Only right before an amount, so a
+  /// "Dr." (doctor) payee is not read as a debit.
+  static final RegExp _drAmountRegex = RegExp(
+    r'\bDr\.?\s*(?:Rs\.?|INR|₹)\s*\d',
+    caseSensitive: false,
+  );
+  static final RegExp _crAmountRegex = RegExp(
+    r'\bCr\.?\s*(?:Rs\.?|INR|₹)\s*\d',
+    caseSensitive: false,
+  );
+
+  /// "by MB 631977745590", "by UPI 512345678901", "via IMPS 4567...": the
+  /// bank's reference for the payment.
+  static final RegExp _byChannelRefRegex = RegExp(
+    r'\b(?:by|via)\s+(?:MB|UPI|IMPS|NEFT|RTGS|NB)\s*[:\-/]?\s*(\d{6,16})\b',
+    caseSensitive: false,
+  );
+
+  /// "Fv.IRANI", "Fvg RAVI KUMAR", "favouring ACME": who was paid.
+  static final RegExp _favouringRegex = RegExp(
+    r'\b(?:Fvg?\.?|favou?ring)\s*([A-Za-z][A-Za-z0-9 &\.\-]{1,30}?)(?=\s*[,;]|\.\s|\s+(?:bal|avl|on|ref|not)\b|$)',
+    caseSensitive: false,
+  );
+
   static final RegExp _creditRegex = RegExp(
     r'\b(?:credited|received|deposited|refunded|reversed|cashback)\b',
     caseSensitive: false,
@@ -101,7 +126,9 @@ class FinancialParser {
     caseSensitive: false,
   );
 
-  // Balance regex: "Avl bal: Rs 45,210.50", "Avail Bal: INR 12,000.00", "Bal Rs.14,500.00"
+  // Balance regex: "Avl bal: Rs 45,210.50", "Avail Bal: INR 12,000.00", "Bal Rs.14,500.00".
+  // Read only to tell the balance apart from the payment's amount: it is
+  // never applied to an account (the user's balance is the truth).
   static final RegExp _balanceRegex = RegExp(
     r'(?:(?:avl|avail(?:able)?|total)\s*bal(?:ance)?|bal(?:ance)?)\s*[:\-\s]*(?:is\s*)?(?:Rs\.?|INR|₹)?\s*([\d,]+(?:\.\d{1,2})?)',
     caseSensitive: false,
@@ -199,7 +226,7 @@ class FinancialParser {
     return ParsedTransaction(
       amountMinorUnits: amountMinorUnits,
       isDebit: isDebit,
-      timestamp: notification.receivedAt,
+      timestamp: _whenItHappened(text, notification.receivedAt),
       confidenceScore: confidence,
       rawPayload: text,
       suggestedTransactionType: txType,
@@ -233,7 +260,10 @@ class FinancialParser {
       return true;
     }
 
-    final hasKeyword = _financialKeywordRegex.hasMatch(text);
+    final hasKeyword =
+        _financialKeywordRegex.hasMatch(text) ||
+        _drAmountRegex.hasMatch(text) ||
+        _crAmountRegex.hasMatch(text);
     final hasCurrency =
         _currencyIndicatorRegex.hasMatch(text) ||
         _verbAmountRegex.hasMatch(text);
@@ -242,17 +272,133 @@ class FinancialParser {
 
   /// Parses monetary amounts into integer minor units (paise) using pure integer arithmetic.
   int? _extractAmount(String text) {
-    final match =
-        _strictAmountRegex.firstMatch(text) ??
-        _verbAmountRegex.firstMatch(text) ??
-        _amountRegex.firstMatch(text);
-    if (match == null) return null;
-
-    final raw = match.group(1)?.replaceAll(',', '').trim();
-    if (raw == null || raw.isEmpty) return null;
-
-    return _parseCurrencyToPaise(raw);
+    // The first amount that is the payment's own: not a balance or a card
+    // limit (banks write those before or after the amount, in many ways),
+    // and not a masked one ("Rs 1,2XX"). None left: the amount is unknown,
+    // and the message waits to be checked rather than being guessed.
+    var masked = _maskedAmount.hasMatch(text);
+    for (final regex in [_strictAmountRegex, _verbAmountRegex, _amountRegex]) {
+      // A masked "Rs 1,2XX": never fall back to any other number (a date,
+      // the account digits) for it.
+      if (masked && identical(regex, _amountRegex)) return null;
+      for (final match in regex.allMatches(text)) {
+        if (_isMasked(text, match.end)) {
+          masked = true;
+          continue;
+        }
+        if (_isBalanceOrLimit(text, match.start)) continue;
+        final raw = match.group(1)?.replaceAll(',', '').trim();
+        if (raw == null || raw.isEmpty) continue;
+        final paise = _parseCurrencyToPaise(raw);
+        if (paise != null && paise > 0) return paise;
+      }
+    }
+    return null;
   }
+
+  static const _months = {
+    'jan': 1,
+    'feb': 2,
+    'mar': 3,
+    'apr': 4,
+    'may': 5,
+    'jun': 6,
+    'jul': 7,
+    'aug': 8,
+    'sep': 9,
+    'oct': 10,
+    'nov': 11,
+    'dec': 12,
+  };
+
+  /// "15-11-26", "15/11/2026", "15.11.26", "15-Nov-26", "15Nov26",
+  /// "15 Nov 2026", "2026-11-15" (day first, as Indian banks write it).
+  static final RegExp _dateRegex = RegExp(
+    r'\b(?:(\d{4})-(\d{1,2})-(\d{1,2})|(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})|'
+    r'(\d{1,2})[-\s]?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[-\s,]?(\d{2,4}))\b',
+    caseSensitive: false,
+  );
+
+  /// "19:19", "19:19:45", "07:19 PM", "7.19pm".
+  static final RegExp _timeRegex = RegExp(
+    r'\b([01]?\d|2[0-3])[:.]([0-5]\d)(?::[0-5]\d)?\s*(am|pm)?\b',
+    caseSensitive: false,
+  );
+
+  /// When the money moved: the date (and time) the bank wrote, if it reads
+  /// as one and is plausible, else when the message arrived. Messages can
+  /// arrive hours or days late (network, a phone that was off), and the
+  /// payment belongs to the day it happened.
+  static DateTime _whenItHappened(String text, DateTime received) {
+    final d = _dateRegex.firstMatch(text);
+    if (d == null) return received;
+    int year(String y) => y.length == 2 ? 2000 + int.parse(y) : int.parse(y);
+    final int y;
+    final int m;
+    final int day;
+    if (d.group(1) != null) {
+      y = int.parse(d.group(1)!);
+      m = int.parse(d.group(2)!);
+      day = int.parse(d.group(3)!);
+    } else if (d.group(4) != null) {
+      day = int.parse(d.group(4)!);
+      m = int.parse(d.group(5)!);
+      y = year(d.group(6)!);
+    } else {
+      day = int.parse(d.group(7)!);
+      m = _months[d.group(8)!.toLowerCase().substring(0, 3)]!;
+      y = year(d.group(9)!);
+    }
+    if (m < 1 || m > 12 || day < 1 || day > 31) return received;
+    final date = DateTime(y, m, day);
+    if (date.month != m) return received; // 31 Feb and the like
+
+    // A time right after the date ("15-11-26 19:19").
+    final t = _timeRegex.firstMatch(text.substring(d.end));
+    final timeNear = t != null && t.start <= 12;
+    DateTime when;
+    if (timeNear) {
+      var h = int.parse(t.group(1)!);
+      final ap = t.group(3)?.toLowerCase();
+      if (ap == 'pm' && h < 12) h += 12;
+      if (ap == 'am' && h == 12) h = 0;
+      when = DateTime(y, m, day, h, int.parse(t.group(2)!));
+    } else if (date.year == received.year &&
+        date.month == received.month &&
+        date.day == received.day) {
+      return received;
+    } else {
+      when = DateTime(y, m, day, 12); // the day is known, the hour is not
+    }
+    // Not in the future, not from long ago: otherwise it was misread.
+    if (when.isAfter(received.add(const Duration(minutes: 5))) ||
+        when.isBefore(received.subtract(const Duration(days: 35)))) {
+      return received;
+    }
+    return when;
+  }
+
+  /// Words that put a balance or a limit right before an amount: "Avl Bal
+  /// Rs", "Balance: INR", "Avl Lmt Rs", "Clear Bal is", "Outstanding Rs".
+  static final RegExp _balanceLead = RegExp(
+    r'(?:\bbal(?:ance)?|\bavl|\bavail(?:able)?|\blimit|\blmt|'
+    r'\boutstanding|\bo/s|\bdue)\.?\s*(?:is|of|:|-|=)?\s*$',
+    caseSensitive: false,
+  );
+
+  bool _isBalanceOrLimit(String text, int start) {
+    final from = start - 24 < 0 ? 0 : start - 24;
+    return _balanceLead.hasMatch(text.substring(from, start));
+  }
+
+  /// "Rs 1,2XX.00", "Rs 5**", "INR ***": part of the amount is hidden.
+  static bool _isMasked(String text, int end) =>
+      end < text.length && RegExp('[xX*]').hasMatch(text[end]);
+
+  static final RegExp _maskedAmount = RegExp(
+    r'(?:Rs\.?|INR|₹)\s*[\d,]*[xX*]',
+    caseSensitive: false,
+  );
 
   int? _parseCurrencyToPaise(String amountStr) {
     try {
@@ -288,6 +434,9 @@ class FinancialParser {
     if (_creditRegex.hasMatch(text) && !_debitRegex.hasMatch(text)) {
       return false; // Inflow
     }
+    if (_crAmountRegex.hasMatch(text) && !_drAmountRegex.hasMatch(text)) {
+      return false; // "Cr Rs500"
+    }
     return true; // Outflow / debit default
   }
 
@@ -313,11 +462,19 @@ class FinancialParser {
   }
 
   String? _extractReferenceNumber(String text) {
-    final match = _referenceNumberRegex.firstMatch(text);
+    final match =
+        _referenceNumberRegex.firstMatch(text) ??
+        _byChannelRefRegex.firstMatch(text);
     return match?.group(1);
   }
 
   String? _extractMerchant(String text, String? title) {
+    // 0. "Fv.IRANI": the bank names who was paid.
+    final fav = _favouringRegex.firstMatch(text)?.group(1)?.trim();
+    if (fav != null && fav.length >= 2 && !_isCommonExclusion(fav)) {
+      return _cleanMerchantName(fav);
+    }
+
     // 1. Try VPA match: "to VPA swiggy@hdfcbank" -> "Swiggy"
     final vpaMatch = _vpaMerchantRegex.firstMatch(text);
     if (vpaMatch != null) {
@@ -394,6 +551,8 @@ class FinancialParser {
 
   bool _isCommonExclusion(String name) {
     final lower = name.toLowerCase();
+    // A phone number or a reference is not a payee ("SMS BLOCK to 88796...").
+    if (RegExp(r'^[\d\s+\-]+$').hasMatch(lower)) return true;
     return lower == 'rs' ||
         lower == 'inr' ||
         lower == 'account' ||

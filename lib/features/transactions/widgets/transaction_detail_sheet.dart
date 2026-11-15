@@ -9,6 +9,8 @@ import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/storage/media_store.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
+import 'package:rivero/design_system/widgets/account_color.dart';
+import 'package:rivero/design_system/widgets/bank_badge.dart';
 import 'package:rivero/design_system/widgets/photo_picker.dart';
 import 'package:rivero/features/settings/screens/categories_screen.dart';
 import 'package:rivero/features/transactions/widgets/split_sheet.dart';
@@ -164,20 +166,52 @@ class _TransactionDetailSheetState
               ),
             ),
             const SizedBox(height: RiveroSpacing.lg),
-            Text(
-              privacy
-                  ? '₹••••'
-                  : '${credit ? '+' : ''}'
-                        '${CurrencyFormatter.format(t.amountMinorUnits.abs())}',
-              style: RiveroTypography.financialLarge.copyWith(
-                color: credit ? RiveroColors.success : null,
-              ),
+            // The amount on the left; the bank it moved through on the
+            // right, its icon with the bank's name under it.
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    privacy
+                        ? '₹••••'
+                        : '${credit ? '+' : ''}'
+                              '${CurrencyFormatter.format(t.amountMinorUnits.abs())}',
+                    style: RiveroTypography.financialLarge.copyWith(
+                      color: credit ? RiveroColors.success : null,
+                    ),
+                  ),
+                ),
+                if (account != null)
+                  Column(
+                    key: const ValueKey('detail-account'),
+                    children: [
+                      BankBadge(
+                        name: account.institution,
+                        color: accountColor(account),
+                        imagePath: account.imagePath,
+                        size: 40,
+                        circle: true,
+                      ),
+                      const SizedBox(height: 4),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 110),
+                        child: Text(
+                          '${account.institution}\n••${account.accountMask}',
+                          textAlign: TextAlign.center,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: RiveroTypography.bodySmall,
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
             ),
-            const SizedBox(height: RiveroSpacing.xs),
+            const SizedBox(height: RiveroSpacing.sm),
             Text(t.merchant, style: RiveroTypography.titleMedium),
             Text(
-              '${DateFormat('d MMM y, h:mm a').format(t.transactionTimestamp)}'
-              '${account == null ? '' : ' · ${account.name}'}',
+              DateFormat('d MMM y, h:mm a').format(t.transactionTimestamp),
               style: RiveroTypography.bodySmall,
             ),
             const SizedBox(height: RiveroSpacing.lg),

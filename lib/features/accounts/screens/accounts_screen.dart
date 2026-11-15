@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:rivero/core/currency/currency.dart';
 import 'package:rivero/core/database/database.dart';
+import 'package:rivero/core/domain/account_group.dart';
 import 'package:rivero/core/domain/card_cycle.dart';
 import 'package:rivero/core/domain/credit_utilization.dart';
 import 'package:rivero/core/providers/app_providers.dart';
@@ -11,16 +12,19 @@ import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/look.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/account_color.dart';
+import 'package:rivero/design_system/widgets/balance_mask.dart';
 import 'package:rivero/design_system/widgets/bank_badge.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
 import 'package:rivero/design_system/widgets/rivero_fab.dart';
 import 'package:rivero/features/accounts/screens/account_detail_screen.dart';
+import 'package:rivero/features/accounts/widgets/bill_status.dart';
 import 'package:rivero/features/accounts/widgets/create_account_sheet.dart';
 import 'package:rivero/features/settings/screens/exchange_rates_screen.dart';
 
-/// Accounts: net worth, then bank & cash and cards as short rows.
-/// Long-press a row to drag it up or down; tap to open it.
+/// Accounts: net worth, then one section per kind of account (bank & cash,
+/// investments, fixed deposits, cards, loans) in the user's order. Tap a
+/// section's name to fold it; long-press an account to drag it.
 class AccountsScreen extends ConsumerWidget {
   const AccountsScreen({super.key});
 
@@ -30,81 +34,148 @@ class AccountsScreen extends ConsumerWidget {
         ref.watch(activePhysicalAccountsProvider).value ?? const [];
     final privacy = ref.watch(privacyModeProvider);
     String money(int v) => privacy ? '••••' : CurrencyFormatter.format(v);
-    final banks = accounts.where((a) => !a.isLiability).toList();
+    final prefs = ref.watch(accountGroupPrefsProvider);
     final cards = accounts.where((a) => a.isLiability).toList();
     // Totals in rupees (other currencies at the user's rate).
     final rates = ref.watch(exchangeRatesProvider);
-    final bankTotal = rates
-        .inHome(banks)
+    final home = rates.inHome(accounts);
+    int owedOn(PhysicalAccount a) =>
+        a.balanceMinorUnits < 0 ? -a.balanceMinorUnits : 0;
+    // Net worth counts only the accounts the user keeps in it.
+    final counted = home.where((a) => a.includeInNetWorth);
+    final assets = counted
+        .where((a) => !a.isLiability)
         .fold<int>(0, (s, a) => s + a.balanceMinorUnits);
-    final bills = CardBills.of(rates.inHome(accounts));
-    final debt = rates
-        .inHome(cards)
-        .fold<int>(
-          0,
-          (s, a) => s + (a.balanceMinorUnits < 0 ? -a.balanceMinorUnits : 0),
-        );
+    final debt = counted
+        .where((a) => a.isLiability)
+        .fold<int>(0, (s, a) => s + owedOn(a));
+    final bills = CardBills.of(home);
+    final groups = {
+      for (final g in AccountGroup.values)
+        g: [
+          for (final a in accounts)
+            if (AccountGroup.of(a) == g) a,
+        ],
+    };
 
     Future<void> reorder(List<PhysicalAccount> group, int from, int to) async {
       final ids = group.map((a) => a.id).toList();
       final moved = ids.removeAt(from);
       ids.insert(to > from ? to - 1 : to, moved);
-      // Keep the other group's positions after this one's.
-      final others = accounts
-          .where((a) => !ids.contains(a.id))
-          .map((a) => a.id);
-      final dao = ref.read(databaseProvider).accountsDao;
-      await dao.reorderAccounts(
-        group.first.isLiability ? [...others, ...ids] : [...ids, ...others],
+      // Every section in its shown order, this one with its new order.
+      final all = [
+        for (final g in prefs.order)
+          if (groups[g]!.any((a) => a.id == group.first.id))
+            ...ids
+          else
+            ...groups[g]!.map((a) => a.id),
+      ];
+      await ref.read(databaseProvider).accountsDao.reorderAccounts(all);
+    }
+
+    Widget section(AccountGroup g) {
+      final group = groups[g]!;
+      final folded = prefs.collapsed.contains(g);
+      return Column(
+        key: ValueKey('section-${g.name}'),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            key: ValueKey('fold-${g.name}'),
+            borderRadius: RiveroRadii.borderLg,
+            onTap: () {
+              HapticFeedback.selectionClick();
+              ref.read(accountGroupPrefsProvider.notifier).state = prefs
+                  .toggled(g);
+            },
+            child: Padding(
+              padding: const EdgeInsets.only(
+                top: RiveroSpacing.xl,
+                bottom: RiveroSpacing.sm,
+              ),
+              child: Row(
+                children: [
+                  Text(g.label, style: RiveroTypography.titleMedium),
+                  const SizedBox(width: RiveroSpacing.xs),
+                  AnimatedRotation(
+                    turns: folded ? -0.25 : 0,
+                    duration: const Duration(milliseconds: 180),
+                    child: Icon(
+                      Icons.expand_more_rounded,
+                      size: 22,
+                      color: RiveroColors.textSecondary,
+                    ),
+                  ),
+                  const Spacer(),
+                  // Only how many: a total here would show money the
+                  // accounts' own eyes hide.
+                  Text(
+                    group.length == 1
+                        ? '1 account'
+                        : '${group.length} accounts',
+                    key: ValueKey('section-count-${g.name}'),
+                    style: RiveroTypography.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (!folded) ...[
+            if (g == AccountGroup.card)
+              _CardsSummary(afford: bills.all, money: money),
+            ReorderableListView(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              buildDefaultDragHandles: false,
+              proxyDecorator: (child, _, _) => Material(
+                color: Colors.transparent,
+                elevation: 6,
+                borderRadius: RiveroRadii.borderLg,
+                child: child,
+              ),
+              onReorderStart: (_) => HapticFeedback.mediumImpact(),
+              onReorder: (from, to) => reorder(group, from, to),
+              children: [
+                for (var i = 0; i < group.length; i++)
+                  ReorderableDelayedDragStartListener(
+                    key: ValueKey(group[i].id),
+                    index: i,
+                    child: _AccountRow(
+                      group[i],
+                      bills: bills,
+                      paysFor: [
+                        for (final e in bills.payerOf.entries)
+                          if (e.value.id == group[i].id)
+                            cards.firstWhere((c) => c.id == e.key).name,
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ],
       );
     }
 
-    Widget section(String title, List<PhysicalAccount> group) => Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(
-            top: RiveroSpacing.xl,
-            bottom: RiveroSpacing.sm,
-          ),
-          child: Text(title, style: RiveroTypography.titleMedium),
-        ),
-        ReorderableListView(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          buildDefaultDragHandles: false,
-          proxyDecorator: (child, _, _) => Material(
-            color: Colors.transparent,
-            elevation: 6,
-            borderRadius: RiveroRadii.borderLg,
-            child: child,
-          ),
-          onReorderStart: (_) => HapticFeedback.mediumImpact(),
-          onReorder: (from, to) => reorder(group, from, to),
-          children: [
-            for (var i = 0; i < group.length; i++)
-              ReorderableDelayedDragStartListener(
-                key: ValueKey(group[i].id),
-                index: i,
-                child: _AccountRow(
-                  group[i],
-                  afford: bills.byCard[group[i].id],
-                  payer: bills.payerOf[group[i].id],
-                  paysFor: [
-                    for (final e in bills.payerOf.entries)
-                      if (e.value.id == group[i].id)
-                        cards.firstWhere((c) => c.id == e.key).name,
-                  ],
-                ),
-              ),
-          ],
-        ),
-      ],
-    );
-
     return Scaffold(
       backgroundColor: RiveroColors.background,
-      appBar: const RiveroAppBar(title: 'Accounts'),
+      appBar: RiveroAppBar(
+        title: 'Accounts',
+        actions: [
+          IconButton(
+            key: const ValueKey('arrange-sections'),
+            tooltip: 'Arrange sections',
+            icon: Icon(
+              Icons.swap_vert_rounded,
+              color: RiveroColors.textSecondary,
+            ),
+            onPressed: () => _ArrangeSheet.show(context, [
+              for (final g in prefs.order)
+                if (groups[g]!.isNotEmpty) g,
+            ]),
+          ),
+        ],
+      ),
       floatingActionButton: RiveroFab(
         tooltip: 'Add account or card',
         onPressed: () => CreateAccountSheet.show(context),
@@ -118,44 +189,46 @@ class AccountsScreen extends ConsumerWidget {
           RiveroSpacing.huge + 72 + MediaQuery.paddingOf(context).bottom,
         ),
         children: [
-          RiveroCard(
-            key: const ValueKey('networth-card'),
-            onTap: () => NetWorthSheet.show(context),
-            isElevated: true,
-            padding: const EdgeInsets.all(RiveroSpacing.xl),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Net worth', style: RiveroTypography.bodyMedium),
-                      Text(
-                        money(bankTotal - debt),
-                        style: RiveroTypography.financialLarge.copyWith(
-                          fontWeight: FontWeight.w800,
+          if (ref.watch(showNetWorthProvider))
+            RiveroCard(
+              key: const ValueKey('networth-card'),
+              onTap: () => NetWorthSheet.show(context),
+              isElevated: true,
+              padding: const EdgeInsets.all(RiveroSpacing.xl),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Net worth', style: RiveroTypography.bodyMedium),
+                        Text(
+                          money(assets - debt),
+                          style: RiveroTypography.financialLarge.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
-                      ),
-                      Text(
-                        'Bank ${money(bankTotal)}'
-                        '${cards.isEmpty ? '' : ' · Cards −${money(debt)}'}',
-                        style: RiveroTypography.bodySmall,
-                      ),
-                    ],
+                        Text(
+                          'Assets ${money(assets)}'
+                          '${debt == 0 ? '' : ' · Owed −${money(debt)}'}'
+                          '${counted.length < accounts.length ? ' · ${accounts.length - counted.length} left out' : ''}',
+                          style: RiveroTypography.bodySmall,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                Icon(
-                  Icons.chevron_right_rounded,
-                  color: RiveroColors.textMuted,
-                ),
-              ],
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: RiveroColors.textMuted,
+                  ),
+                ],
+              ),
             ),
-          ),
           for (final c in foreignCurrencies(accounts))
             if (!rates.has(c))
               Padding(
                 key: ValueKey('no-rate-$c'),
-                padding: const EdgeInsets.only(bottom: RiveroSpacing.md),
+                padding: const EdgeInsets.only(top: RiveroSpacing.md),
                 child: InkWell(
                   onTap: () => ExchangeRatesScreen.open(context),
                   child: Text(
@@ -167,15 +240,14 @@ class AccountsScreen extends ConsumerWidget {
                   ),
                 ),
               ),
-          if (banks.isNotEmpty) section('Bank & cash', banks),
-          if (cards.isNotEmpty) _CardsSummary(afford: bills.all, money: money),
-          if (cards.isNotEmpty) section('Cards', cards),
+          for (final g in prefs.order)
+            if (groups[g]!.isNotEmpty) section(g),
           if (accounts.length > 1)
             Padding(
               padding: const EdgeInsets.only(top: RiveroSpacing.md),
               child: Center(
                 child: Text(
-                  'Long-press an account to reorder',
+                  'Tap a section to fold it · long-press an account to move it',
                   style: RiveroTypography.bodySmall,
                 ),
               ),
@@ -186,20 +258,93 @@ class AccountsScreen extends ConsumerWidget {
   }
 }
 
+/// Drag the sections into the order you want them on Accounts.
+class _ArrangeSheet extends ConsumerStatefulWidget {
+  const _ArrangeSheet(this.shown);
+
+  final List<AccountGroup> shown;
+
+  static Future<void> show(BuildContext context, List<AccountGroup> shown) =>
+      showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: RiveroColors.surface,
+        builder: (_) => _ArrangeSheet(shown),
+      );
+
+  @override
+  ConsumerState<_ArrangeSheet> createState() => _ArrangeSheetState();
+}
+
+class _ArrangeSheetState extends ConsumerState<_ArrangeSheet> {
+  late final List<AccountGroup> _order = [
+    ...ref.read(accountGroupPrefsProvider).order,
+  ];
+
+  void _move(int from, int to) {
+    setState(() {
+      final g = _order.removeAt(from);
+      _order.insert(to > from ? to - 1 : to, g);
+    });
+    final n = ref.read(accountGroupPrefsProvider.notifier);
+    n.state = n.state.reordered([..._order]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Every section can be placed, also ones with no accounts yet.
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              RiveroSpacing.xl,
+              RiveroSpacing.xl,
+              RiveroSpacing.xl,
+              RiveroSpacing.sm,
+            ),
+            child: Text('Arrange sections', style: RiveroTypography.titleLarge),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: RiveroSpacing.xl),
+            child: Text(
+              'Drag to reorder. Sections with no accounts are not shown.',
+              style: RiveroTypography.bodySmall,
+            ),
+          ),
+          ReorderableListView(
+            shrinkWrap: true,
+            onReorder: _move,
+            children: [
+              for (final g in _order)
+                ListTile(
+                  key: ValueKey('arrange-${g.name}'),
+                  title: Text(g.label),
+                  subtitle: widget.shown.contains(g)
+                      ? null
+                      : const Text('No accounts yet'),
+                  trailing: const Icon(Icons.drag_handle_rounded),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// A bank/cash account or a credit card, with what matters for each.
 class _AccountRow extends ConsumerWidget {
-  const _AccountRow(this.a, {this.afford, this.payer, this.paysFor = const []});
+  const _AccountRow(this.a, {this.bills, this.paysFor = const []});
 
   final PhysicalAccount a;
 
   /// Cards whose bills this account pays.
   final List<String> paysFor;
 
-  /// Can this card's bill be paid (see CardBills); null for a loan.
-  final CardAffordability? afford;
-
-  /// The account the bill is paid from, when one is set.
-  final PhysicalAccount? payer;
+  /// Every card's bill (see CardBills); a loan has no entry.
+  final CardBills? bills;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -208,7 +353,7 @@ class _AccountRow extends ConsumerWidget {
     // Card size picked in Settings > Appearance (bank & cash, and cards).
     final look = ref.watch(lookProvider);
     final size = a.isLiability ? look.creditCards : look.bankCards;
-    final hidden = ref.watch(hiddenBalancesProvider).contains(a.id);
+    final hidden = accountMasked(ref, a.id);
     // Hide or show this one account's money (saved).
     final eye = IconButton(
       key: ValueKey('hide-${a.id}'),
@@ -216,8 +361,7 @@ class _AccountRow extends ConsumerWidget {
       visualDensity: VisualDensity.compact,
       onPressed: () {
         HapticFeedback.selectionClick();
-        final n = ref.read(hiddenBalancesProvider.notifier);
-        n.state = hidden ? ({...n.state}..remove(a.id)) : {...n.state, a.id};
+        toggleAccountMask(ref, a.id);
       },
       icon: Icon(
         hidden ? Icons.visibility_off_outlined : Icons.visibility_outlined,
@@ -257,9 +401,29 @@ class _AccountRow extends ConsumerWidget {
         onTap: () => AccountDetailScreen.open(context, a.id),
         child: a.isLiability
             ? _cardBody(header, money, size)
-            : size == CardSize.large
-            ? _bankBody(header, money)
-            : _bankRow(badge, eye, money, size),
+            : AccountGroup.isFixedDeposit(a)
+            ? _fdBody(header, money)
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (size == CardSize.large)
+                    _bankBody(header, money)
+                  else
+                    _bankRow(badge, eye, money, size),
+                  if (ref.watch(balanceToUpdateProvider).contains(a.id))
+                    Padding(
+                      padding: const EdgeInsets.only(top: RiveroSpacing.sm),
+                      child: Text(
+                        'Update the balance: a payment was more than Rivero '
+                        'thought this account held',
+                        key: ValueKey('update-balance-${a.id}'),
+                        style: RiveroTypography.bodySmall.copyWith(
+                          color: RiveroColors.warning,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
       ),
     );
   }
@@ -318,6 +482,76 @@ class _AccountRow extends ConsumerWidget {
     );
   }
 
+  /// Fixed deposits: what was put in, the rate, when it matures and what
+  /// it will be worth then (interest compounded every quarter).
+  Widget _fdBody(Widget header, String Function(int) money) {
+    final now = DateTime.now();
+    final maturity = a.fdMaturityDate;
+    final days = maturity == null
+        ? null
+        : DateTime(
+            maturity.year,
+            maturity.month,
+            maturity.day,
+          ).difference(DateTime(now.year, now.month, now.day)).inDays;
+    final rate = a.fdRateBps;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        header,
+        const SizedBox(height: RiveroSpacing.md),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Deposited', style: RiveroTypography.bodySmall),
+                  Text(
+                    accountMoney(a, a.balanceMinorUnits, money),
+                    key: ValueKey('balance-${a.id}'),
+                    style: RiveroTypography.financialMedium,
+                  ),
+                ],
+              ),
+            ),
+            if (maturity != null && rate != null)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text('At maturity', style: RiveroTypography.bodySmall),
+                  Text(
+                    accountMoney(a, FixedDeposit.maturityValue(a), money),
+                    key: ValueKey('fd-maturity-${a.id}'),
+                    style: RiveroTypography.financialMedium.copyWith(
+                      color: RiveroColors.success,
+                    ),
+                  ),
+                ],
+              ),
+          ],
+        ),
+        const SizedBox(height: RiveroSpacing.xs),
+        Text(
+          [
+            if (rate != null)
+              '${rate ~/ 100}.${(rate % 100).toString().padLeft(2, '0')}% a year',
+            if (maturity != null && days! <= 0)
+              'Matured ${DateFormat('d MMM y').format(maturity)}'
+            else if (maturity != null)
+              'Matures ${DateFormat('d MMM y').format(maturity)} · in $days days',
+            if (rate == null || maturity == null)
+              'Edit to add the rate and maturity date',
+          ].join(' · '),
+          style: RiveroTypography.bodySmall.copyWith(
+            color: days != null && days <= 0 ? RiveroColors.warning : null,
+          ),
+        ),
+      ],
+    );
+  }
+
   /// Name, then bank ••mask · type: which account this is at a glance.
   Widget _identity({int lines = 2}) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -340,19 +574,18 @@ class _AccountRow extends ConsumerWidget {
 
   /// Just whether the bill can be paid (compact cards).
   List<Widget> _affordLine(int owed, String Function(int) money) {
-    final afford = this.afford;
-    if (owed == 0 || afford == null) return const [];
-    final from = payer == null ? '' : ' from ${payer!.name}';
+    final status = bills == null || owed == 0
+        ? null
+        : billStatus(bills!, a, money);
+    if (status == null) return const [];
     return [
       Padding(
         padding: const EdgeInsets.only(top: RiveroSpacing.sm),
         child: Text(
-          afford.canPay
-              ? 'You can pay this$from'
-              : 'Short by ${money(afford.shortBy)}$from',
+          status.text,
           key: ValueKey('afford-${a.id}'),
           style: RiveroTypography.labelLarge.copyWith(
-            color: afford.canPay ? RiveroColors.success : RiveroColors.danger,
+            color: status.ok ? RiveroColors.success : RiveroColors.danger,
           ),
         ),
       ),
@@ -377,16 +610,10 @@ class _AccountRow extends ConsumerWidget {
             style: RiveroTypography.bodySmall,
           ),
         ),
+        ..._affordLine(owed, money),
       ];
     }
-    final afford = this.afford;
     final due = DateFormat('d MMM').format(cycle.dueDate);
-    final from = payer == null ? '' : ' from ${payer!.name}';
-    final color = owed == 0 || afford == null
-        ? RiveroColors.textSecondary
-        : afford.canPay
-        ? RiveroColors.success
-        : RiveroColors.danger;
     return [
       const SizedBox(height: RiveroSpacing.md),
       ClipRRect(
@@ -418,17 +645,7 @@ class _AccountRow extends ConsumerWidget {
           ),
         ],
       ),
-      if (owed > 0 && afford != null)
-        Padding(
-          padding: const EdgeInsets.only(top: RiveroSpacing.xs),
-          child: Text(
-            afford.canPay
-                ? 'You can pay this$from: ${money(afford.leftAfter)} left after'
-                : 'Short by ${money(afford.shortBy)} to pay this$from',
-            key: ValueKey('afford-${a.id}'),
-            style: RiveroTypography.labelLarge.copyWith(color: color),
-          ),
-        ),
+      ..._affordLine(owed, money),
     ];
   }
 
@@ -565,8 +782,9 @@ class _CardsSummary extends StatelessWidget {
     final a = afford;
     if (a.owed == 0) return const SizedBox.shrink();
     final color = a.canPay ? RiveroColors.success : RiveroColors.danger;
+    // Space above and below: it never touches the first card.
     return Padding(
-      padding: const EdgeInsets.only(top: RiveroSpacing.lg),
+      padding: const EdgeInsets.only(bottom: RiveroSpacing.md),
       child: RiveroCard(
         key: const ValueKey('cards-summary'),
         child: Row(

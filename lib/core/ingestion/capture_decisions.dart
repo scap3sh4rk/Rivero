@@ -80,19 +80,38 @@ class CaptureDecisions {
   Future<int> apply(Map<String, dynamic> decisions) async {
     final ledger = LedgerService(db);
     var applied = 0;
-    for (final e in decisions.entries) {
+    // Choices whose notification was not processed yet (it can arrive a
+    // moment later, or the app was frozen in between) wait for it here.
+    final waiting = await _waiting();
+    final all = {...waiting, ...decisions};
+    final stillWaiting = <String, dynamic>{};
+    final now = DateTime.now().millisecondsSinceEpoch;
+    for (final e in all.entries) {
       final d = (e.value as Map).cast<String, dynamic>();
       final t = await entryFor(e.key);
       if (t == null) {
-        if (await _unreadable(e.key, d)) applied++;
+        if (await _unreadable(e.key, d)) {
+          applied++;
+        } else if (!await _logged(e.key)) {
+          final since = d['since'] as int? ?? now;
+          if (now - since < const Duration(days: 3).inMilliseconds) {
+            stillWaiting[e.key] = {...d, 'since': since};
+          }
+        }
         continue;
       }
-      // A choice made on the second notification of one payment: only an
-      // "Add" for an entry still waiting counts. It never ignores or
-      // removes what the first notification already settled.
+      // A choice made on the second notification of one payment (or on a
+      // payment already logged by hand): it never ignores or removes what
+      // is already recorded. An Add still files it: the category and
+      // description picked are applied to that entry.
       if (t.ingestionLogId != e.key &&
           (d['action'] == 'ignore' ||
               t.transactionState != TransactionState.needsReview)) {
+        if (d['action'] != 'ignore' &&
+            t.transactionState != TransactionState.ignored) {
+          await _label(t, d);
+          applied++;
+        }
         continue;
       }
       if (d['action'] == 'ignore') {
@@ -104,25 +123,55 @@ class CaptureDecisions {
             ? await ledger.removeWithPlanPartner(t.id)
             : await ledger.ignore(t.id);
       } else {
-        final category = d['category'] as String?;
-        final note = d['note'] as String?;
-        await (db.update(
-          db.transactions,
-        )..where((x) => x.id.equals(t.id))).write(
-          TransactionsCompanion(
-            category: category == null || category.isEmpty
-                ? const Value.absent()
-                : Value(category),
-            userNotes: note == null || note.isEmpty
-                ? const Value.absent()
-                : Value(note),
-          ),
-        );
+        await _label(t, d);
         await ledger.confirm(t.id);
         await ReconciliationService(database: db).reconcileAll();
       }
       applied++;
     }
+    if (stillWaiting.isNotEmpty || waiting.isNotEmpty) {
+      await db.settingsDao.set(
+        SettingKeys.waitingDecisions,
+        jsonEncode(stillWaiting),
+      );
+    }
     return applied;
   }
+
+  /// Writes the category and description picked on a pop-up to [t].
+  Future<void> _label(LedgerTransaction t, Map<String, dynamic> d) async {
+    final category = d['category'] as String?;
+    final note = (d['note'] as String?)?.trim();
+    if ((category == null || category.isEmpty) &&
+        (note == null || note.isEmpty)) {
+      return;
+    }
+    await (db.update(db.transactions)..where((x) => x.id.equals(t.id))).write(
+      TransactionsCompanion(
+        category: category == null || category.isEmpty
+            ? const Value.absent()
+            : Value(category),
+        userNotes: note == null || note.isEmpty
+            ? const Value.absent()
+            : Value(note),
+      ),
+    );
+  }
+
+  Future<Map<String, dynamic>> _waiting() async {
+    final raw = await db.settingsDao.get(SettingKeys.waitingDecisions);
+    if (raw == null) return {};
+    try {
+      return (jsonDecode(raw) as Map).cast<String, dynamic>();
+    } on FormatException {
+      return {};
+    }
+  }
+
+  /// Whether Rivero has processed notification [captureId] at all.
+  Future<bool> _logged(String captureId) async =>
+      await (db.select(
+        db.rawIngestionLogs,
+      )..where((l) => l.id.equals(captureId))).getSingleOrNull() !=
+      null;
 }

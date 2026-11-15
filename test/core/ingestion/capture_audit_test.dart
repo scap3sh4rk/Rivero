@@ -250,9 +250,9 @@ void main() {
         final t = (await all()).single;
         expect(t.transactionState, TransactionState.needsReview);
         expect(await bal('bank'), 5000000); // nothing moved yet
-        // Accept applies it once and adopts the bank's balance.
+        // Accept applies the amount once; the "Avl bal" is not taken.
         await LedgerService(db).confirm(t.id);
-        expect(await bal('bank'), 4500000);
+        expect(await bal('bank'), 5000000 - 45000);
       },
     );
 
@@ -267,7 +267,7 @@ void main() {
           (await all()).single.transactionState,
           TransactionState.confirmed,
         );
-        expect(await bal('bank'), 4500000);
+        expect(await bal('bank'), 5000000 - 45000);
       },
     );
   });

@@ -6,6 +6,7 @@ import 'package:rivero/core/currency/currency.dart';
 import 'package:rivero/core/database/daos/settings_dao.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/database/database_seeder.dart';
+import 'package:rivero/core/domain/account_group.dart';
 import 'package:rivero/core/domain/custom_account_types.dart';
 import 'package:rivero/core/domain/log_category.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
@@ -22,7 +23,6 @@ import 'package:rivero/core/ledger/ledger_service.dart';
 import 'package:rivero/core/plan/defaults.dart';
 import 'package:rivero/core/plan/plan_transfer_service.dart';
 import 'package:rivero/core/plan/salary_plan_service.dart';
-import 'package:rivero/core/reconciliation/balance_reconciler.dart';
 import 'package:rivero/core/reconciliation/internal_transfer_matcher.dart';
 import 'package:rivero/core/reconciliation/reconciliation_service.dart';
 import 'package:rivero/core/reconciliation/refund_matcher.dart';
@@ -52,6 +52,20 @@ final lookProvider = StateProvider<Look>((ref) => const Look());
 
 /// Accounts whose balance is masked (tap the eye on an account to toggle).
 final hiddenBalancesProvider = StateProvider<Set<String>>((ref) => const {});
+
+/// Accounts page sections: their order and which are folded.
+final accountGroupPrefsProvider = StateProvider<AccountGroupPrefs>(
+  (ref) => const AccountGroupPrefs(),
+);
+
+/// Home cards the user picked, in order (names; null = the defaults).
+final homeWidgetsProvider = StateProvider<List<String>?>((ref) => null);
+
+/// Pictures the user added per bank (BankIcons.key -> file path).
+final bankIconsProvider = StateProvider<Map<String, String>>((ref) => const {});
+
+/// Show the net worth card on Accounts.
+final showNetWorthProvider = StateProvider<bool>((ref) => true);
 
 /// Money formatting for one account: dots when its balance is hidden
 /// (or privacy mode is on).
@@ -103,6 +117,29 @@ class SettingsSync {
     ref.read(lookProvider.notifier).state = Look.fromJson(
       await dao.get(SettingKeys.look),
     );
+    ref.read(accountGroupPrefsProvider.notifier).state =
+        AccountGroupPrefs.fromJson(await dao.get(SettingKeys.accountGroups));
+    final icons = await dao.get(SettingKeys.bankIcons);
+    if (icons != null) {
+      try {
+        ref.read(bankIconsProvider.notifier).state = (jsonDecode(icons) as Map)
+            .cast<String, String>();
+      } on FormatException {
+        // Unreadable: initials instead.
+      }
+    }
+    final homeWidgets = await dao.get(SettingKeys.homeWidgets);
+    if (homeWidgets != null) {
+      try {
+        ref.read(homeWidgetsProvider.notifier).state = [
+          for (final n in jsonDecode(homeWidgets) as List) n as String,
+        ];
+      } on FormatException {
+        // Unreadable: the default cards.
+      }
+    }
+    ref.read(showNetWorthProvider.notifier).state =
+        (await dao.get(SettingKeys.showNetWorth)) != '0';
     final hidden = await dao.get(SettingKeys.hiddenBalances);
     if (hidden != null) {
       try {
@@ -200,6 +237,21 @@ class SettingsSync {
         (_, v) => save(SettingKeys.keepUntouched, '$v'),
       )
       ..listen(lookProvider, (_, v) => save(SettingKeys.look, v.toJson()))
+      ..listen(
+        accountGroupPrefsProvider,
+        (_, v) => save(SettingKeys.accountGroups, v.toJson()),
+      )
+      ..listen(
+        bankIconsProvider,
+        (_, v) => save(SettingKeys.bankIcons, jsonEncode(v)),
+      )
+      ..listen(homeWidgetsProvider, (_, v) {
+        if (v != null) save(SettingKeys.homeWidgets, jsonEncode(v));
+      })
+      ..listen(
+        showNetWorthProvider,
+        (_, v) => save(SettingKeys.showNetWorth, v ? '1' : '0'),
+      )
       ..listen(
         hiddenBalancesProvider,
         (_, v) => save(SettingKeys.hiddenBalances, jsonEncode(v.toList())),
@@ -403,22 +455,16 @@ final refundMatcherProvider = Provider<RefundMatcher>((ref) {
 });
 
 /// Balance reconciler provider.
-final balanceReconcilerProvider = Provider<BalanceReconciler>((ref) {
-  final db = ref.watch(databaseProvider);
-  return BalanceReconciler(database: db);
-});
 
 /// Reconciliation service provider.
 final reconciliationServiceProvider = Provider<ReconciliationService>((ref) {
   final db = ref.watch(databaseProvider);
   final transferMatcher = ref.watch(internalTransferMatcherProvider);
   final refundMatcher = ref.watch(refundMatcherProvider);
-  final reconciler = ref.watch(balanceReconcilerProvider);
   return ReconciliationService(
     database: db,
     transferMatcher: transferMatcher,
     refundMatcher: refundMatcher,
-    balanceReconciler: reconciler,
   );
 });
 
@@ -528,6 +574,27 @@ final stsBreakdownProvider = Provider<AsyncValue<StsBreakdown>>((ref) {
   );
 });
 
+/// Bank, wallet and cash accounts whose balance is out of date: since the
+/// user last stated it, a payment was larger than what Rivero thought the
+/// account held (it stopped at zero). Usually a missed credit (no message
+/// came for it); only the user knows the real figure, so they are asked.
+final balanceToUpdateProvider = Provider<Set<String>>((ref) {
+  final accounts = ref.watch(activePhysicalAccountsProvider).value ?? const [];
+  final txns = ref.watch(allTransactionsStreamProvider).value ?? const [];
+  final byId = {for (final a in accounts) a.id: a};
+  return {
+    for (final t in txns)
+      if (byId[t.physicalAccountId] case final a?)
+        if (!a.isLiability &&
+            t.amountMinorUnits < 0 &&
+            t.appliedMinorUnits != null &&
+            t.appliedMinorUnits! > t.amountMinorUnits &&
+            (a.balanceAsOf == null ||
+                !t.transactionTimestamp.isBefore(a.balanceAsOf!)))
+          a.id,
+  };
+});
+
 /// Live calculated Safe-to-Spend result.
 final liveSafeToSpendResultProvider = Provider<AsyncValue<SafeToSpendResult>>((
   ref,
@@ -573,7 +640,8 @@ class LogPrefill {
         !RegExp(r'\bdebited', caseSensitive: false).hasMatch(clean);
     return LogPrefill(
       amountText: amount,
-      note: clean.length > 80 ? clean.substring(0, 80) : clean,
+      // The bank's text is not a note: the user adds one if they want.
+      note: '',
       income: income,
     );
   }

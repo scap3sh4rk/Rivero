@@ -1,4 +1,4 @@
-## Rivero 0.2 — Your Money - In Flow
+## Rivero 1.1 — Your Money - In Flow
 
 **Rivero is a private, local-first money app for Android.** It answers one question first: *how much can I safely spend per day until payday?* No bank login, no cloud account, no ads, no SMS permission. Your data lives encrypted on your phone.
 
@@ -11,6 +11,18 @@
 - **Private by design.** AES-256 encrypted database, biometric lock, hide-amounts mode, and encrypted backups to your own Google Drive or a file that only your passphrase opens.
 
 ### What's new in this release
+**Accounts in sections.** Bank & cash, Investments & demat, Fixed deposits, Credit cards and Loans, in the order you choose; fold any section with its arrow. Fixed deposits ask for the rate and dates and show what they will be worth at maturity. Leave any account out of net worth, or hide the net worth card.
+
+**Autopay you can manage.** Every autopay is editable and shows its kind (SIP, subscription, EMI, insurance, bill, rent). It now lives on the Owed tab. An overdue autopay asks what happened (paid, failed and retry on a date, or skip), and is never assumed paid when its account was short.
+
+**Card bills that make sense.** Each card shows what is left to settle, by when, and from which account, with "enough" or "short by". Cards paid from the same account are judged together; the Credit cards group shows what all cards owe.
+
+**Goals, properly.** Count FDs (with interest so far), accounts, demat, plan payments and cash, stocks or gold towards a goal. Edit any goal; deleting asks first and can be undone. Goals can sit on Home.
+
+**Your Home, your way.** Choose and order the cards on Home. Safe to spend is now a battery that fills with what is left. Each account's eye wins over hide-all.
+
+**Look and feel.** Settings is a short list of groups. Dropdowns open right under their field; form fields are spaced and outlined. 48 colours for accounts and categories, 19 accents. Add your own bank icons once and they are used everywhere. The tour now opens Plan, Goals and Autopay.
+
 **Your data, your way.** Export everything as an Excel workbook or CSV files. Automatic encrypted Google Drive backups, daily or weekly, keep the previous copy too; Home reminds you after two weeks without one.
 
 **Less typing.** Rules sort captured payments into categories (or ignore them), and Rivero offers a rule after you file the same payee twice. Payments that repeat every month or week are suggested as autopay. Put #tags in notes and filter Activity by them; search now looks in notes.

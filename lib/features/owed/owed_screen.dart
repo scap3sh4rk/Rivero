@@ -17,6 +17,7 @@ import 'package:rivero/design_system/widgets/picker.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
 import 'package:rivero/design_system/widgets/rivero_fab.dart';
+import 'package:rivero/features/mandates/mandates_screen.dart';
 import 'package:rivero/features/owed/bills_and_commitments.dart';
 
 /// Money in both directions: what people owe you, what you owe them, and
@@ -55,6 +56,9 @@ class OwedScreen extends ConsumerWidget {
         .where((d) => d.status == DueStatus.open && d.kind == DueKind.borrowed)
         .toList();
     final net = owedToYou - youOwe;
+    final nextAutopay = ([
+      ...mandates,
+    ]..removeWhere((m) => m.nextExecutionDate == null)).firstOrNull;
 
     Widget stat(String label, String value) => Padding(
       padding: const EdgeInsets.only(top: RiveroSpacing.xs),
@@ -187,6 +191,40 @@ class OwedScreen extends ConsumerWidget {
                         ),
                       ],
                     ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: RiveroSpacing.sm),
+            // Autopay lives here: SIPs, subscriptions, EMIs and bills that
+            // leave your accounts on their own.
+            RiveroCard(
+              key: const ValueKey('owed-autopay'),
+              onTap: () => MandatesScreen.open(context),
+              child: Row(
+                children: [
+                  Icon(Icons.autorenew_rounded, color: RiveroColors.accent),
+                  const SizedBox(width: RiveroSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Autopay', style: RiveroTypography.titleMedium),
+                        Text(
+                          mandates.isEmpty
+                              ? 'SIPs, subscriptions, EMIs and bills'
+                              : '${mandates.length} active'
+                                    '${nextAutopay == null ? '' : ' · next ${nextAutopay.payee}, ${DateFormat('d MMM').format(nextAutopay.nextExecutionDate!)}'}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: RiveroTypography.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: RiveroColors.textMuted,
                   ),
                 ],
               ),
@@ -435,7 +473,12 @@ class _DueTile extends StatelessWidget {
           opacity: open ? 1 : 0.55,
           child: Row(
             children: [
-              BankBadge(name: d.person, size: 40, circle: true),
+              BankBadge(
+                name: d.person,
+                size: 40,
+                circle: true,
+                bankIcon: false,
+              ),
               const SizedBox(width: RiveroSpacing.md),
               Expanded(
                 child: Column(
@@ -590,7 +633,7 @@ class _DueSheetState extends ConsumerState<_DueSheet> {
               prefixText: '₹',
             ),
           ),
-          const SizedBox(height: RiveroSpacing.md),
+          const SizedBox(height: RiveroSpacing.field),
           PickerField<String?>(
             label: 'Paid from',
             value: _paidFrom,
@@ -824,7 +867,7 @@ class _MoneySheetState extends ConsumerState<_MoneySheet> {
             textCapitalization: TextCapitalization.words,
             decoration: InputDecoration(labelText: borrowing ? 'From' : 'To'),
           ),
-          const SizedBox(height: RiveroSpacing.md),
+          const SizedBox(height: RiveroSpacing.field),
           TextField(
             key: const ValueKey('lend-amount'),
             controller: _amount,
@@ -834,7 +877,7 @@ class _MoneySheetState extends ConsumerState<_MoneySheet> {
               prefixText: '₹',
             ),
           ),
-          const SizedBox(height: RiveroSpacing.md),
+          const SizedBox(height: RiveroSpacing.field),
           PickerField<String?>(
             label: borrowing ? 'Received in' : 'From',
             value: _accountId,
@@ -907,7 +950,7 @@ class _MoneySheetState extends ConsumerState<_MoneySheet> {
               ),
             ),
           ],
-          const SizedBox(height: RiveroSpacing.md),
+          const SizedBox(height: RiveroSpacing.field),
           TextField(
             controller: _note,
             decoration: const InputDecoration(hintText: 'Note (optional)'),

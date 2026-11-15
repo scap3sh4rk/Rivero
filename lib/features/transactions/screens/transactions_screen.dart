@@ -288,7 +288,12 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
       ..listen(activityQueryProvider, (_, v) {
         if (_search.text != v) _search.text = v;
       });
-    final shown = txns.where(_matches).toList();
+    // "Ignore" means not a transaction: it leaves Activity (the row stays
+    // stored, so the same message is recognised and never asked again).
+    final shown = txns
+        .where((t) => t.transactionState != TransactionState.ignored)
+        .where(_matches)
+        .toList();
     final range = ref.watch(activityRangeProvider);
     final now = DateTime.now();
     // A heading before each new day, with what was spent that day.

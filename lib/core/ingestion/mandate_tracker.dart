@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:rivero/core/database/daos/mandates_dao.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/ingestion/parser/message_intent.dart';
@@ -165,8 +166,11 @@ class MandateTracker {
   }
 
   /// Autopays whose date passed more than [grace] ago without a matching
-  /// debit are moved to their next future date (assumed paid; the bank's
-  /// balance already shows it). Run on start and on resume.
+  /// debit are moved to their next future date (assumed paid; many debits
+  /// never send a message). Not when the account it is taken from holds
+  /// less than the debit: then it most likely failed, so it stays overdue
+  /// and reserved until the user says what happened (paid, failed and
+  /// retried on a date, or skipped). Run on start and on resume.
   Future<int> rollOverdue(DateTime now) async {
     final today = DateTime(now.year, now.month, now.day);
     var rolled = 0;
@@ -174,6 +178,7 @@ class MandateTracker {
       var due = m.nextExecutionDate;
       if (m.status != MandateStatus.active || due == null) continue;
       if (!due.isBefore(today.subtract(grace))) continue;
+      if (await accountShort(m)) continue;
       while (due != null && due.isBefore(today)) {
         due = nextDue(due, m.frequency);
       }
@@ -184,6 +189,15 @@ class MandateTracker {
       rolled++;
     }
     return rolled;
+  }
+}
+
+extension on MandateTracker {
+  /// Whether the account [m] is taken from holds less than one debit.
+  Future<bool> accountShort(Mandate m) async {
+    final a = await db.accountsDao.getPhysicalAccountById(m.physicalAccountId);
+    if (a == null || a.isLiability) return false; // a card can always pay
+    return a.balanceMinorUnits < mandateReserve(m);
   }
 }
 

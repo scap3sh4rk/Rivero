@@ -1,5 +1,4 @@
 import 'package:drift/drift.dart';
-import 'package:rivero/core/database/daos/accounts_dao.dart';
 import 'package:rivero/core/database/daos/ingestion_logs_dao.dart';
 import 'package:rivero/core/database/daos/settings_dao.dart';
 import 'package:rivero/core/database/database.dart';
@@ -57,7 +56,7 @@ class IngestionService {
         RawIngestionLogsCompanion(
           id: Value(logId),
           sourceChannel: Value(notification.channel),
-          senderHeader: Value(notification.sender ?? notification.packageName),
+          senderHeader: Value(_sender(notification)),
           sourcePackage: Value(notification.packageName),
           rawPayload: Value(notification.body),
           receivedAt: Value(notification.receivedAt),
@@ -104,7 +103,7 @@ class IngestionService {
       RawIngestionLogsCompanion(
         id: Value(logId),
         sourceChannel: Value(notification.channel),
-        senderHeader: Value(notification.sender ?? notification.packageName),
+        senderHeader: Value(_sender(notification)),
         sourcePackage: Value(notification.packageName),
         rawPayload: Value(notification.body),
         receivedAt: Value(notification.receivedAt),
@@ -137,13 +136,8 @@ class IngestionService {
       )..where((t) => t.id.equals(planned.id))).write(
         TransactionsCompanion(
           transactionState: const Value(TransactionState.reconciled),
-          referenceNumber: Value(parsed.referenceNumber),
+          referenceNumber: Value(_fit(parsed.referenceNumber, 80)),
         ),
-      );
-      await _adoptReportedBalance(
-        accountId,
-        parsed.balanceMinorUnits,
-        parsed.timestamp,
       );
       return IngestionResult(
         rawLogId: logId,
@@ -168,7 +162,9 @@ class IngestionService {
         await (database.update(
           database.transactions,
         )..where((t) => t.id.equals(duplicate.id))).write(
-          TransactionsCompanion(referenceNumber: Value(parsed.referenceNumber)),
+          TransactionsCompanion(
+            referenceNumber: Value(_fit(parsed.referenceNumber, 80)),
+          ),
         );
       }
       // The payment app guessed the account; the bank's message names it.
@@ -180,16 +176,6 @@ class IngestionService {
         await (database.update(database.transactions)
               ..where((t) => t.id.equals(duplicate.id)))
             .write(TransactionsCompanion(physicalAccountId: Value(accountId)));
-      }
-      final applied =
-          duplicate.transactionState == TransactionState.confirmed ||
-          duplicate.transactionState == TransactionState.reconciled;
-      if (applied && duplicate.physicalAccountId == accountId) {
-        await _adoptReportedBalance(
-          accountId,
-          parsed.balanceMinorUnits,
-          parsed.timestamp,
-        );
       }
       return IngestionResult(
         rawLogId: logId,
@@ -212,11 +198,6 @@ class IngestionService {
       );
       if (paired != null) {
         await _sameAs(logId, paired);
-        await _adoptReportedBalance(
-          accountId,
-          parsed.balanceMinorUnits,
-          parsed.timestamp,
-        );
         return IngestionResult(
           rawLogId: logId,
           status: ParseStatus.parsed,
@@ -279,14 +260,12 @@ class IngestionService {
               : parsed.suggestedTransactionType,
         ),
         transactionState: Value(state),
-        merchant: Value(parsed.merchant ?? 'Unknown Merchant'),
+        merchant: Value(_fit(parsed.merchant, 120) ?? 'Unknown Merchant'),
         category: Value(
-          category?.name ??
-              rule?.category ??
-              parsed.category ??
+          _fit(category?.name ?? rule?.category ?? parsed.category, 60) ??
               'General Expense',
         ),
-        referenceNumber: Value(parsed.referenceNumber),
+        referenceNumber: Value(_fit(parsed.referenceNumber, 80)),
         transactionTimestamp: Value(parsed.timestamp),
         createdAt: Value(now),
       ),
@@ -304,13 +283,10 @@ class IngestionService {
     if (state == TransactionState.confirmed) {
       final saved = await database.transactionsDao.getTransactionById(txnId);
       if (saved != null) await LedgerService(database).applyEffects(saved);
-      // The bank's own "available balance" is the source of truth for the
-      // account; adopting it self-corrects any drift.
-      await _adoptReportedBalance(
-        accountId,
-        parsed.balanceMinorUnits,
-        parsed.timestamp,
-      );
+      // Only the amount moves the balance. A "Bal Rs..." in the message is
+      // never taken: messages do not come for every payment and every bank
+      // words them differently, so the balance the user entered (plus what
+      // was recorded since) is the truth.
       await ReconciliationService(database: database).reconcileAll();
     }
 
@@ -339,7 +315,7 @@ class IngestionService {
       RawIngestionLogsCompanion(
         id: Value(logId),
         sourceChannel: Value(notification.channel),
-        senderHeader: Value(notification.sender ?? notification.packageName),
+        senderHeader: Value(_sender(notification)),
         sourcePackage: Value(notification.packageName),
         // Never persist one-time passwords.
         rawPayload: Value(
@@ -436,20 +412,6 @@ class IngestionService {
     return hits.length == 1 ? hits.single : null;
   }
 
-  /// The bank's "available balance" is the truth for a bank account.
-  Future<void> _adoptReportedBalance(
-    String accountId,
-    int? reported,
-    DateTime at,
-  ) async {
-    if (reported == null) return;
-    final acc = await database.accountsDao.getPhysicalAccountById(accountId);
-    // Not for debts, and not when something newer is already known.
-    if (acc == null || acc.isLiability) return;
-    if (!AccountsDao.movesBalance(acc, at)) return;
-    await database.accountsDao.setKnownBalance(accountId, reported, at);
-  }
-
   Future<void> _logFailed(
     RawNotification notification,
     String logId,
@@ -459,7 +421,7 @@ class IngestionService {
     RawIngestionLogsCompanion(
       id: Value(logId),
       sourceChannel: Value(notification.channel),
-      senderHeader: Value(notification.sender ?? notification.packageName),
+      senderHeader: Value(_sender(notification)),
       sourcePackage: Value(notification.packageName),
       rawPayload: Value(notification.body),
       receivedAt: Value(notification.receivedAt),
@@ -469,6 +431,19 @@ class IngestionService {
       createdAt: Value(now),
     ),
   );
+
+  /// Who sent it, as stored on its log: the SMS sender or the app's title
+  /// (or package). Never empty and never longer than the column allows,
+  /// or saving it would fail and the whole notification would be lost.
+  static String? _sender(RawNotification n) =>
+      _fit(n.sender, 50) ?? _fit(n.packageName, 50);
+
+  /// [s] trimmed to at most [max] characters; null when empty.
+  static String? _fit(String? s, int max) {
+    final t = s?.trim();
+    if (t == null || t.isEmpty) return null;
+    return t.length <= max ? t : t.substring(0, max);
+  }
 
   /// Real last digits. All zeros is the placeholder older versions saved
   /// when the digits were left empty: not digits Rivero knows.
@@ -545,9 +520,9 @@ class IngestionService {
     await database.accountsDao.upsertPhysicalAccount(
       PhysicalAccountsCompanion(
         id: Value(newId),
-        name: Value(_accountName(parsed, card: card)),
-        institution: Value(parsed.financialInstitution ?? 'Bank'),
-        accountMask: Value(parsed.accountMask ?? '••••'),
+        name: Value(_fit(_accountName(parsed, card: card), 100)!),
+        institution: Value(_fit(parsed.financialInstitution, 50) ?? 'Bank'),
+        accountMask: Value(_fit(parsed.accountMask, 20) ?? '••••'),
         isLiability: Value(card),
         accountType: Value(
           card ? StandardAccountTypes.creditCard : StandardAccountTypes.savings,
@@ -801,7 +776,7 @@ class IngestionService {
           ),
           merchant: Value('Card bill: ${card.name}'),
           category: const Value('Card bill'),
-          referenceNumber: Value(parsed.referenceNumber),
+          referenceNumber: Value(_fit(parsed.referenceNumber, 80)),
           transactionTimestamp: Value(parsed.timestamp),
           createdAt: Value(DateTime.now()),
           isInternalTransfer: const Value(true),

@@ -28,6 +28,17 @@ class AccentChoice {
     AccentChoice('Orange', Color(0xFFFF8A3D), Color(0xFFC85A12)),
     AccentChoice('Coral', Color(0xFFF2555A), Color(0xFFC8303A)),
     AccentChoice('Mono', Color(0xFFE4E4E7), Color(0xFF27272A)),
+    // Added later: new ones go at the end so saved choices keep their place.
+    AccentChoice('Cyan', Color(0xFF38D3F5), Color(0xFF0B8BA8)),
+    AccentChoice('Mint', Color(0xFF5EE0B0), Color(0xFF15936A)),
+    AccentChoice('Lime', Color(0xFFB4E04A), Color(0xFF5E8A12)),
+    AccentChoice('Gold', Color(0xFFE8C468), Color(0xFF9A7414)),
+    AccentChoice('Rose', Color(0xFFFF7A9C), Color(0xFFC23A62)),
+    AccentChoice('Pink', Color(0xFFF472B6), Color(0xFFBE2C82)),
+    AccentChoice('Magenta', Color(0xFFD86AF0), Color(0xFF9A2DB4)),
+    AccentChoice('Lavender', Color(0xFFC4B5FD), Color(0xFF6A54C9)),
+    AccentChoice('Ocean', Color(0xFF3B82F6), Color(0xFF1D4ED8)),
+    AccentChoice('Slate', Color(0xFF9AA8BD), Color(0xFF475569)),
   ];
 }
 

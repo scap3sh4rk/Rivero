@@ -84,8 +84,78 @@ Future<PickerOption<T>?> showPicker<T>(
   );
 }
 
-/// A form field that looks like the app's other inputs and opens
-/// [showPicker]. Long labels are cut cleanly instead of breaking layout.
+/// A real dropdown: a rounded menu opening right under the field it
+/// belongs to, as wide as the field, never taller than [maxHeight] (it
+/// scrolls) and kept inside the screen edges. Returns null if dismissed.
+Future<PickerOption<T>?> showDropdown<T>(
+  BuildContext fieldContext, {
+  required List<PickerOption<T>> options,
+  T? selected,
+  double maxHeight = 320,
+}) async {
+  final box = fieldContext.findRenderObject()! as RenderBox;
+  final overlay =
+      Navigator.of(fieldContext).overlay!.context.findRenderObject()!
+          as RenderBox;
+  final topLeft = box.localToGlobal(Offset.zero, ancestor: overlay);
+  final field = topLeft & box.size;
+  // Values are positions in [options], so an option whose value is null is
+  // still told apart from "dismissed".
+  final i = await showMenu<int>(
+    context: fieldContext,
+    position: RelativeRect.fromLTRB(
+      field.left,
+      field.bottom + 4,
+      overlay.size.width - field.right,
+      overlay.size.height - field.bottom,
+    ),
+    constraints: BoxConstraints(
+      minWidth: field.width,
+      maxWidth: field.width,
+      maxHeight: maxHeight,
+    ),
+    color: RiveroColors.surfaceElevated,
+    shape: RoundedRectangleBorder(
+      borderRadius: RiveroRadii.borderLg,
+      side: BorderSide(color: RiveroColors.borderMedium),
+    ),
+    clipBehavior: Clip.antiAlias,
+    items: [
+      for (var k = 0; k < options.length; k++)
+        PopupMenuItem<int>(
+          key: ValueKey('pick-${options[k].label}'),
+          value: k,
+          child: Row(
+            children: [
+              if (options[k].leading != null) ...[
+                options[k].leading!,
+                const SizedBox(width: RiveroSpacing.sm),
+              ],
+              Expanded(
+                child: Text(
+                  options[k].label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: RiveroTypography.bodyLarge.copyWith(
+                    color: options[k].value == selected
+                        ? RiveroColors.accent
+                        : null,
+                  ),
+                ),
+              ),
+              if (options[k].value == selected)
+                Icon(Icons.check_rounded, color: RiveroColors.accent, size: 18),
+            ],
+          ),
+        ),
+    ],
+  );
+  return i == null ? null : options[i];
+}
+
+/// A form field that looks like the app's other inputs and opens a
+/// dropdown under itself ([showDropdown]). Long labels are cut cleanly
+/// instead of breaking layout.
 class PickerField<T> extends StatelessWidget {
   const PickerField({
     required this.label,
@@ -103,35 +173,39 @@ class PickerField<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final current = options.where((o) => o.value == value).firstOrNull;
-    return InkWell(
-      borderRadius: RiveroRadii.borderLg,
-      onTap: () async {
-        final picked = await showPicker<T>(
-          context,
-          title: label,
-          options: options,
-          selected: value,
-        );
-        if (picked != null) onChanged(picked.value);
-      },
-      child: InputDecorator(
-        decoration: InputDecoration(labelText: label),
-        child: Row(
-          children: [
-            if (current?.leading != null) ...[
-              current!.leading!,
-              const SizedBox(width: RiveroSpacing.sm),
-            ],
-            Expanded(
-              child: Text(
-                current?.label ?? 'Choose',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: RiveroTypography.bodyLarge,
+    return Builder(
+      builder: (fieldContext) => InkWell(
+        borderRadius: RiveroRadii.borderLg,
+        onTap: () async {
+          final picked = await showDropdown<T>(
+            fieldContext,
+            options: options,
+            selected: value,
+          );
+          if (picked != null) onChanged(picked.value);
+        },
+        child: InputDecorator(
+          decoration: InputDecoration(labelText: label),
+          child: Row(
+            children: [
+              if (current?.leading != null) ...[
+                current!.leading!,
+                const SizedBox(width: RiveroSpacing.sm),
+              ],
+              Expanded(
+                child: Text(
+                  current?.label ?? 'Choose',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: RiveroTypography.bodyLarge,
+                ),
               ),
-            ),
-            Icon(Icons.expand_more_rounded, color: RiveroColors.textSecondary),
-          ],
+              Icon(
+                Icons.expand_more_rounded,
+                color: RiveroColors.textSecondary,
+              ),
+            ],
+          ),
         ),
       ),
     );

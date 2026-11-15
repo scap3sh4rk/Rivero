@@ -44,8 +44,18 @@ void main() {
       await tester.pump(const Duration(milliseconds: 200));
     }
 
+    // Accept asks for the category right on Home; Add waits for one.
     await tester.tap(find.widgetWithText(FilledButton, 'Accept').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    final add = find.byKey(const ValueKey('quick-add'));
+    expect(add, findsOneWidget);
+    expect(tester.widget<FilledButton>(add).onPressed, isNull);
+    await tester.tap(find.byKey(const ValueKey('quick-cat-Food')));
+    await tester.pump();
+    await tester.tap(add);
     await settle();
+    await tester.pump(const Duration(milliseconds: 400));
     await tester.tap(find.widgetWithText(OutlinedButton, 'Ignore').first);
     await settle();
 
@@ -53,6 +63,10 @@ void main() {
       () => db.select(db.transactions).get(),
     ))!.map((t) => t.transactionState).toList();
     expect(states, contains(TransactionState.confirmed));
+    final accepted = (await tester.runAsync(
+      () => db.select(db.transactions).get(),
+    ))!.firstWhere((t) => t.transactionState == TransactionState.confirmed);
+    expect(accepted.category, 'Food');
     expect(states, contains(TransactionState.ignored));
     expect(find.text('To review · 1'), findsOneWidget);
 

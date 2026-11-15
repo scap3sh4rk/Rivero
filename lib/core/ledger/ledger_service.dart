@@ -6,8 +6,6 @@ import 'package:rivero/core/domain/account_role.dart';
 import 'package:rivero/core/domain/custom_account_types.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/ingestion/mandate_tracker.dart';
-import 'package:rivero/core/ingestion/models/raw_notification.dart';
-import 'package:rivero/core/ingestion/parser/financial_parser.dart';
 
 /// The one place where a transaction's money effects are applied:
 /// physical balance + expense-bucket spend. Every capture path (notification,
@@ -216,7 +214,6 @@ class LedgerService {
     if (partner != null && _decidedTogether(t, partner)) {
       await confirm(partner);
     }
-    await _adoptReportedBalance(t);
     return true;
   });
 
@@ -239,64 +236,6 @@ class LedgerService {
       await ignore(partner);
     }
   });
-
-  /// A confirmed capture's bank message said "Avl bal": that is the truth
-  /// for the account, unless something newer has happened there since.
-  Future<void> _adoptReportedBalance(LedgerTransaction t) async {
-    // Its own message, and any second message for the same payment (the
-    // payment app spoke first, the bank's SMS with the balance came after).
-    final logId = t.ingestionLogId;
-    final logs =
-        await (db.select(db.rawIngestionLogs)
-              ..where(
-                (l) => logId == null
-                    ? l.matchedTransactionId.equals(t.id)
-                    : l.id.equals(logId) | l.matchedTransactionId.equals(t.id),
-              )
-              ..orderBy([(l) => OrderingTerm.desc(l.receivedAt)]))
-            .get();
-    int? reported;
-    for (final log in logs) {
-      reported = const FinancialParser()
-          .parse(
-            RawNotification(
-              id: log.id,
-              body: log.rawPayload,
-              receivedAt: log.receivedAt,
-              sender: log.senderHeader,
-            ),
-          )
-          ?.balanceMinorUnits;
-      if (reported != null) break;
-    }
-    if (reported == null) return;
-    final acc = await db.accountsDao.getPhysicalAccountById(
-      t.physicalAccountId,
-    );
-    if (acc == null || acc.isLiability) return;
-    // Older than what is already known about this account: not news.
-    if (!AccountsDao.movesBalance(acc, t.transactionTimestamp)) return;
-    final newer =
-        await (db.select(db.transactions)..where(
-              (x) =>
-                  x.physicalAccountId.equals(t.physicalAccountId) &
-                  x.id.equals(t.id).not() &
-                  x.transactionTimestamp.isBiggerThanValue(
-                    t.transactionTimestamp,
-                  ) &
-                  x.transactionState.isIn([
-                    TransactionState.confirmed.name,
-                    TransactionState.reconciled.name,
-                  ]),
-            ))
-            .get();
-    if (newer.isNotEmpty) return;
-    await db.accountsDao.setKnownBalance(
-      t.physicalAccountId,
-      reported,
-      t.transactionTimestamp,
-    );
-  }
 
   /// Whether [t] still has to move its account's balance: false when the
   /// balance was stated (typed in, or reported by the bank) at or after

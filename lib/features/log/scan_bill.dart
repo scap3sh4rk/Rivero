@@ -157,7 +157,7 @@ class _BillConfirmSheetState extends ConsumerState<BillConfirmSheet> {
                 prefixText: '₹',
               ),
             ),
-            const SizedBox(height: RiveroSpacing.md),
+            const SizedBox(height: RiveroSpacing.field),
             TextField(
               key: const ValueKey('bill-what'),
               controller: _what,
@@ -193,7 +193,7 @@ class _BillConfirmSheetState extends ConsumerState<BillConfirmSheet> {
               ],
             ),
             if (accounts.isNotEmpty) ...[
-              const SizedBox(height: RiveroSpacing.md),
+              const SizedBox(height: RiveroSpacing.field),
               PickerField<String>(
                 label: 'Paid from',
                 value: account?.id,

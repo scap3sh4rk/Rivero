@@ -69,6 +69,9 @@ class MandatesDao extends DatabaseAccessor<RiveroDatabase>
   }
 
   /// Update only the given fields of an existing mandate.
+  Future<Mandate?> getMandateById(String id) =>
+      (select(mandates)..where((m) => m.id.equals(id))).getSingleOrNull();
+
   Future<int> patchMandate(String id, MandatesCompanion changes) {
     return (update(mandates)..where((t) => t.id.equals(id))).write(changes);
   }
@@ -92,20 +95,20 @@ class MandatesDao extends DatabaseAccessor<RiveroDatabase>
 }
 
 /// Active mandates that will still debit before the end of [cycleEnd]:
-/// from today (the whole of today counts), plus ones up to 5 days overdue
-/// whose debit has not been seen yet (still reserved until it arrives or
-/// the date is rolled forward).
+/// from today (the whole of today counts), plus overdue ones whose debit
+/// has not been seen yet. Those stay reserved until the debit arrives, the
+/// user says what happened, or they are rolled forward (see
+/// MandateTracker.rollOverdue, which leaves alone autopays whose account was
+/// short, since those most likely failed).
 List<Mandate> upcomingMandates(
   Iterable<Mandate> mandates,
   DateTime now,
   DateTime cycleEnd,
 ) {
-  final today = DateTime(now.year, now.month, now.day);
-  final from = today.subtract(const Duration(days: 5));
   final end = DateTime(cycleEnd.year, cycleEnd.month, cycleEnd.day + 1);
   return mandates.where((m) => m.status == MandateStatus.active).where((m) {
       final d = m.nextExecutionDate;
-      return d != null && !d.isBefore(from) && d.isBefore(end);
+      return d != null && d.isBefore(end);
     }).toList()
     ..sort((a, b) => a.nextExecutionDate!.compareTo(b.nextExecutionDate!));
 }

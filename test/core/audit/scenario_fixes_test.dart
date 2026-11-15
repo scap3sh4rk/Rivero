@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rivero/core/database/daos/settings_dao.dart';
@@ -10,6 +12,8 @@ import 'package:rivero/core/engine/sts_breakdown.dart';
 import 'package:rivero/core/ingestion/capture_decisions.dart';
 import 'package:rivero/core/ingestion/ingestion_service.dart';
 import 'package:rivero/core/ingestion/models/raw_notification.dart';
+import 'package:rivero/core/ingestion/platform/notification_bridge.dart';
+import 'package:rivero/core/ingestion/trai_dlt_validator.dart';
 import 'package:rivero/core/ledger/ledger_service.dart';
 import 'package:rivero/core/plan/defaults.dart';
 import 'package:rivero/core/plan/salary_plan_service.dart';
@@ -108,27 +112,24 @@ void main() {
   });
   tearDown(() => db.close());
 
-  test(
-    'H1: accepting the newest capture first keeps the bank balance',
-    () async {
-      await account('bank', 100000, mask: '4012');
-      final older = await sms(
-        'Rs 200.00 debited from A/c XX4012 to VPA tea@ybl (UPI Ref No '
-        '100000000001). Avl bal: Rs 800.00',
-        ago: const Duration(hours: 2),
-      );
-      final newer = await sms(
-        'Rs 300.00 debited from A/c XX4012 to VPA lunch@ybl (UPI Ref No '
-        '100000000002). Avl bal: Rs 500.00',
-        ago: const Duration(hours: 1),
-      );
-      await ledger.confirm(newer!);
-      expect(await bal('bank'), 50000);
-      await ledger.confirm(older!); // already inside the ₹500 the bank reported
-      expect(await bal('bank'), 50000);
-      // In time order it is the same answer.
-    },
-  );
+  test('H1: captures accepted in any order give the same balance', () async {
+    await account('bank', 100000, mask: '4012');
+    final older = await sms(
+      'Rs 200.00 debited from A/c XX4012 to VPA tea@ybl (UPI Ref No '
+      '100000000001). Avl bal: Rs 800.00',
+      ago: const Duration(hours: 2),
+    );
+    final newer = await sms(
+      'Rs 300.00 debited from A/c XX4012 to VPA lunch@ybl (UPI Ref No '
+      '100000000002). Avl bal: Rs 500.00',
+      ago: const Duration(hours: 1),
+    );
+    await ledger.confirm(newer!);
+    expect(await bal('bank'), 70000); // only its amount; "Avl bal" ignored
+    await ledger.confirm(older!);
+    expect(await bal('bank'), 50000);
+    // In time order it is the same answer.
+  });
 
   test('H1: accepting in time order still follows each bank balance', () async {
     await account('bank', 100000, mask: '4012');
@@ -522,8 +523,8 @@ void main() {
     expect(await entries(), hasLength(1));
   });
 
-  test('M10: the balance in the bank SMS is kept when the payment app '
-      'spoke first', () async {
+  test('M10: the balance in a bank SMS is never taken, whichever message '
+      'came first', () async {
     await account('bank', 100000, mask: '4012');
     final a = await sms(
       'Paid ₹300.00 to Cafe',
@@ -536,7 +537,9 @@ void main() {
       '700000000001). Avl bal: Rs 650.00',
     );
     await ledger.confirm(a!);
-    expect(await bal('bank'), 65000); // what the bank says, not 700
+    // ₹1,000 - ₹300: the user's balance moved by the amount. The bank's
+    // "Avl bal: Rs 650.00" is not taken (messages are missed or misread).
+    expect(await bal('bank'), 70000);
   });
 
   test('M11: borrowed money with no pay-back date is not safe to '
@@ -762,6 +765,186 @@ void main() {
         'odd': {'action': 'ignore'},
       });
       expect(await db.ingestionLogsDao.watchUnreadable().first, isEmpty);
+    });
+  });
+
+  // ---- pop-up "Add" when the notification has an awkward title ---------
+
+  group('Pop-up Add reaches the transaction list', () {
+    Future<void> drainOne(String id, String? title, String body) =>
+        NotificationBridge(capture).ingestJson(
+          jsonEncode([
+            {
+              'id': id,
+              'package': gpay,
+              'title': title,
+              'body': body,
+              'time': now.millisecondsSinceEpoch,
+            },
+          ]),
+        );
+
+    for (final title in [
+      'You paid ₹500.00 to Ravi Kumar from your HDFC Bank account',
+      '',
+    ]) {
+      test('title "${title.isEmpty ? '(empty)' : 'long'}"', () async {
+        await account('bank', 100000, mask: '4012');
+        await drainOne('pop-1', title, 'UPI ID ravi@okhdfc · ₹500.00');
+        expect(
+          await CaptureDecisions(db).apply({
+            'pop-1': {'action': 'accept', 'category': 'Food', 'note': null},
+          }),
+          1,
+        );
+        final t = (await entries()).single;
+        expect(t.transactionState, isNot(TransactionState.needsReview));
+        expect(t.category, 'Food');
+      });
+    }
+
+    test(
+      'a choice made before its notification is processed waits for it',
+      () async {
+        await account('bank', 100000, mask: '4012');
+        final decisions = CaptureDecisions(db);
+        expect(
+          await decisions.apply({
+            'pop-2': {'action': 'accept', 'category': 'Fun', 'note': 'Movie'},
+          }),
+          0,
+        );
+        await drainOne('pop-2', 'Google Pay', 'Paid ₹300.00 to PVR');
+        expect(await decisions.apply({}), 1); // the next capture run
+        final t = (await entries()).single;
+        expect(t.category, 'Fun');
+        expect(t.userNotes, 'Movie');
+        expect(t.transactionState, isNot(TransactionState.needsReview));
+      },
+    );
+  });
+
+  // ---- the real Union Bank SMS (15 Nov 2026) ---------------------------
+
+  group('Union Bank SMS from JX-UNIONB-S via Samsung Messages', () {
+    const body =
+        'Union Bank of India A/c*0485 Dr Rs25.00 on 15-11-26 19:19 by MB '
+        '631977745590 Fv.IRANI, Bal Rs701.83 Not U?Call 18002333/SMS BLOCK '
+        '0485 to 8879635472';
+    final sent = DateTime(2026, 11, 15, 19, 20);
+    Future<void> arrive(String id, String title) => NotificationBridge(capture)
+        .ingestJson(
+          jsonEncode([
+            {
+              'id': id,
+              'package': 'com.samsung.android.messaging',
+              'title': title,
+              'body': body,
+              // When the SMS (dated 15-11-26 19:19) reached the phone; fixed
+              // so the test does not depend on the time of day it runs.
+              'time': sent.millisecondsSinceEpoch,
+            },
+          ]),
+        );
+
+    test('the sender with its "-S" suffix is a bank', () {
+      expect(
+        const TraiDltValidator().isFinancialSender(senderHeader: 'JX-UNIONB-S'),
+        isTrue,
+      );
+      expect(
+        const TraiDltValidator().isFinancialSender(senderHeader: 'VM-HDFCBK-T'),
+        isTrue,
+      );
+    });
+
+    test('pop-up Add records it in Activity', () async {
+      await account('ubi', 100000, mask: '0485');
+      await arrive('ubi-1', 'JX-UNIONB-S');
+      await CaptureDecisions(db).apply({
+        'ubi-1': {'action': 'accept', 'category': 'Food', 'note': null},
+      });
+      final t = (await entries()).single;
+      expect(t.transactionState, isNot(TransactionState.needsReview));
+      expect(t.merchant, 'IRANI');
+      expect(t.category, 'Food');
+      expect(t.amountMinorUnits, -2500);
+      expect(t.physicalAccountId, 'ubi');
+    });
+
+    test('already logged by hand: the pop-up files that entry, nothing is '
+        'counted twice', () async {
+      await account('ubi', 100000, mask: '0485');
+      final typed = await ledger.recordManual(
+        accountId: 'ubi',
+        amountMinorUnits: -2500,
+        type: TransactionType.expense,
+        merchant: 'Other',
+        category: 'Other',
+        at: sent.subtract(const Duration(hours: 1)),
+      );
+      await arrive('ubi-2', '+919701122455'); // forwarded copy
+      await CaptureDecisions(db).apply({
+        'ubi-2': {'action': 'accept', 'category': 'Food', 'note': 'Sandwich'},
+      });
+      final all = await entries();
+      expect(all, hasLength(1));
+      expect(all.single.id, typed);
+      expect(all.single.category, 'Food');
+      expect(all.single.userNotes, 'Sandwich');
+      // Counted once; the "Bal Rs701.83" in the message is not taken.
+      expect(await bal('ubi'), 97500);
+    });
+  });
+
+  // ---- deleting an entry whose message stated the balance --------------
+
+  group('Deleting a captured payment puts the balance back as it was', () {
+    String ubi(String amount) =>
+        'Union Bank of India A/c*0485 Dr Rs$amount on 15-11-26 19:19 by MB '
+        '631977745590 Fv.IRANI, Bal Rs701.83 Not U?Call 18002333/SMS BLOCK '
+        '0485 to 8879635472';
+
+    for (final amount in ['275.00', '2105.00']) {
+      test('edited test message "Dr Rs$amount ... Bal Rs701.83"', () async {
+        await account('ubi', 300000, mask: '0485'); // ₹3,000 before
+        final id = await sms(ubi(amount), sender: 'JX-UNIONB-S');
+        await ledger.confirm(id!);
+        // Only the amount; the message's "Bal Rs701.83" is not taken.
+        expect(await bal('ubi'), 300000 - (double.parse(amount) * 100).round());
+        await ledger.remove(id);
+        expect(await bal('ubi'), 300000); // as before the message
+      });
+    }
+
+    test('automatic acceptance on: the same', () async {
+      await db.settingsDao.set(SettingKeys.captureAutoAccept, '1');
+      await account('ubi', 300000, mask: '0485');
+      final id = await sms(ubi('25.00'), sender: 'JX-UNIONB-S');
+      expect(await bal('ubi'), 297500);
+      await ledger.remove(id!);
+      expect(await bal('ubi'), 300000);
+    });
+
+    test('a later payment keeps the balance it brought', () async {
+      await account('ubi', 300000, mask: '0485');
+      final first = await sms(
+        ubi('25.00'),
+        sender: 'JX-UNIONB-S',
+        ago: const Duration(hours: 1),
+      );
+      await ledger.confirm(first!);
+      await ledger.recordManual(
+        accountId: 'ubi',
+        amountMinorUnits: -10000,
+        type: TransactionType.expense,
+        merchant: 'Tea',
+        category: 'Food',
+      );
+      expect(await bal('ubi'), 287500);
+      await ledger.remove(first);
+      // The ₹100 tea stays spent; only the deleted message is undone.
+      expect(await bal('ubi'), 290000);
     });
   });
 }

@@ -18,6 +18,7 @@ void main() {
         currencyCode: code,
         isLiability: false,
         isActive: true,
+        includeInNetWorth: true,
         sortOrder: 0,
         createdAt: now,
         updatedAt: now,

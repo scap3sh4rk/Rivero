@@ -46,6 +46,18 @@ abstract final class SettingKeys {
 
   /// Rates to rupees (JSON: code -> paise per unit), see ExchangeRates.
   static const exchangeRates = 'exchange_rates_json';
+
+  /// Accounts page: section order and folded sections (AccountGroupPrefs).
+  static const accountGroups = 'account_groups_json';
+
+  /// '0' = the net worth card is hidden on Accounts.
+  static const showNetWorth = 'show_net_worth';
+
+  /// Home cards the user picked, in order (JSON list of names).
+  static const homeWidgets = 'home_widgets_json';
+
+  /// Pictures per bank (JSON: BankIcons.key -> file path).
+  static const bankIcons = 'bank_icons_json';
   static const primaryUpi = 'primary_upi_package';
   static const primaryUpiName = 'primary_upi_name';
 
@@ -53,6 +65,10 @@ abstract final class SettingKeys {
   /// could not read (JSON: log id -> {category, note}), offered again when
   /// it is added from Home.
   static const unreadableChoices = 'unreadable_choices_json';
+
+  /// Pop-up choices whose notification was not processed yet (JSON: capture
+  /// id -> choice), retried on each capture run for three days.
+  static const waitingDecisions = 'waiting_decisions_json';
 
   /// Appearance choices (JSON, see Look).
   static const look = 'look_json';

@@ -64,6 +64,7 @@ class _RulesScreenState extends ConsumerState<RulesScreen> {
     return Scaffold(
       backgroundColor: RiveroColors.background,
       appBar: RiveroAppBar(
+        showEye: false, // the hide-amounts eye is for money pages
         title: 'Rules',
         showProfile: false,
         leading: BackButton(onPressed: () => Navigator.of(context).pop()),
@@ -187,7 +188,7 @@ class _RuleDialogState extends State<_RuleDialog> {
               ),
               onChanged: (_) => setState(() {}),
             ),
-            const SizedBox(height: RiveroSpacing.sm),
+            const SizedBox(height: RiveroSpacing.field),
             Row(
               children: [
                 Expanded(
@@ -219,6 +220,7 @@ class _RuleDialogState extends State<_RuleDialog> {
                 ),
               ],
             ),
+            const SizedBox(height: RiveroSpacing.sm),
             SwitchListTile(
               key: const ValueKey('rule-ignore'),
               contentPadding: EdgeInsets.zero,

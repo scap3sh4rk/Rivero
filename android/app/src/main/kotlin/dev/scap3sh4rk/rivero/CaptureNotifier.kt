@@ -136,6 +136,18 @@ object CaptureNotifier {
             .setContentIntent(quickPi)
             .setAutoCancel(true)
             .addAction(Notification.Action.Builder(null, "Add", quickPi).build())
+            // On the lock screen: no amount or message, just a way to add it
+            // (the pop-up then opens over the lock screen).
+            .setVisibility(Notification.VISIBILITY_PRIVATE)
+            .setPublicVersion(
+                builder0(context)
+                    .setSmallIcon(context.applicationInfo.icon)
+                    .setContentTitle("Payment to add")
+                    .setContentText("Tap to pick its category")
+                    .setContentIntent(quickPi)
+                    .setAutoCancel(true)
+                    .build(),
+            )
             .addAction(Notification.Action.Builder(null, "Open Rivero", openPi).build())
             .build()
         manager.notify(id, n)
@@ -156,6 +168,13 @@ object CaptureNotifier {
             put("allowed", allowed)
             put("channelOff", channelOff)
         }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun builder0(context: Context) = if (Build.VERSION.SDK_INT >= 26) {
+        Notification.Builder(context, CHANNEL)
+    } else {
+        Notification.Builder(context)
     }
 
     fun cancel(context: Context, captureId: String) {

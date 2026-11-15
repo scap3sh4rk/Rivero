@@ -39,6 +39,17 @@ class PhysicalAccounts extends Table {
   /// Null = paid from spending money.
   TextColumn get billsPaidFromAccountId => text().nullable()();
 
+  /// Counted in net worth (the user can leave some accounts out).
+  BoolColumn get includeInNetWorth =>
+      boolean().withDefault(const Constant(true))();
+
+  /// Fixed deposits: yearly interest rate in basis points (7.25% = 725),
+  /// the day it was opened and the day it matures. The balance is the
+  /// amount deposited.
+  IntColumn get fdRateBps => integer().nullable()();
+  DateTimeColumn get fdStartDate => dateTime().nullable()();
+  DateTimeColumn get fdMaturityDate => dateTime().nullable()();
+
   /// Custom account type / category (e.g. "Salary", "Savings", "Credit Card", "Cash", or custom).
   TextColumn get accountType =>
       text().withLength(min: 1, max: 50).withDefault(const Constant('Bank'))();

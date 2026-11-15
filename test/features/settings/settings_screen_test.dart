@@ -42,21 +42,36 @@ void main() {
     await tester.pump(const Duration(milliseconds: 150));
 
     expect(find.text('Settings'), findsOneWidget);
-    expect(find.text('Pay day'), findsOneWidget);
-    expect(find.text('Account types'), findsOneWidget);
-    expect(find.text('Autopay'), findsOneWidget);
-    expect(find.text('Load demo data'), findsOneWidget);
-    // The account types list no longer crowds this page.
-    expect(find.text('Fixed Deposit'), findsNothing);
+    // A short page of groups; Autopay is not a setting (it lives on Owed).
+    expect(find.byKey(const ValueKey('section-money')), findsOneWidget);
+    expect(find.byKey(const ValueKey('section-privacy')), findsOneWidget);
+    expect(find.text('Autopay'), findsNothing);
+    expect(find.text('Pay day'), findsNothing);
 
     final container = ProviderScope.containerOf(
       tester.element(find.byType(SettingsScreen)),
     );
+    Future<void> open(String section) async {
+      await tester.tap(find.byKey(ValueKey('section-$section')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+    }
+
+    Future<void> back() async {
+      await tester.tap(find.byType(BackButton).last);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+    }
+
+    // Privacy & security
+    await open('privacy');
     await tester.tap(find.byKey(const ValueKey('privacy-switch')));
     await tester.pump();
     expect(container.read(privacyModeProvider), isTrue);
+    await back();
 
-    // Pay day picker
+    // Money: the pay day picker
+    await open('money');
     await tester.tap(find.text('Pay day'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
@@ -64,12 +79,21 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(container.read(userSalaryDayProvider), 25);
+    await back();
 
-    // Account types open on their own page
+    // Account types open on their own page, not crowding Settings
+    expect(find.text('Fixed Deposit'), findsNothing);
+    await open('sorting');
     await tester.tap(find.text('Account types'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 600));
     expect(find.text('Fixed Deposit'), findsOneWidget);
+    await back();
+    await back();
+
+    await open('data');
+    expect(find.text('Load demo data'), findsOneWidget);
+    expect(find.text('Export data'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 50));

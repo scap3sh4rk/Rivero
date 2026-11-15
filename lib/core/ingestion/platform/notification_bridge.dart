@@ -35,8 +35,7 @@ class NotificationBridge {
     });
   }
 
-  /// A bank-style test message: Rs 1 debit, unique reference, and no
-  /// "available balance" so it cannot overwrite the real balance.
+  /// A bank-style test message: Rs 1 debit and a unique reference.
   static String sampleMessage({required String mask, required DateTime now}) {
     final d = now.day.toString().padLeft(2, '0');
     final m = now.month.toString().padLeft(2, '0');

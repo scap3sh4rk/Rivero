@@ -123,7 +123,7 @@ class CardAffordability {
 /// * loans and overdrafts are long-term debt, not a bill: left out.
 /// `accounts` are in the home currency (`ExchangeRates.inHome`).
 class CardBills {
-  CardBills._(this.byCard, this.payerOf, this.all);
+  CardBills._(this.byCard, this.payerOf, this.all, this.sharing);
 
   factory CardBills.of(List<PhysicalAccount> accounts) {
     int owedOn(PhysicalAccount a) =>
@@ -139,41 +139,44 @@ class CardBills {
             !StandardAccountTypes.isLongTermDebt(a.accountType))
           a,
     ];
+    // Cards grouped by the account that pays them; '' = no account set
+    // (paid from the money not set aside for any card).
     final payerOf = <String, PhysicalAccount>{};
-    final groupOwed = <String, int>{};
+    final groups = <String, List<PhysicalAccount>>{};
     for (final c in cards) {
       final p = banks[c.billsPaidFromAccountId];
-      if (p == null) continue;
-      payerOf[c.id] = p;
-      groupOwed[p.id] = (groupOwed[p.id] ?? 0) + owedOn(c);
+      if (p != null) payerOf[c.id] = p;
+      (groups[p?.id ?? ''] ??= []).add(c);
     }
     int held(PhysicalAccount a) =>
         a.balanceMinorUnits < 0 ? 0 : a.balanceMinorUnits;
     final pool = banks.values
-        .where((b) => !groupOwed.containsKey(b.id))
+        .where((b) => !groups.containsKey(b.id))
         .fold<int>(0, (s, b) => s + held(b));
 
+    // Each group is judged as a whole: everything its cards owe against
+    // what its account (or the pool) holds, so two cards never both count
+    // the same money.
     final byCard = <String, CardAffordability>{};
+    final sharing = <String, List<PhysicalAccount>>{};
     var covered = 0;
-    var owedTotal = 0;
     var spill = 0; // what payer accounts cannot cover
-    for (final c in cards) {
-      owedTotal += owedOn(c);
-      final p = payerOf[c.id];
-      if (p == null) {
-        byCard[c.id] = CardAffordability(owed: owedOn(c), available: pool);
-        spill += owedOn(c);
-      } else {
-        byCard[c.id] = CardAffordability(
-          owed: groupOwed[p.id]!,
-          available: held(p),
-        );
+    var owedTotal = 0;
+    for (final MapEntry(key: payer, value: group) in groups.entries) {
+      final owed = group.fold<int>(0, (s, c) => s + owedOn(c));
+      final available = payer.isEmpty ? pool : held(banks[payer]!);
+      owedTotal += owed;
+      final a = CardAffordability(owed: owed, available: available);
+      for (final c in group) {
+        byCard[c.id] = a;
+        sharing[c.id] = group;
       }
-    }
-    for (final e in groupOwed.entries) {
-      final h = held(banks[e.key]!);
-      covered += e.value < h ? e.value : h;
-      spill += e.value > h ? e.value - h : 0;
+      if (payer.isEmpty) {
+        spill += owed;
+      } else {
+        covered += owed < available ? owed : available;
+        spill += owed > available ? owed - available : 0;
+      }
     }
     // Whatever the card accounts cannot cover comes from the other money.
     covered += spill < pool ? spill : pool;
@@ -181,12 +184,13 @@ class CardBills {
       byCard,
       payerOf,
       CardAffordability(owed: owedTotal, available: covered),
+      sharing,
     );
   }
 
-  /// Per card id (cards only; loans and overdrafts have none). For a card
-  /// with its own account, [CardAffordability.owed] is everything that
-  /// account pays (all cards sharing it).
+  /// Per card id (cards only; loans and overdrafts have none).
+  /// [CardAffordability.owed] is everything owed by the cards paid from the
+  /// same place (see [sharing]), against what that place holds.
   final Map<String, CardAffordability> byCard;
 
   /// The account a card's bills are paid from, if one is set.
@@ -194,4 +198,7 @@ class CardBills {
 
   /// Every card together.
   final CardAffordability all;
+
+  /// Per card id: all cards paid from the same account (itself included).
+  final Map<String, List<PhysicalAccount>> sharing;
 }

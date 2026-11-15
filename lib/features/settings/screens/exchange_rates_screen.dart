@@ -36,6 +36,7 @@ class ExchangeRatesScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: RiveroColors.background,
       appBar: RiveroAppBar(
+        showEye: false, // the hide-amounts eye is for money pages
         title: 'Exchange rates',
         showProfile: false,
         leading: BackButton(onPressed: () => Navigator.of(context).pop()),
@@ -58,7 +59,7 @@ class ExchangeRatesScreen extends ConsumerWidget {
             ),
           for (final c in codes)
             Padding(
-              padding: const EdgeInsets.only(bottom: RiveroSpacing.md),
+              padding: const EdgeInsets.only(bottom: RiveroSpacing.field),
               child: TextFormField(
                 key: ValueKey('rate-$c'),
                 initialValue: _rupees(rates.paisePerUnit[c]),

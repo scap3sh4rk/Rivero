@@ -10,6 +10,7 @@ import 'package:rivero/core/utils/amount_parser.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/account_color.dart';
+import 'package:rivero/design_system/widgets/balance_mask.dart';
 import 'package:rivero/design_system/widgets/bank_badge.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
@@ -104,12 +105,14 @@ class AccountDetailScreen extends ConsumerWidget {
       );
     }
     // Privacy mode, or this account's own balance hidden on Accounts.
-    final privacy =
-        ref.watch(privacyModeProvider) ||
-        ref.watch(hiddenBalancesProvider).contains(accountId);
+    final privacy = accountMasked(ref, accountId);
     String money(int v) => privacy ? '••••' : CurrencyFormatter.format(v);
     final txns = (ref.watch(allTransactionsStreamProvider).value ?? const [])
-        .where((t) => t.physicalAccountId == accountId)
+        .where(
+          (t) =>
+              t.physicalAccountId == accountId &&
+              t.transactionState != TransactionState.ignored,
+        )
         .toList();
     final mandates = (ref.watch(allMandatesProvider).value ?? const [])
         .where(
@@ -130,17 +133,10 @@ class AccountDetailScreen extends ConsumerWidget {
         actions: [
           IconButton(
             key: const ValueKey('detail-hide'),
-            tooltip: ref.watch(hiddenBalancesProvider).contains(accountId)
-                ? 'Show balance'
-                : 'Hide balance',
-            onPressed: () {
-              final n = ref.read(hiddenBalancesProvider.notifier);
-              n.state = n.state.contains(accountId)
-                  ? ({...n.state}..remove(accountId))
-                  : {...n.state, accountId};
-            },
+            tooltip: privacy ? 'Show balance' : 'Hide balance',
+            onPressed: () => toggleAccountMask(ref, accountId),
             icon: Icon(
-              ref.watch(hiddenBalancesProvider).contains(accountId)
+              privacy
                   ? Icons.visibility_off_outlined
                   : Icons.visibility_outlined,
             ),
@@ -269,6 +265,7 @@ class AccountDetailScreen extends ConsumerWidget {
             ActivityRow(
               t,
               privacy: privacy,
+              showAccount: false,
               tint: t.amountMinorUnits > 0
                   ? RiveroColors.success
                   : categoryColor(t.category, categories),
@@ -296,8 +293,14 @@ class NetWorthSheet extends ConsumerWidget {
         ref.watch(activePhysicalAccountsProvider).value ?? const [];
     final privacy = ref.watch(privacyModeProvider);
     String money(int v) => privacy ? '••••' : CurrencyFormatter.format(v);
-    final assets = accounts.where((a) => !a.isLiability).toList();
-    final cards = accounts.where((a) => a.isLiability).toList();
+    // Only accounts kept in net worth (switch on the account).
+    final assets = accounts
+        .where((a) => !a.isLiability && a.includeInNetWorth)
+        .toList();
+    final cards = accounts
+        .where((a) => a.isLiability && a.includeInNetWorth)
+        .toList();
+    final left = accounts.where((a) => !a.includeInNetWorth).toList();
     // Totals in rupees (other currencies at the user's rate).
     final rates = ref.watch(exchangeRatesProvider);
     final assetTotal = rates
@@ -343,17 +346,26 @@ class NetWorthSheet extends ConsumerWidget {
               ),
               const SizedBox(height: RiveroSpacing.lg),
               Text(
-                'Bank & cash · ${money(assetTotal)}',
+                'Assets · ${money(assetTotal)}',
                 style: RiveroTypography.titleMedium,
               ),
               for (final a in assets) line(a),
               if (cards.isNotEmpty) ...[
                 const SizedBox(height: RiveroSpacing.md),
                 Text(
-                  'Card dues · − ${money(debt)}',
+                  'Cards & loans · − ${money(debt)}',
                   style: RiveroTypography.titleMedium,
                 ),
                 for (final a in cards) line(a, negative: true),
+              ],
+              if (left.isNotEmpty) ...[
+                const SizedBox(height: RiveroSpacing.md),
+                Text(
+                  'Left out (switched off on the account): '
+                  '${left.map((a) => a.name).join(', ')}',
+                  key: const ValueKey('networth-left-out'),
+                  style: RiveroTypography.bodySmall,
+                ),
               ],
               if (owed > 0) ...[
                 const SizedBox(height: RiveroSpacing.md),

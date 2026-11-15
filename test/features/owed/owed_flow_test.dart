@@ -134,6 +134,8 @@ void main() {
     expect(h, greaterThanOrEqualTo(3000 * 0.28));
     // A small net line sits below them.
     expect(find.byKey(const ValueKey('owed-net')), findsOneWidget);
+    // Autopay lives on the Owed tab.
+    expect(find.byKey(const ValueKey('owed-autopay')), findsOneWidget);
     expect(find.text('All square'), findsOneWidget);
     expect(find.byType(Scrollable), findsNothing);
 
@@ -169,9 +171,20 @@ void main() {
     await settle();
     expect(find.text('Meera'), findsOneWidget);
     expect(find.text('Bills & commitments'), findsOneWidget);
-    expect(find.byKey(const ValueKey('commitments-total')), findsOneWidget);
+    // Each card: what to settle, by when, from which account. No "before
+    // payday" total, no "you hold", no limit or available credit.
+    expect(find.byKey(const ValueKey('commitments-total')), findsNothing);
+    expect(find.textContaining('You hold'), findsNothing);
     expect(find.byKey(const ValueKey('commit-card-acc-cc')), findsOneWidget);
-    expect(find.textContaining('Pay by'), findsWidgets);
+    // Credit cards together: what they owe in all, beside the title.
+    expect(find.text('Credit cards'), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.byKey(const ValueKey('cards-owed-total'))).data,
+      startsWith('Owe ₹'),
+    );
+    expect(find.textContaining('Settle by'), findsWidgets);
+    expect(find.textContaining('From '), findsWidgets);
+    expect(find.textContaining('limit'), findsNothing);
 
     // Pay it back in cash.
     await tester.tap(find.text('Meera'));

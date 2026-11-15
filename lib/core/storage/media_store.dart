@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 abstract final class MediaStore {
   static const accountImages = 'account_images';
   static const bills = 'bills';
+  static const bankIcons = 'bank_icons';
 
   /// For tests.
   static Directory? rootOverride;
@@ -58,7 +59,7 @@ abstract final class MediaStore {
 
   /// Deletes every stored photo (used by "Delete all data").
   static Future<void> wipe() async {
-    for (final folder in [accountImages, bills]) {
+    for (final folder in [accountImages, bills, bankIcons]) {
       final d = await _dir(folder);
       if (d.existsSync()) await d.delete(recursive: true);
     }

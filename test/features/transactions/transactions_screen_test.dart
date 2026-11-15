@@ -139,7 +139,7 @@ void main() {
       'Team lunch, Ravi owes half',
     );
     await tester.tap(find.text('Food'));
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Ignore'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
     await settle();
 
     final row = (await tester.runAsync(
@@ -313,5 +313,38 @@ void main() {
       ),
       isFalse,
     );
+  });
+
+  testWidgets('an ignored payment leaves Activity', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final db = RiveroDatabase.memory();
+    addTearDown(db.close);
+    await DatabaseSeeder(db).seedIfEmpty();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [databaseProvider.overrideWithValue(db)],
+        child: const MaterialApp(home: TransactionsScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('Zomato'), findsOneWidget);
+
+    await tester.runAsync(() => LedgerService(db).ignore('txn-review-1'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Zomato'), findsNothing);
+    // Still stored, so the same message is recognised next time.
+    expect(
+      await tester.runAsync(
+        () => db.transactionsDao.getTransactionById('txn-review-1'),
+      ),
+      isNotNull,
+    );
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 100));
   });
 }

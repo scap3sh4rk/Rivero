@@ -107,11 +107,13 @@ void main() {
     expect(await spent(), 50000);
   });
 
-  test("the bank's available balance corrects drift", () async {
+  test('the balance in a bank message is never taken: only the amount moves '
+      'it', () async {
+    final before = await bal('salary');
     await feed(
       'e',
       'HDFC Bank: Rs 500.00 debited from a/c **4012 on 13-11-26 to VPA swiggy@hdfcbank (UPI Ref No 431712345679). Avl bal: Rs 12,345.67',
     );
-    expect(await bal('salary'), 1234567);
+    expect(await bal('salary'), before - 50000);
   });
 }

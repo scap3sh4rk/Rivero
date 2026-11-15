@@ -136,8 +136,12 @@ class RiveroNotificationListener : NotificationListenerService() {
             "(?i)\\b(cashback offer|get (up ?to )?(rs\\.?|inr|₹)|win (up ?to )?|coupon|voucher|apply now|offer)\\b",
         )
 
+        /** Bank shorthand: "Dr Rs25.00" / "Cr Rs500". */
+        private val DR_CR = Regex("(?i)\\b(dr|cr)\\.?\\s*(rs\\.?|inr|₹)\\s*\\d")
+
         fun looksLikeTransaction(text: String) =
-            AMOUNT.containsMatchIn(text) && TXN_WORD.containsMatchIn(text) &&
+            AMOUNT.containsMatchIn(text) &&
+                (TXN_WORD.containsMatchIn(text) || DR_CR.containsMatchIn(text)) &&
                 !OFFER.containsMatchIn(text)
 
         /** Names where the money moved: an account, card, UPI ID or reference. */

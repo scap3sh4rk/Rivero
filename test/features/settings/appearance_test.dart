@@ -56,7 +56,7 @@ void main() {
       expect(Look.fromJson('not json'), const Look());
       expect(
         Look.fromJson('{"accent": 99, "textScale": 9, "bankCards": "huge"}'),
-        const Look(accent: 8, textScale: Look.maxText),
+        Look(accent: AccentChoice.all.length - 1, textScale: Look.maxText),
       );
     });
 

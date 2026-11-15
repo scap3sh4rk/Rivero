@@ -49,8 +49,13 @@ void main() {
     await tester.pump();
   }
 
+  Future<void> pick(WidgetTester tester, String category) async {
+    await tester.tap(find.widgetWithText(ChoiceChip, category));
+    await tester.pump();
+  }
+
   Future<void> saveAndSettle(WidgetTester tester) async {
-    await tester.tap(find.text('Save'));
+    await tester.tap(find.byKey(const ValueKey('log-save')));
     // Saving is one database transaction: give it real time, in steps.
     for (var i = 0; i < 4; i++) {
       await tester.runAsync(
@@ -65,7 +70,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
   }
 
-  testWidgets('nothing pre-selected; an unlabelled spend goes to Other', (
+  testWidgets('nothing pre-selected; a spend needs a category to save', (
     tester,
   ) async {
     await pumpLog(tester);
@@ -79,6 +84,15 @@ void main() {
     await press(tester, 'key-4');
     await press(tester, 'key-5');
     expect(find.text('₹45'), findsOneWidget);
+    // No category yet: Save waits for one (no silent "Other").
+    expect(find.text('Pick a category to save'), findsOneWidget);
+    expect(
+      tester
+          .widget<FilledButton>(find.byKey(const ValueKey('log-save')))
+          .onPressed,
+      isNull,
+    );
+    await pick(tester, 'Food');
     await saveAndSettle(tester);
 
     final after = (await tester.runAsync(
@@ -86,7 +100,7 @@ void main() {
     ))!.spentMinorUnits;
     expect(after - before, 4500);
     await tester.pump();
-    expect(find.text('Saved to Other'), findsOneWidget);
+    expect(find.text('Saved to Food'), findsOneWidget);
     await tester.pump(const Duration(milliseconds: 1600));
     expect(find.text('₹0'), findsOneWidget);
     await finish(tester);
@@ -107,7 +121,7 @@ void main() {
     expect(find.byKey(const ValueKey('key-5')), findsNothing);
     // The note pill is still there, and Save stays reachable.
     expect(find.byKey(const ValueKey('log-note')), findsOneWidget);
-    expect(find.text('Save'), findsOneWidget);
+    expect(find.byKey(const ValueKey('log-save')), findsOneWidget);
 
     FocusManager.instance.primaryFocus?.unfocus();
     await tester.pump();
@@ -137,7 +151,7 @@ void main() {
       find.byKey(const ValueKey('log-note')),
       'Metro card',
     );
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Transport'));
+    await pick(tester, 'Transport');
     await saveAndSettle(tester);
     await tester.pump(const Duration(milliseconds: 1600));
 
@@ -182,7 +196,8 @@ void main() {
     for (final k in ['9', '9', '9', '9', '9']) {
       await press(tester, 'key-$k');
     }
-    await tester.tap(find.text('Save'));
+    await pick(tester, 'Food');
+    await tester.tap(find.byKey(const ValueKey('log-save')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Log this anyway?'), findsOneWidget);
@@ -195,7 +210,7 @@ void main() {
     ))!;
     expect(none.any((t) => t.amountMinorUnits == -9999900), isFalse);
 
-    await tester.tap(find.text('Save'));
+    await tester.tap(find.byKey(const ValueKey('log-save')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     await tester.tap(find.byKey(const ValueKey('log-anyway')));
@@ -219,8 +234,9 @@ void main() {
       await press(tester, 'key-9');
     }
     expect(find.byKey(const ValueKey('too-large')), findsOneWidget);
+    await pick(tester, 'Food');
     final save = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Save'),
+      find.byKey(const ValueKey('log-save')),
     );
     expect(save.onPressed, isNull);
     await finish(tester);
@@ -248,6 +264,7 @@ void main() {
     expect(find.text('₹280'), findsOneWidget);
     await press(tester, 'op-=');
     expect(find.text('120+80×2'), findsNothing);
+    await pick(tester, 'Food');
     await saveAndSettle(tester);
     final txns = (await tester.runAsync(
       () => db.select(db.transactions).get(),

@@ -85,6 +85,7 @@ void main() {
       creditLimitMinorUnits: card ? 10000000 : 0,
       isLiability: card,
       isActive: true,
+      includeInNetWorth: true,
       billsPaidFromAccountId: paidFrom,
       currencyCode: 'INR',
       sortOrder: 0,
@@ -125,6 +126,18 @@ void main() {
       ]);
       expect(b.byCard['hdfc']!.shortBy, 10000);
       expect(b.byCard['slice']!.canPay, isTrue);
+    });
+
+    test('cards with no paying account are netted against the rest', () {
+      final b = CardBills.of([
+        acc('spend', 100000),
+        acc('x', -60000, card: true),
+        acc('y', -60000, card: true),
+      ]);
+      // ₹1,000 cannot pay both ₹600 bills: short by ₹200, not "can pay".
+      expect(b.byCard['x']!.owed, 120000);
+      expect(b.byCard['x']!.shortBy, 20000);
+      expect(b.sharing['x']!.map((c) => c.id), ['x', 'y']);
     });
 
     test('loans are not bills', () {

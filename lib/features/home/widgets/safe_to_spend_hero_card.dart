@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rivero/core/domain/account_role.dart';
 import 'package:rivero/core/engine/safe_to_spend_calculator.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
@@ -8,27 +9,47 @@ import 'package:rivero/design_system/widgets/financial_amount_text.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
 import 'package:rivero/features/home/widgets/sts_breakdown_sheet.dart';
 
-/// The single hero of the app: one large Safe-to-Spend number with a pill
-/// showing how much of the expense budget is left. The pill shifts from
-/// green to amber to red as funds run down.
+/// The single hero of the app: one large Safe-to-Spend number on a card
+/// whose background is a battery of how much of the month's spending is
+/// left, green to amber to red as it runs down.
 class SafeToSpendHeroCard extends ConsumerWidget {
   const SafeToSpendHeroCard({super.key});
 
-  /// Pill colour for the fraction of the month's budget remaining. Calm and
-  /// neutral while things are fine; it only warms up when money is running
-  /// low, and turns red only for a real shortfall.
-  static Color toneFor(double remaining, {bool deficit = false}) {
-    if (deficit) return RiveroColors.danger;
+  /// The battery's colour for how much of the month's spending is left:
+  /// green while there is plenty, amber as it runs down, red near empty.
+  static Color fillFor(double remaining) {
     final r = remaining.clamp(0.0, 1.0);
-    if (r >= 0.35) return RiveroColors.textSecondary;
-    if (r >= 0.15) {
+    if (r >= 0.5) return RiveroColors.success;
+    if (r >= 0.2) {
       return Color.lerp(
         RiveroColors.warning,
-        RiveroColors.textSecondary,
-        (r - 0.15) / 0.2,
+        RiveroColors.success,
+        (r - 0.2) / 0.3,
       )!;
     }
-    return Color.lerp(RiveroColors.danger, RiveroColors.warning, r / 0.15)!;
+    return Color.lerp(RiveroColors.danger, RiveroColors.warning, r / 0.2)!;
+  }
+
+  /// How strong the battery's colour is over the card. Light enough that
+  /// the card's own text colours read well on it, so text never changes
+  /// colour where the fill ends.
+  static const fillStrength = 0.32;
+
+  /// The fill as it looks on the card (the level's colour over the card).
+  static Color shownFill(double remaining) => Color.alphaBlend(
+    fillFor(remaining).withValues(alpha: fillStrength),
+    RiveroColors.surfaceElevated,
+  );
+
+  static bool _spendingOutOfDate(WidgetRef ref) {
+    final stale = ref.watch(balanceToUpdateProvider);
+    if (stale.isEmpty) return false;
+    final buckets = ref.watch(allAllocationBucketsProvider).value ?? const [];
+    return buckets.any(
+      (b) =>
+          b.role == AccountRole.expense &&
+          stale.contains(b.linkedPhysicalAccountId),
+    );
   }
 
   @override
@@ -45,15 +66,18 @@ class SafeToSpendHeroCard extends ConsumerWidget {
     // Same "left" and "of" as the Plan screen and the breakdown sheet.
     final limit = breakdown?.planTotal ?? 0;
     final left = breakdown?.usable ?? 0;
-    final remaining = limit > 0 ? left / limit : (sts.isDeficit ? 0.0 : 1.0);
-    final tone = toneFor(remaining, deficit: sts.isDeficit);
+    final hasPlan = breakdown?.hasPlan ?? true;
+    // The battery level: how much of the month's spending is left (the
+    // number turns red on its own when bills due take more than that).
+    // Empty with no plan yet; hidden amounts hide the level too.
+    final remaining = !hasPlan || limit <= 0 || isPrivacy
+        ? 0.0
+        : (left / limit).clamp(0.0, 1.0);
 
-    // Everything about today's number lives in one card: the figure, what is
-    // left, and a thin bar of how much of the month's spending is used.
-    return RiveroCard(
-      key: const ValueKey('sts-card'),
-      isElevated: true,
-      onTap: () => StsBreakdownSheet.show(context),
+    // Everything about today's number lives in one card, and the card is
+    // the battery: its background fills with what is left of the month's
+    // spending, like the iPhone battery widget.
+    final content = Padding(
       padding: const EdgeInsets.fromLTRB(
         RiveroSpacing.xl,
         RiveroSpacing.xl,
@@ -70,16 +94,19 @@ class SafeToSpendHeroCard extends ConsumerWidget {
                   'SAFE TO SPEND PER DAY',
                   style: RiveroTypography.labelSmall.copyWith(
                     letterSpacing: 1.6,
-                    color: RiveroColors.textMuted,
+                    color: RiveroColors.textSecondary,
                   ),
                 ),
               ),
-              _ReliabilityDot(reliability: sts.reliability),
-              const SizedBox(width: RiveroSpacing.xs),
+              // Only when the number may be out of date (no "Verified").
+              if (sts.reliability != BalanceReliability.verified) ...[
+                _ReliabilityDot(reliability: sts.reliability),
+                const SizedBox(width: RiveroSpacing.xs),
+              ],
               Icon(
                 Icons.info_outline_rounded,
                 size: 16,
-                color: RiveroColors.textMuted,
+                color: RiveroColors.textSecondary,
               ),
             ],
           ),
@@ -117,6 +144,20 @@ class SafeToSpendHeroCard extends ConsumerWidget {
                       '${awaiting ? 'waiting for salary' : '${paycycle.daysRemaining} days to payday'}',
             style: RiveroTypography.bodyMedium,
           ),
+          // The spending account's balance stopped at zero on a payment:
+          // the number rests on a balance that needs the user's update.
+          if (_spendingOutOfDate(ref))
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                'Update your spending account balance (Accounts) for a '
+                'reliable number',
+                key: const ValueKey('sts-update-balance'),
+                style: RiveroTypography.bodySmall.copyWith(
+                  color: RiveroColors.warning,
+                ),
+              ),
+            ),
           if ((breakdown?.waitingForReview ?? 0) > 0 && !isPrivacy)
             Padding(
               padding: const EdgeInsets.only(top: 2),
@@ -131,26 +172,6 @@ class SafeToSpendHeroCard extends ConsumerWidget {
               ),
             ),
           const SizedBox(height: RiveroSpacing.lg),
-          TweenAnimationBuilder<Color?>(
-            tween: ColorTween(end: tone),
-            duration: const Duration(milliseconds: 600),
-            builder: (context, color, _) => ClipRRect(
-              borderRadius: RiveroRadii.borderFull,
-              child: TweenAnimationBuilder<double>(
-                tween: Tween(end: (1 - remaining).clamp(0.0, 1.0)),
-                duration: const Duration(milliseconds: 700),
-                curve: Curves.easeOutCubic,
-                builder: (context, used, _) => LinearProgressIndicator(
-                  key: const ValueKey('budget-bar'),
-                  value: used,
-                  minHeight: 6,
-                  backgroundColor: RiveroColors.surfaceInteractive,
-                  valueColor: AlwaysStoppedAnimation<Color>(color ?? tone),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: RiveroSpacing.sm),
           Text(
             isPrivacy
                 ? '•••• left of ••••'
@@ -165,6 +186,65 @@ class SafeToSpendHeroCard extends ConsumerWidget {
           ),
         ],
       ),
+    );
+    return RiveroCard(
+      key: const ValueKey('sts-card'),
+      isElevated: true,
+      onTap: () => StsBreakdownSheet.show(context),
+      padding: EdgeInsets.zero,
+      child: ClipRRect(
+        borderRadius: RiveroRadii.card,
+        child: TweenAnimationBuilder<double>(
+          tween: Tween(end: remaining),
+          duration: const Duration(milliseconds: 700),
+          curve: Curves.easeOutCubic,
+          builder: (context, level, _) =>
+              BatteryFill(level: level, child: content),
+        ),
+      ),
+    );
+  }
+}
+
+/// A card background that fills from the left like a battery: a light
+/// tint of the level's colour (deeper at the left), over which the card's
+/// own text stays readable everywhere.
+class BatteryFill extends StatelessWidget {
+  const BatteryFill({required this.level, required this.child, super.key});
+
+  /// 0 = empty, 1 = full.
+  final double level;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = level.clamp(0.0, 1.0);
+    final fill = SafeToSpendHeroCard.fillFor(l);
+    const a = SafeToSpendHeroCard.fillStrength;
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: FractionallySizedBox(
+              key: const ValueKey('budget-fill'),
+              widthFactor: l,
+              heightFactor: 1,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      fill.withValues(alpha: a + 0.06),
+                      fill.withValues(alpha: a),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        child,
+      ],
     );
   }
 }
