@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -102,6 +103,59 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
   });
 
+  testWidgets('sections fold; FDs show maturity; net worth can leave one out', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final now = DateTime.now();
+    await db.accountsDao.upsertPhysicalAccount(
+      PhysicalAccountsCompanion(
+        id: const Value('fd'),
+        name: const Value('SBI FD'),
+        institution: const Value('SBI'),
+        accountMask: const Value('9999'),
+        accountType: const Value('Fixed Deposit'),
+        balanceMinorUnits: const Value(10000000),
+        fdRateBps: const Value(700),
+        fdStartDate: Value(DateTime(now.year, now.month, now.day)),
+        fdMaturityDate: Value(DateTime(now.year + 1, now.month, now.day)),
+        includeInNetWorth: const Value(false),
+        createdAt: Value(now),
+        updatedAt: Value(now),
+      ),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [databaseProvider.overrideWithValue(db)],
+        child: const MaterialApp(home: AccountsScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
+
+    // Its own section, with what it will be worth.
+    expect(find.text('Fixed deposits'), findsOneWidget);
+    expect(find.byKey(const ValueKey('fd-maturity-fd')), findsOneWidget);
+    expect(find.textContaining('7.00% a year'), findsOneWidget);
+    // Left out of net worth, and the card says so.
+    expect(find.textContaining('1 left out'), findsOneWidget);
+
+    // Folding a section hides its accounts; tapping again shows them.
+    expect(find.byKey(const ValueKey('balance-acc-salary')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('fold-bank')));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('balance-acc-salary')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('fold-bank')));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('balance-acc-salary')), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 50));
+  });
+
   testWidgets(
     'AccountsScreen displays Net Worth, Credit Lines, and Bank Accounts',
     (tester) async {
@@ -123,7 +177,7 @@ void main() {
       expect(find.text('Accounts'), findsOneWidget);
       expect(find.text('Net worth'), findsOneWidget);
       expect(find.text('Bank & cash'), findsOneWidget);
-      expect(find.text('Cards'), findsOneWidget);
+      expect(find.text('Credit cards'), findsOneWidget);
 
       // Verify credit card utilization card
       expect(find.text('ICICI Sapphiro Card'), findsOneWidget);
@@ -226,4 +280,55 @@ void main() {
       await tester.pump(const Duration(milliseconds: 50));
     },
   );
+
+  testWidgets('an FD asks for its rate and dates and is saved with them', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [databaseProvider.overrideWithValue(db)],
+        child: const MaterialApp(home: Scaffold(body: CreateAccountSheet())),
+      ),
+    );
+    await tester.pump();
+    await tester.tap(find.text('Account type'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.text('Fixed Deposit').last);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    // FD-only questions appear.
+    expect(find.text('Amount deposited (INR)'), findsOneWidget);
+    expect(find.byKey(const ValueKey('fd-rate')), findsOneWidget);
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'SBI FD');
+    await tester.enterText(find.byType(TextFormField).at(1), 'SBI');
+    await tester.enterText(
+      find.widgetWithText(TextFormField, '50000.00'),
+      '100000',
+    );
+    await tester.enterText(find.byKey(const ValueKey('fd-rate')), '7.25');
+    await tester.pump();
+    await tester.ensureVisible(find.text('Add account').last);
+    await tester.tap(find.text('Add account').last);
+    for (var i = 0; i < 4; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    final fd = (await tester.runAsync(
+      () => db.select(db.physicalAccounts).get(),
+    ))!.firstWhere((a) => a.name == 'SBI FD');
+    expect(fd.fdRateBps, 725);
+    expect(fd.balanceMinorUnits, 10000000);
+    expect(fd.includeInNetWorth, isTrue);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 50));
+  });
 }

@@ -6,6 +6,7 @@ import 'package:rivero/core/currency/currency.dart';
 import 'package:rivero/core/database/daos/settings_dao.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/database/database_seeder.dart';
+import 'package:rivero/core/domain/account_group.dart';
 import 'package:rivero/core/domain/custom_account_types.dart';
 import 'package:rivero/core/domain/log_category.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
@@ -51,6 +52,14 @@ final lookProvider = StateProvider<Look>((ref) => const Look());
 
 /// Accounts whose balance is masked (tap the eye on an account to toggle).
 final hiddenBalancesProvider = StateProvider<Set<String>>((ref) => const {});
+
+/// Accounts page sections: their order and which are folded.
+final accountGroupPrefsProvider = StateProvider<AccountGroupPrefs>(
+  (ref) => const AccountGroupPrefs(),
+);
+
+/// Show the net worth card on Accounts.
+final showNetWorthProvider = StateProvider<bool>((ref) => true);
 
 /// Money formatting for one account: dots when its balance is hidden
 /// (or privacy mode is on).
@@ -102,6 +111,10 @@ class SettingsSync {
     ref.read(lookProvider.notifier).state = Look.fromJson(
       await dao.get(SettingKeys.look),
     );
+    ref.read(accountGroupPrefsProvider.notifier).state =
+        AccountGroupPrefs.fromJson(await dao.get(SettingKeys.accountGroups));
+    ref.read(showNetWorthProvider.notifier).state =
+        (await dao.get(SettingKeys.showNetWorth)) != '0';
     final hidden = await dao.get(SettingKeys.hiddenBalances);
     if (hidden != null) {
       try {
@@ -199,6 +212,14 @@ class SettingsSync {
         (_, v) => save(SettingKeys.keepUntouched, '$v'),
       )
       ..listen(lookProvider, (_, v) => save(SettingKeys.look, v.toJson()))
+      ..listen(
+        accountGroupPrefsProvider,
+        (_, v) => save(SettingKeys.accountGroups, v.toJson()),
+      )
+      ..listen(
+        showNetWorthProvider,
+        (_, v) => save(SettingKeys.showNetWorth, v ? '1' : '0'),
+      )
       ..listen(
         hiddenBalancesProvider,
         (_, v) => save(SettingKeys.hiddenBalances, jsonEncode(v.toList())),

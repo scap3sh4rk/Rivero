@@ -46,6 +46,12 @@ abstract final class SettingKeys {
 
   /// Rates to rupees (JSON: code -> paise per unit), see ExchangeRates.
   static const exchangeRates = 'exchange_rates_json';
+
+  /// Accounts page: section order and folded sections (AccountGroupPrefs).
+  static const accountGroups = 'account_groups_json';
+
+  /// '0' = the net worth card is hidden on Accounts.
+  static const showNetWorth = 'show_net_worth';
   static const primaryUpi = 'primary_upi_package';
   static const primaryUpiName = 'primary_upi_name';
 

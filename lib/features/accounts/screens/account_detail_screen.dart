@@ -293,8 +293,14 @@ class NetWorthSheet extends ConsumerWidget {
         ref.watch(activePhysicalAccountsProvider).value ?? const [];
     final privacy = ref.watch(privacyModeProvider);
     String money(int v) => privacy ? '••••' : CurrencyFormatter.format(v);
-    final assets = accounts.where((a) => !a.isLiability).toList();
-    final cards = accounts.where((a) => a.isLiability).toList();
+    // Only accounts kept in net worth (switch on the account).
+    final assets = accounts
+        .where((a) => !a.isLiability && a.includeInNetWorth)
+        .toList();
+    final cards = accounts
+        .where((a) => a.isLiability && a.includeInNetWorth)
+        .toList();
+    final left = accounts.where((a) => !a.includeInNetWorth).toList();
     // Totals in rupees (other currencies at the user's rate).
     final rates = ref.watch(exchangeRatesProvider);
     final assetTotal = rates
@@ -340,17 +346,26 @@ class NetWorthSheet extends ConsumerWidget {
               ),
               const SizedBox(height: RiveroSpacing.lg),
               Text(
-                'Bank & cash · ${money(assetTotal)}',
+                'Assets · ${money(assetTotal)}',
                 style: RiveroTypography.titleMedium,
               ),
               for (final a in assets) line(a),
               if (cards.isNotEmpty) ...[
                 const SizedBox(height: RiveroSpacing.md),
                 Text(
-                  'Card dues · − ${money(debt)}',
+                  'Cards & loans · − ${money(debt)}',
                   style: RiveroTypography.titleMedium,
                 ),
                 for (final a in cards) line(a, negative: true),
+              ],
+              if (left.isNotEmpty) ...[
+                const SizedBox(height: RiveroSpacing.md),
+                Text(
+                  'Left out (switched off on the account): '
+                  '${left.map((a) => a.name).join(', ')}',
+                  key: const ValueKey('networth-left-out'),
+                  style: RiveroTypography.bodySmall,
+                ),
               ],
               if (owed > 0) ...[
                 const SizedBox(height: RiveroSpacing.md),

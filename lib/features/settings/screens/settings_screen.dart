@@ -207,6 +207,17 @@ class SettingsScreen extends ConsumerWidget {
           ),
           const _Header('Privacy'),
           _Row(
+            icon: Icons.account_balance_outlined,
+            title: 'Show net worth on Accounts',
+            subtitle: 'Each account can also be left out of it',
+            trailing: Switch(
+              key: const ValueKey('show-net-worth'),
+              value: ref.watch(showNetWorthProvider),
+              onChanged: (v) =>
+                  ref.read(showNetWorthProvider.notifier).state = v,
+            ),
+          ),
+          _Row(
             icon: Icons.visibility_off_outlined,
             title: 'Hide amounts',
             trailing: Switch(
