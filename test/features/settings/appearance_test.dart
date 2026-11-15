@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -58,10 +60,28 @@ void main() {
       );
     });
 
+    test('every font is bundled at every weight step', () {
+      final pubspec = File('pubspec.yaml').readAsStringSync();
+      for (final f in RiveroFonts.families) {
+        for (final w in [-1, 1, 2]) {
+          RiveroLook.current = Look(weight: w);
+          RiveroFonts.current = f;
+          expect(pubspec, contains('- family: ${RiveroFonts.active}\n'));
+        }
+      }
+      RiveroFonts.current = RiveroFonts.families.first;
+    });
+
     test('tokens follow it', () {
       RiveroLook.current = const Look(accent: 4, weight: 1, heroScale: 0.75);
       expect(RiveroColors.accent, AccentChoice.all[4].dark);
-      expect(RiveroTypography.bodyLarge.fontWeight, FontWeight.w500);
+      // Weight changes the whole font (every weight a step heavier), so
+      // text with a fixed weight follows too.
+      expect(RiveroTypography.bodyLarge.fontFamily, 'Urbanist Bold');
+      expect(
+        RiveroTheme.build(light: false).textTheme.bodyLarge?.fontFamily,
+        'Urbanist Bold',
+      );
       expect(RiveroTypography.financialHero.fontSize, 39);
       // The mono font keeps its weights.
       expect(RiveroTypography.monoMedium.fontWeight, FontWeight.w400);

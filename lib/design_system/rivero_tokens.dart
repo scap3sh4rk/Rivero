@@ -150,6 +150,16 @@ abstract final class RiveroFonts {
 
   /// Set by the app root before building, like [RiveroColors.isLight].
   static String current = families.first;
+
+  /// [current] at the weight picked in Appearance: a sibling family (see
+  /// pubspec) whose every weight is drawn one or two steps lighter or
+  /// heavier, so ALL text follows, whatever weight a screen asks for.
+  static String get active => switch (RiveroLook.current.weight) {
+    -1 => '$current Light',
+    1 => '$current Bold',
+    2 => '$current Heavy',
+    _ => current,
+  };
 }
 
 /// Typography scale implementing:
@@ -157,103 +167,95 @@ abstract final class RiveroFonts {
 /// - Inter for general UI text
 /// - JetBrains Mono for account masks, transaction references, and timestamps
 abstract final class RiveroTypography {
-  /// [base] moved by the weight picked in Appearance (400 to 800 are
-  /// bundled for every font).
-  static FontWeight _w(FontWeight base) =>
-      FontWeight.values[(base.index + RiveroLook.current.weight).clamp(
-        FontWeight.w400.index,
-        FontWeight.w800.index,
-      )];
-
   // --- Plus Jakarta Sans: Financial Counters & Display ---
   static TextStyle get financialHero => TextStyle(
-    fontFamily: RiveroFonts.current,
+    fontFamily: RiveroFonts.active,
     fontSize: 52 * RiveroLook.current.heroScale,
-    fontWeight: _w(FontWeight.w700),
+    fontWeight: FontWeight.w700,
     letterSpacing: -0.8,
     color: RiveroColors.textPrimary,
   );
 
   static TextStyle get financialLarge => TextStyle(
-    fontFamily: RiveroFonts.current,
+    fontFamily: RiveroFonts.active,
     fontSize: 28,
-    fontWeight: _w(FontWeight.w700),
+    fontWeight: FontWeight.w700,
     letterSpacing: -0.5,
     color: RiveroColors.textPrimary,
   );
 
   static TextStyle get financialMedium => TextStyle(
-    fontFamily: RiveroFonts.current,
+    fontFamily: RiveroFonts.active,
     fontSize: 22,
-    fontWeight: _w(FontWeight.w600),
+    fontWeight: FontWeight.w600,
     letterSpacing: -0.3,
     color: RiveroColors.textPrimary,
   );
 
   static TextStyle get displayLarge => TextStyle(
-    fontFamily: RiveroFonts.current,
+    fontFamily: RiveroFonts.active,
     fontSize: 24,
-    fontWeight: _w(FontWeight.w700),
+    fontWeight: FontWeight.w700,
     letterSpacing: -0.4,
     color: RiveroColors.textPrimary,
   );
 
   static TextStyle get displayMedium => TextStyle(
-    fontFamily: RiveroFonts.current,
+    fontFamily: RiveroFonts.active,
     fontSize: 20,
-    fontWeight: _w(FontWeight.w600),
+    fontWeight: FontWeight.w600,
     letterSpacing: -0.2,
     color: RiveroColors.textPrimary,
   );
 
   // --- Inter: UI Text ---
   static TextStyle get titleLarge => TextStyle(
-    fontFamily: RiveroFonts.current,
+    fontFamily: RiveroFonts.active,
     fontSize: 18,
-    fontWeight: _w(FontWeight.w600),
+    fontWeight: FontWeight.w600,
     color: RiveroColors.textPrimary,
   );
 
   static TextStyle get titleMedium => TextStyle(
-    fontFamily: RiveroFonts.current,
+    fontFamily: RiveroFonts.active,
     fontSize: 16,
-    fontWeight: _w(FontWeight.w600),
+    fontWeight: FontWeight.w600,
     color: RiveroColors.textPrimary,
   );
 
   static TextStyle get bodyLarge => TextStyle(
-    fontFamily: RiveroFonts.current,
+    fontFamily: RiveroFonts.active,
     fontSize: 16,
-    fontWeight: _w(FontWeight.w400),
+    fontWeight: FontWeight.w400,
     color: RiveroColors.textPrimary,
   );
 
   static TextStyle get bodyMedium => TextStyle(
-    fontFamily: RiveroFonts.current,
+    fontFamily: RiveroFonts.active,
     fontSize: 14,
-    fontWeight: _w(FontWeight.w400),
+    fontWeight: FontWeight.w400,
     color: RiveroColors.textSecondary,
   );
 
   static TextStyle get bodySmall => TextStyle(
-    fontFamily: RiveroFonts.current,
+    fontFamily: RiveroFonts.active,
     fontSize: 12,
-    fontWeight: _w(FontWeight.w400),
+    fontWeight: FontWeight.w400,
     color: RiveroColors.textMuted,
   );
 
   static TextStyle get labelLarge => TextStyle(
-    fontFamily: RiveroFonts.current,
+    fontFamily: RiveroFonts.active,
     fontSize: 14,
-    fontWeight: _w(FontWeight.w600),
+    fontWeight: FontWeight.w600,
     letterSpacing: 0.1,
     color: RiveroColors.textPrimary,
   );
 
   static TextStyle get labelSmall => TextStyle(
-    fontFamily: RiveroFonts.current,
+    fontFamily: RiveroFonts.active,
     fontSize: 11,
-    fontWeight: _w(FontWeight.w500),
+    fontWeight: FontWeight.w500,
     letterSpacing: 0.2,
     color: RiveroColors.textSecondary,
   );
@@ -317,7 +319,7 @@ abstract final class RiveroTheme {
           );
     return ThemeData(
       useMaterial3: true,
-      fontFamily: RiveroFonts.current,
+      fontFamily: RiveroFonts.active,
       brightness: light ? Brightness.light : Brightness.dark,
       scaffoldBackgroundColor: RiveroColors.background,
       colorScheme: scheme,

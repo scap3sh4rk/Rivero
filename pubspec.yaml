@@ -113,6 +113,189 @@ flutter:
           weight: 700
         - asset: assets/fonts/DMSans-800.ttf
           weight: 800
+    # Font weight (Settings > Appearance): each font again, every weight
+    # drawn with the file one or two steps lighter or heavier. Same files,
+    # so the app does not grow.
+    - family: Urbanist Light
+      fonts:
+        - asset: assets/fonts/Urbanist-400.ttf
+          weight: 400
+        - asset: assets/fonts/Urbanist-400.ttf
+          weight: 500
+        - asset: assets/fonts/Urbanist-500.ttf
+          weight: 600
+        - asset: assets/fonts/Urbanist-600.ttf
+          weight: 700
+        - asset: assets/fonts/Urbanist-700.ttf
+          weight: 800
+    - family: Urbanist Bold
+      fonts:
+        - asset: assets/fonts/Urbanist-500.ttf
+          weight: 400
+        - asset: assets/fonts/Urbanist-600.ttf
+          weight: 500
+        - asset: assets/fonts/Urbanist-700.ttf
+          weight: 600
+        - asset: assets/fonts/Urbanist-800.ttf
+          weight: 700
+        - asset: assets/fonts/Urbanist-800.ttf
+          weight: 800
+    - family: Urbanist Heavy
+      fonts:
+        - asset: assets/fonts/Urbanist-600.ttf
+          weight: 400
+        - asset: assets/fonts/Urbanist-700.ttf
+          weight: 500
+        - asset: assets/fonts/Urbanist-800.ttf
+          weight: 600
+        - asset: assets/fonts/Urbanist-800.ttf
+          weight: 700
+        - asset: assets/fonts/Urbanist-800.ttf
+          weight: 800
+    - family: Inter Light
+      fonts:
+        - asset: assets/fonts/Inter-400.ttf
+          weight: 400
+        - asset: assets/fonts/Inter-400.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-500.ttf
+          weight: 600
+        - asset: assets/fonts/Inter-600.ttf
+          weight: 700
+        - asset: assets/fonts/Inter-700.ttf
+          weight: 800
+    - family: Inter Bold
+      fonts:
+        - asset: assets/fonts/Inter-500.ttf
+          weight: 400
+        - asset: assets/fonts/Inter-600.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-700.ttf
+          weight: 600
+        - asset: assets/fonts/Inter-800.ttf
+          weight: 700
+        - asset: assets/fonts/Inter-800.ttf
+          weight: 800
+    - family: Inter Heavy
+      fonts:
+        - asset: assets/fonts/Inter-600.ttf
+          weight: 400
+        - asset: assets/fonts/Inter-700.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-800.ttf
+          weight: 600
+        - asset: assets/fonts/Inter-800.ttf
+          weight: 700
+        - asset: assets/fonts/Inter-800.ttf
+          weight: 800
+    - family: Plus Jakarta Sans Light
+      fonts:
+        - asset: assets/fonts/PlusJakartaSans-400.ttf
+          weight: 400
+        - asset: assets/fonts/PlusJakartaSans-400.ttf
+          weight: 500
+        - asset: assets/fonts/PlusJakartaSans-500.ttf
+          weight: 600
+        - asset: assets/fonts/PlusJakartaSans-600.ttf
+          weight: 700
+        - asset: assets/fonts/PlusJakartaSans-700.ttf
+          weight: 800
+    - family: Plus Jakarta Sans Bold
+      fonts:
+        - asset: assets/fonts/PlusJakartaSans-500.ttf
+          weight: 400
+        - asset: assets/fonts/PlusJakartaSans-600.ttf
+          weight: 500
+        - asset: assets/fonts/PlusJakartaSans-700.ttf
+          weight: 600
+        - asset: assets/fonts/PlusJakartaSans-800.ttf
+          weight: 700
+        - asset: assets/fonts/PlusJakartaSans-800.ttf
+          weight: 800
+    - family: Plus Jakarta Sans Heavy
+      fonts:
+        - asset: assets/fonts/PlusJakartaSans-600.ttf
+          weight: 400
+        - asset: assets/fonts/PlusJakartaSans-700.ttf
+          weight: 500
+        - asset: assets/fonts/PlusJakartaSans-800.ttf
+          weight: 600
+        - asset: assets/fonts/PlusJakartaSans-800.ttf
+          weight: 700
+        - asset: assets/fonts/PlusJakartaSans-800.ttf
+          weight: 800
+    - family: Manrope Light
+      fonts:
+        - asset: assets/fonts/Manrope-400.ttf
+          weight: 400
+        - asset: assets/fonts/Manrope-400.ttf
+          weight: 500
+        - asset: assets/fonts/Manrope-500.ttf
+          weight: 600
+        - asset: assets/fonts/Manrope-600.ttf
+          weight: 700
+        - asset: assets/fonts/Manrope-700.ttf
+          weight: 800
+    - family: Manrope Bold
+      fonts:
+        - asset: assets/fonts/Manrope-500.ttf
+          weight: 400
+        - asset: assets/fonts/Manrope-600.ttf
+          weight: 500
+        - asset: assets/fonts/Manrope-700.ttf
+          weight: 600
+        - asset: assets/fonts/Manrope-800.ttf
+          weight: 700
+        - asset: assets/fonts/Manrope-800.ttf
+          weight: 800
+    - family: Manrope Heavy
+      fonts:
+        - asset: assets/fonts/Manrope-600.ttf
+          weight: 400
+        - asset: assets/fonts/Manrope-700.ttf
+          weight: 500
+        - asset: assets/fonts/Manrope-800.ttf
+          weight: 600
+        - asset: assets/fonts/Manrope-800.ttf
+          weight: 700
+        - asset: assets/fonts/Manrope-800.ttf
+          weight: 800
+    - family: DM Sans Light
+      fonts:
+        - asset: assets/fonts/DMSans-400.ttf
+          weight: 400
+        - asset: assets/fonts/DMSans-400.ttf
+          weight: 500
+        - asset: assets/fonts/DMSans-500.ttf
+          weight: 600
+        - asset: assets/fonts/DMSans-600.ttf
+          weight: 700
+        - asset: assets/fonts/DMSans-700.ttf
+          weight: 800
+    - family: DM Sans Bold
+      fonts:
+        - asset: assets/fonts/DMSans-500.ttf
+          weight: 400
+        - asset: assets/fonts/DMSans-600.ttf
+          weight: 500
+        - asset: assets/fonts/DMSans-700.ttf
+          weight: 600
+        - asset: assets/fonts/DMSans-800.ttf
+          weight: 700
+        - asset: assets/fonts/DMSans-800.ttf
+          weight: 800
+    - family: DM Sans Heavy
+      fonts:
+        - asset: assets/fonts/DMSans-600.ttf
+          weight: 400
+        - asset: assets/fonts/DMSans-700.ttf
+          weight: 500
+        - asset: assets/fonts/DMSans-800.ttf
+          weight: 600
+        - asset: assets/fonts/DMSans-800.ttf
+          weight: 700
+        - asset: assets/fonts/DMSans-800.ttf
+          weight: 800
     - family: JetBrains Mono
       fonts:
         - asset: assets/fonts/JetBrainsMono-400.ttf
