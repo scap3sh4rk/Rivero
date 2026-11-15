@@ -16,6 +16,7 @@ import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
 import 'package:rivero/design_system/widgets/rivero_fab.dart';
 import 'package:rivero/features/accounts/screens/account_detail_screen.dart';
+import 'package:rivero/features/accounts/widgets/bill_status.dart';
 import 'package:rivero/features/accounts/widgets/create_account_sheet.dart';
 import 'package:rivero/features/settings/screens/exchange_rates_screen.dart';
 
@@ -88,8 +89,7 @@ class AccountsScreen extends ConsumerWidget {
                 index: i,
                 child: _AccountRow(
                   group[i],
-                  afford: bills.byCard[group[i].id],
-                  payer: bills.payerOf[group[i].id],
+                  bills: bills,
                   paysFor: [
                     for (final e in bills.payerOf.entries)
                       if (e.value.id == group[i].id)
@@ -188,18 +188,15 @@ class AccountsScreen extends ConsumerWidget {
 
 /// A bank/cash account or a credit card, with what matters for each.
 class _AccountRow extends ConsumerWidget {
-  const _AccountRow(this.a, {this.afford, this.payer, this.paysFor = const []});
+  const _AccountRow(this.a, {this.bills, this.paysFor = const []});
 
   final PhysicalAccount a;
 
   /// Cards whose bills this account pays.
   final List<String> paysFor;
 
-  /// Can this card's bill be paid (see CardBills); null for a loan.
-  final CardAffordability? afford;
-
-  /// The account the bill is paid from, when one is set.
-  final PhysicalAccount? payer;
+  /// Every card's bill (see CardBills); a loan has no entry.
+  final CardBills? bills;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -358,19 +355,18 @@ class _AccountRow extends ConsumerWidget {
 
   /// Just whether the bill can be paid (compact cards).
   List<Widget> _affordLine(int owed, String Function(int) money) {
-    final afford = this.afford;
-    if (owed == 0 || afford == null) return const [];
-    final from = payer == null ? '' : ' from ${payer!.name}';
+    final status = bills == null || owed == 0
+        ? null
+        : billStatus(bills!, a, money);
+    if (status == null) return const [];
     return [
       Padding(
         padding: const EdgeInsets.only(top: RiveroSpacing.sm),
         child: Text(
-          afford.canPay
-              ? 'You can pay this$from'
-              : 'Short by ${money(afford.shortBy)}$from',
+          status.text,
           key: ValueKey('afford-${a.id}'),
           style: RiveroTypography.labelLarge.copyWith(
-            color: afford.canPay ? RiveroColors.success : RiveroColors.danger,
+            color: status.ok ? RiveroColors.success : RiveroColors.danger,
           ),
         ),
       ),
@@ -395,16 +391,10 @@ class _AccountRow extends ConsumerWidget {
             style: RiveroTypography.bodySmall,
           ),
         ),
+        ..._affordLine(owed, money),
       ];
     }
-    final afford = this.afford;
     final due = DateFormat('d MMM').format(cycle.dueDate);
-    final from = payer == null ? '' : ' from ${payer!.name}';
-    final color = owed == 0 || afford == null
-        ? RiveroColors.textSecondary
-        : afford.canPay
-        ? RiveroColors.success
-        : RiveroColors.danger;
     return [
       const SizedBox(height: RiveroSpacing.md),
       ClipRRect(
@@ -436,17 +426,7 @@ class _AccountRow extends ConsumerWidget {
           ),
         ],
       ),
-      if (owed > 0 && afford != null)
-        Padding(
-          padding: const EdgeInsets.only(top: RiveroSpacing.xs),
-          child: Text(
-            afford.canPay
-                ? 'You can pay this$from: ${money(afford.leftAfter)} left after'
-                : 'Short by ${money(afford.shortBy)} to pay this$from',
-            key: ValueKey('afford-${a.id}'),
-            style: RiveroTypography.labelLarge.copyWith(color: color),
-          ),
-        ),
+      ..._affordLine(owed, money),
     ];
   }
 

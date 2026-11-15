@@ -127,6 +127,18 @@ void main() {
       expect(b.byCard['slice']!.canPay, isTrue);
     });
 
+    test('cards with no paying account are netted against the rest', () {
+      final b = CardBills.of([
+        acc('spend', 100000),
+        acc('x', -60000, card: true),
+        acc('y', -60000, card: true),
+      ]);
+      // ₹1,000 cannot pay both ₹600 bills: short by ₹200, not "can pay".
+      expect(b.byCard['x']!.owed, 120000);
+      expect(b.byCard['x']!.shortBy, 20000);
+      expect(b.sharing['x']!.map((c) => c.id), ['x', 'y']);
+    });
+
     test('loans are not bills', () {
       final b = CardBills.of([
         acc('bank', 100000),
