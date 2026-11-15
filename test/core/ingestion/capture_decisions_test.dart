@@ -58,7 +58,7 @@ void main() {
     expect(t.transactionState, TransactionState.confirmed);
     expect(t.category, 'Food');
     expect(t.userNotes, 'Lunch');
-    expect(await bal(), 4500000); // the bank's reported balance
+    expect(await bal(), 4955000); // only the amount, never the "Avl bal"
   });
 
   test('Ignore: nothing is counted', () async {

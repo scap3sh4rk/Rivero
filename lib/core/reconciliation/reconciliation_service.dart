@@ -1,7 +1,6 @@
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/ledger/ledger_service.dart';
-import 'package:rivero/core/reconciliation/balance_reconciler.dart';
 import 'package:rivero/core/reconciliation/internal_transfer_matcher.dart';
 import 'package:rivero/core/reconciliation/models/reconciliation_models.dart';
 import 'package:rivero/core/reconciliation/refund_matcher.dart';
@@ -13,14 +12,11 @@ class ReconciliationService {
     required this.database,
     this.transferMatcher = const InternalTransferMatcher(),
     this.refundMatcher = const RefundMatcher(),
-    BalanceReconciler? balanceReconciler,
-  }) : balanceReconciler =
-           balanceReconciler ?? BalanceReconciler(database: database);
+  });
 
   final RiveroDatabase database;
   final InternalTransferMatcher transferMatcher;
   final RefundMatcher refundMatcher;
-  final BalanceReconciler balanceReconciler;
 
   /// Scans active transactions, detects unlinked internal self-transfers,
   /// and links corresponding debit and credit legs.
@@ -102,20 +98,5 @@ class ReconciliationService {
   Future<void> reconcileAll() async {
     await reconcileInternalTransfers();
     await reconcileRefunds();
-  }
-
-  /// Reconciles an account balance against its calculated ledger running balance.
-  Future<BalanceReconciliationResult> reconcileAccountBalance({
-    required String accountId,
-    required int reportedBalanceMinorUnits,
-    DateTime? asOf,
-    bool autoAdjust = true,
-  }) {
-    return balanceReconciler.reconcileAccount(
-      accountId: accountId,
-      reportedBalanceMinorUnits: reportedBalanceMinorUnits,
-      asOf: asOf,
-      autoAdjust: autoAdjust,
-    );
   }
 }

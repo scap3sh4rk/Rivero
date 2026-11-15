@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rivero/core/domain/account_role.dart';
 import 'package:rivero/core/engine/safe_to_spend_calculator.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
@@ -29,6 +30,17 @@ class SafeToSpendHeroCard extends ConsumerWidget {
       )!;
     }
     return Color.lerp(RiveroColors.danger, RiveroColors.warning, r / 0.15)!;
+  }
+
+  static bool _spendingOutOfDate(WidgetRef ref) {
+    final stale = ref.watch(balanceToUpdateProvider);
+    if (stale.isEmpty) return false;
+    final buckets = ref.watch(allAllocationBucketsProvider).value ?? const [];
+    return buckets.any(
+      (b) =>
+          b.role == AccountRole.expense &&
+          stale.contains(b.linkedPhysicalAccountId),
+    );
   }
 
   @override
@@ -117,6 +129,20 @@ class SafeToSpendHeroCard extends ConsumerWidget {
                       '${awaiting ? 'waiting for salary' : '${paycycle.daysRemaining} days to payday'}',
             style: RiveroTypography.bodyMedium,
           ),
+          // The spending account's balance stopped at zero on a payment:
+          // the number rests on a balance that needs the user's update.
+          if (_spendingOutOfDate(ref))
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                'Update your spending account balance (Accounts) for a '
+                'reliable number',
+                key: const ValueKey('sts-update-balance'),
+                style: RiveroTypography.bodySmall.copyWith(
+                  color: RiveroColors.warning,
+                ),
+              ),
+            ),
           if ((breakdown?.waitingForReview ?? 0) > 0 && !isPrivacy)
             Padding(
               padding: const EdgeInsets.only(top: 2),

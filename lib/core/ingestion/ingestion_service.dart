@@ -139,12 +139,6 @@ class IngestionService {
           referenceNumber: Value(_fit(parsed.referenceNumber, 80)),
         ),
       );
-      await _adoptReportedBalance(
-        accountId,
-        parsed.balanceMinorUnits,
-        parsed.timestamp,
-        planned.id,
-      );
       return IngestionResult(
         rawLogId: logId,
         status: ParseStatus.parsed,
@@ -183,17 +177,6 @@ class IngestionService {
               ..where((t) => t.id.equals(duplicate.id)))
             .write(TransactionsCompanion(physicalAccountId: Value(accountId)));
       }
-      final applied =
-          duplicate.transactionState == TransactionState.confirmed ||
-          duplicate.transactionState == TransactionState.reconciled;
-      if (applied && duplicate.physicalAccountId == accountId) {
-        await _adoptReportedBalance(
-          accountId,
-          parsed.balanceMinorUnits,
-          parsed.timestamp,
-          duplicate.id,
-        );
-      }
       return IngestionResult(
         rawLogId: logId,
         status: ParseStatus.parsed,
@@ -215,12 +198,6 @@ class IngestionService {
       );
       if (paired != null) {
         await _sameAs(logId, paired);
-        await _adoptReportedBalance(
-          accountId,
-          parsed.balanceMinorUnits,
-          parsed.timestamp,
-          paired,
-        );
         return IngestionResult(
           rawLogId: logId,
           status: ParseStatus.parsed,
@@ -306,14 +283,10 @@ class IngestionService {
     if (state == TransactionState.confirmed) {
       final saved = await database.transactionsDao.getTransactionById(txnId);
       if (saved != null) await LedgerService(database).applyEffects(saved);
-      // The bank's own "available balance" is the source of truth for the
-      // account; adopting it self-corrects any drift.
-      await _adoptReportedBalance(
-        accountId,
-        parsed.balanceMinorUnits,
-        parsed.timestamp,
-        txnId,
-      );
+      // Only the amount moves the balance. A "Bal Rs..." in the message is
+      // never taken: messages do not come for every payment and every bank
+      // words them differently, so the balance the user entered (plus what
+      // was recorded since) is the truth.
       await ReconciliationService(database: database).reconcileAll();
     }
 
@@ -437,24 +410,6 @@ class IngestionService {
           b.spentMinorUnits == 0,
     );
     return hits.length == 1 ? hits.single : null;
-  }
-
-  /// The bank's "available balance" is the truth for a bank account.
-  /// Not for debts, and not when something newer is already known (see
-  /// LedgerService.adoptStated, which also lets deleting [entryId] undo it).
-  Future<void> _adoptReportedBalance(
-    String accountId,
-    int? reported,
-    DateTime at,
-    String entryId,
-  ) async {
-    if (reported == null) return;
-    await LedgerService(database).adoptStated(
-      entryId: entryId,
-      accountId: accountId,
-      reported: reported,
-      at: at,
-    );
   }
 
   Future<void> _logFailed(

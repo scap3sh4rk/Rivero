@@ -22,7 +22,6 @@ import 'package:rivero/core/ledger/ledger_service.dart';
 import 'package:rivero/core/plan/defaults.dart';
 import 'package:rivero/core/plan/plan_transfer_service.dart';
 import 'package:rivero/core/plan/salary_plan_service.dart';
-import 'package:rivero/core/reconciliation/balance_reconciler.dart';
 import 'package:rivero/core/reconciliation/internal_transfer_matcher.dart';
 import 'package:rivero/core/reconciliation/reconciliation_service.dart';
 import 'package:rivero/core/reconciliation/refund_matcher.dart';
@@ -403,22 +402,16 @@ final refundMatcherProvider = Provider<RefundMatcher>((ref) {
 });
 
 /// Balance reconciler provider.
-final balanceReconcilerProvider = Provider<BalanceReconciler>((ref) {
-  final db = ref.watch(databaseProvider);
-  return BalanceReconciler(database: db);
-});
 
 /// Reconciliation service provider.
 final reconciliationServiceProvider = Provider<ReconciliationService>((ref) {
   final db = ref.watch(databaseProvider);
   final transferMatcher = ref.watch(internalTransferMatcherProvider);
   final refundMatcher = ref.watch(refundMatcherProvider);
-  final reconciler = ref.watch(balanceReconcilerProvider);
   return ReconciliationService(
     database: db,
     transferMatcher: transferMatcher,
     refundMatcher: refundMatcher,
-    balanceReconciler: reconciler,
   );
 });
 
@@ -526,6 +519,27 @@ final stsBreakdownProvider = Provider<AsyncValue<StsBreakdown>>((ref) {
       lastSyncedAt: synced,
     ),
   );
+});
+
+/// Bank, wallet and cash accounts whose balance is out of date: since the
+/// user last stated it, a payment was larger than what Rivero thought the
+/// account held (it stopped at zero). Usually a missed credit (no message
+/// came for it); only the user knows the real figure, so they are asked.
+final balanceToUpdateProvider = Provider<Set<String>>((ref) {
+  final accounts = ref.watch(activePhysicalAccountsProvider).value ?? const [];
+  final txns = ref.watch(allTransactionsStreamProvider).value ?? const [];
+  final byId = {for (final a in accounts) a.id: a};
+  return {
+    for (final t in txns)
+      if (byId[t.physicalAccountId] case final a?)
+        if (!a.isLiability &&
+            t.amountMinorUnits < 0 &&
+            t.appliedMinorUnits != null &&
+            t.appliedMinorUnits! > t.amountMinorUnits &&
+            (a.balanceAsOf == null ||
+                !t.transactionTimestamp.isBefore(a.balanceAsOf!)))
+          a.id,
+  };
 });
 
 /// Live calculated Safe-to-Spend result.

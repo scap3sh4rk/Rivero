@@ -364,7 +364,8 @@ void main() {
   });
 
   test(
-    'M4: confirming a capture adopts the bank balance it reported',
+    'M4: confirming a capture moves the balance by its amount only, never to '
+    'the "Avl bal" in the message',
     () async {
       await db.ingestionLogsDao.insertLog(
         RawIngestionLogsCompanion(
@@ -394,7 +395,7 @@ void main() {
         ),
       );
       await ledger.confirm('t');
-      expect(await bal('bank'), 77700);
+      expect(await bal('bank'), 80000); // ₹1,000 - ₹200; ₹777 is ignored
     },
   );
 

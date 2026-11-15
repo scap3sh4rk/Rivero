@@ -112,27 +112,24 @@ void main() {
   });
   tearDown(() => db.close());
 
-  test(
-    'H1: accepting the newest capture first keeps the bank balance',
-    () async {
-      await account('bank', 100000, mask: '4012');
-      final older = await sms(
-        'Rs 200.00 debited from A/c XX4012 to VPA tea@ybl (UPI Ref No '
-        '100000000001). Avl bal: Rs 800.00',
-        ago: const Duration(hours: 2),
-      );
-      final newer = await sms(
-        'Rs 300.00 debited from A/c XX4012 to VPA lunch@ybl (UPI Ref No '
-        '100000000002). Avl bal: Rs 500.00',
-        ago: const Duration(hours: 1),
-      );
-      await ledger.confirm(newer!);
-      expect(await bal('bank'), 50000);
-      await ledger.confirm(older!); // already inside the ₹500 the bank reported
-      expect(await bal('bank'), 50000);
-      // In time order it is the same answer.
-    },
-  );
+  test('H1: captures accepted in any order give the same balance', () async {
+    await account('bank', 100000, mask: '4012');
+    final older = await sms(
+      'Rs 200.00 debited from A/c XX4012 to VPA tea@ybl (UPI Ref No '
+      '100000000001). Avl bal: Rs 800.00',
+      ago: const Duration(hours: 2),
+    );
+    final newer = await sms(
+      'Rs 300.00 debited from A/c XX4012 to VPA lunch@ybl (UPI Ref No '
+      '100000000002). Avl bal: Rs 500.00',
+      ago: const Duration(hours: 1),
+    );
+    await ledger.confirm(newer!);
+    expect(await bal('bank'), 70000); // only its amount; "Avl bal" ignored
+    await ledger.confirm(older!);
+    expect(await bal('bank'), 50000);
+    // In time order it is the same answer.
+  });
 
   test('H1: accepting in time order still follows each bank balance', () async {
     await account('bank', 100000, mask: '4012');
@@ -526,8 +523,8 @@ void main() {
     expect(await entries(), hasLength(1));
   });
 
-  test('M10: the balance in the bank SMS is kept when the payment app '
-      'spoke first', () async {
+  test('M10: the balance in a bank SMS is never taken, whichever message '
+      'came first', () async {
     await account('bank', 100000, mask: '4012');
     final a = await sms(
       'Paid ₹300.00 to Cafe',
@@ -540,7 +537,9 @@ void main() {
       '700000000001). Avl bal: Rs 650.00',
     );
     await ledger.confirm(a!);
-    expect(await bal('bank'), 65000); // what the bank says, not 700
+    // ₹1,000 - ₹300: the user's balance moved by the amount. The bank's
+    // "Avl bal: Rs 650.00" is not taken (messages are missed or misread).
+    expect(await bal('bank'), 70000);
   });
 
   test('M11: borrowed money with no pay-back date is not safe to '
@@ -890,8 +889,8 @@ void main() {
       expect(all.single.id, typed);
       expect(all.single.category, 'Food');
       expect(all.single.userNotes, 'Sandwich');
-      // The bank's own "Bal Rs701.83" is the truth for the account.
-      expect(await bal('ubi'), 70183);
+      // Counted once; the "Bal Rs701.83" in the message is not taken.
+      expect(await bal('ubi'), 97500);
     });
   });
 
@@ -908,7 +907,8 @@ void main() {
         await account('ubi', 300000, mask: '0485'); // ₹3,000 before
         final id = await sms(ubi(amount), sender: 'JX-UNIONB-S');
         await ledger.confirm(id!);
-        expect(await bal('ubi'), 70183); // the bank's stated balance
+        // Only the amount; the message's "Bal Rs701.83" is not taken.
+        expect(await bal('ubi'), 300000 - (double.parse(amount) * 100).round());
         await ledger.remove(id);
         expect(await bal('ubi'), 300000); // as before the message
       });
@@ -918,7 +918,7 @@ void main() {
       await db.settingsDao.set(SettingKeys.captureAutoAccept, '1');
       await account('ubi', 300000, mask: '0485');
       final id = await sms(ubi('25.00'), sender: 'JX-UNIONB-S');
-      expect(await bal('ubi'), 70183);
+      expect(await bal('ubi'), 297500);
       await ledger.remove(id!);
       expect(await bal('ubi'), 300000);
     });
@@ -938,7 +938,7 @@ void main() {
         merchant: 'Tea',
         category: 'Food',
       );
-      expect(await bal('ubi'), 60183);
+      expect(await bal('ubi'), 287500);
       await ledger.remove(first);
       // The ₹100 tea stays spent; only the deleted message is undone.
       expect(await bal('ubi'), 290000);

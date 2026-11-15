@@ -5,7 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/database/database_seeder.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
+import 'package:rivero/core/ledger/ledger_service.dart';
 import 'package:rivero/core/providers/app_providers.dart';
+import 'package:rivero/features/accounts/screens/accounts_screen.dart';
 import 'package:rivero/features/home/widgets/add_from_message_sheet.dart';
 import 'package:rivero/features/home/widgets/safe_to_spend_hero_card.dart';
 import 'package:rivero/features/transactions/screens/transactions_screen.dart';
@@ -157,6 +159,36 @@ void main() {
       ),
       findsOneWidget,
     );
+    await done(tester);
+  });
+
+  testWidgets('a payment bigger than the balance asks for a balance update, '
+      'until the user gives one', (tester) async {
+    await tester.runAsync(
+      () => LedgerService(db).recordManual(
+        accountId: 'acc-expense',
+        amountMinorUnits: -9000000, // ₹90,000 against ₹48,250
+        type: TransactionType.expense,
+        merchant: 'Laptop',
+        category: 'Shopping',
+      ),
+    );
+    await pump(tester, const AccountsScreen());
+    const flag = ValueKey('update-balance-acc-expense');
+    expect(find.byKey(flag), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('update-balance-acc-salary')),
+      findsNothing,
+    );
+
+    // Times are stored to the second: the update comes a moment later.
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 1100));
+      await LedgerService(db).setBalance('acc-expense', 1500000);
+    });
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byKey(flag), findsNothing);
     await done(tester);
   });
 }

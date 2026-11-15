@@ -223,4 +223,82 @@ void main() {
     expect(p.isDebit, isFalse);
     expect(p.amountMinorUnits, 150000);
   });
+
+  group('the payment amount, never a balance or a guess', () {
+    for (final (want, body) in [
+      (
+        20000,
+        'Avl Bal Rs 5,000.00. Rs 200.00 debited from A/c XX1234 on 15-11-26',
+      ),
+      (null, 'Rs.1,2XX.00 debited from A/c XX1234 on 15-11-26'),
+      (null, 'INR ***.00 debited from A/c XX1234 on 15-11-26'),
+      (
+        50000,
+        'Your A/c XX1234 has been debited with INR 500.00 on 15-11-26. Available Balance: INR 4,500.00',
+      ),
+      (
+        150000,
+        'Credit card XX1234: Rs 1,500 spent at Amazon. Avl limit Rs 48,500',
+      ),
+      (150000, 'Avl Lmt: Rs 48,500. Spent Rs 1,500 at Amazon on card XX1234'),
+      (50000, 'Rs.500/- debited from A/c XX1234 to VPA a@ybl'),
+      (10000000, 'Rs 1,00,000.00 debited from A/c XX1234 by NEFT'),
+      (2500, 'A/c XX1234 Debited Rs 25 Balance Rs 1,234.00'),
+      (
+        75000,
+        'Dear Customer, INR 750 is debited from your account ending 1234. Clear Bal is INR 10,000',
+      ),
+      (null, 'A/c XX1234 debited. Bal Rs 5,000.00'),
+    ]) {
+      test(body, () {
+        final p = const FinancialParser().parse(
+          RawNotification(
+            id: 'a',
+            body: body,
+            sender: 'VM-HDFCBK',
+            receivedAt: DateTime(2026, 11, 15),
+          ),
+        );
+        expect(p?.amountMinorUnits, want);
+      });
+    }
+  });
+
+  group('when it happened: the date the bank wrote, if plausible', () {
+    final received = DateTime(2026, 11, 15, 20, 46);
+    for (final (want, body) in [
+      (
+        DateTime(2026, 11, 15, 19, 19),
+        'A/c*0485 Dr Rs25.00 on 15-11-26 19:19 by MB 631977745590',
+      ),
+      (
+        DateTime(2026, 11, 14, 12),
+        'Rs 500 debited from A/c XX1234 on 14-Nov-26 to VPA a@ybl',
+      ),
+      (
+        DateTime(2026, 11, 14, 21, 5),
+        'Rs 500 debited from A/c XX1234 on 14/11/2026 09:05 PM',
+      ),
+      (received, 'Rs 500 debited from A/c XX1234 on 15Nov26'),
+      (received, 'Rs 500 debited from A/c XX1234 on 16-11-26 10:00'),
+      (received, 'Rs 500 debited from A/c XX1234 on 01-01-25'),
+      (received, 'Rs 500 debited from A/c XX1234 to VPA a@ybl'),
+      (
+        DateTime(2026, 11, 13, 12),
+        'Rs 500 debited from A/c XX1234 on 2026-11-13',
+      ),
+    ]) {
+      test(body, () {
+        final p = const FinancialParser().parse(
+          RawNotification(
+            id: 'a',
+            body: body,
+            sender: 'VM-HDFCBK',
+            receivedAt: received,
+          ),
+        )!;
+        expect(p.timestamp, want);
+      });
+    }
+  });
 }

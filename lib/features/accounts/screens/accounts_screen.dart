@@ -257,9 +257,27 @@ class _AccountRow extends ConsumerWidget {
         onTap: () => AccountDetailScreen.open(context, a.id),
         child: a.isLiability
             ? _cardBody(header, money, size)
-            : size == CardSize.large
-            ? _bankBody(header, money)
-            : _bankRow(badge, eye, money, size),
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (size == CardSize.large)
+                    _bankBody(header, money)
+                  else
+                    _bankRow(badge, eye, money, size),
+                  if (ref.watch(balanceToUpdateProvider).contains(a.id))
+                    Padding(
+                      padding: const EdgeInsets.only(top: RiveroSpacing.sm),
+                      child: Text(
+                        'Update the balance: a payment was more than Rivero '
+                        'thought this account held',
+                        key: ValueKey('update-balance-${a.id}'),
+                        style: RiveroTypography.bodySmall.copyWith(
+                          color: RiveroColors.warning,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
       ),
     );
   }
