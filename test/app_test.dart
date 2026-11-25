@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/database/database_seeder.dart';
 import 'package:rivero/core/providers/app_providers.dart';
+import 'package:rivero/core/security/app_lock.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/main.dart';
 
@@ -43,6 +44,15 @@ void main() {
     expect(find.text('Rivero'), findsOneWidget);
     expect(find.text('SAFE TO SPEND PER DAY'), findsOneWidget);
     expect(find.text('To review · 3'), findsOneWidget);
+
+    // App lock sits above the navigator, so it covers every open screen.
+    expect(
+      find.ancestor(
+        of: find.byType(Navigator).first,
+        matching: find.byType(AppLockGate),
+      ),
+      findsOneWidget,
+    );
 
     // Toggle privacy mode
     final privacyButton = find.byTooltip('Toggle Privacy Mode');

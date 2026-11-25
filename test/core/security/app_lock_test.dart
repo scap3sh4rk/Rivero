@@ -46,6 +46,60 @@ void main() {
     expect(find.text('secret money'), findsNothing);
   });
 
+  testWidgets('a screen opened on top is covered when the app relocks', (
+    tester,
+  ) async {
+    var allow = true;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appLockEnabledProvider.overrideWith((ref) => true),
+          authenticatorProvider.overrideWithValue((_) async => allow),
+        ],
+        child: MaterialApp(
+          // As in RiveroApp: the gate wraps the navigator.
+          builder: (context, child) =>
+              AppLockGate(relockAfter: Duration.zero, child: child!),
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const Scaffold(body: Text('account page')),
+                ),
+              ),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.text('account page'), findsOneWidget);
+
+    // Someone else reopens the app and cannot verify.
+    allow = false;
+    [
+      AppLifecycleState.inactive,
+      AppLifecycleState.hidden,
+      AppLifecycleState.paused,
+      AppLifecycleState.hidden,
+      AppLifecycleState.inactive,
+      AppLifecycleState.resumed,
+    ].forEach(tester.binding.handleAppLifecycleStateChanged);
+    await tester.pumpAndSettle();
+    expect(find.text('Rivero is locked'), findsOneWidget);
+    expect(find.text('account page'), findsNothing);
+
+    // The owner unlocks and starts again from the first screen.
+    allow = true;
+    await tester.tap(find.byKey(const ValueKey('unlock')));
+    await tester.pumpAndSettle();
+    expect(find.text('open'), findsOneWidget);
+    expect(find.text('account page'), findsNothing);
+  });
+
   testWidgets('no lock screen when the setting is off', (tester) async {
     await tester.pumpWidget(
       const ProviderScope(

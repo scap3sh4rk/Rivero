@@ -220,6 +220,10 @@ class _RiveroAppState extends ConsumerState<RiveroApp>
       debugShowCheckedModeBanner: false,
       theme: RiveroTheme.build(light: light, font: font, look: look),
       // Text size from Appearance, on top of the phone's own setting.
+      // App lock wraps the whole navigator, so when it locks it covers every
+      // screen, sheet and dialog that was open, not only the first screen.
+      // ponytail: locking drops the open screens (unlock starts on Home);
+      // keep them mounted under the lock only if users miss their place.
       builder: (context, child) {
         final mq = MediaQuery.of(context);
         return MediaQuery(
@@ -228,12 +232,12 @@ class _RiveroAppState extends ConsumerState<RiveroApp>
               mq.textScaler.scale(1) * look.textScale,
             ),
           ),
-          child: child!,
+          child: AppLockGate(child: child!),
         );
       },
       home: switch (ref.watch(onboardedProvider)) {
         null => Scaffold(backgroundColor: RiveroColors.background),
-        _ => const AppLockGate(child: MainScreen()),
+        _ => const MainScreen(),
       },
     );
   }
