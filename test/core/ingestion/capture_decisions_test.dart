@@ -71,6 +71,35 @@ void main() {
     expect(await bal(), 5000000);
   });
 
+  test('Add with another account picked: the payment moves there', () async {
+    await db.accountsDao.upsertPhysicalAccount(
+      PhysicalAccountsCompanion(
+        id: const Value('other'),
+        name: const Value('other'),
+        institution: const Value('Other'),
+        accountMask: const Value('9999'),
+        balanceMinorUnits: const Value(1000000),
+        createdAt: Value(at),
+        updatedAt: Value(at),
+      ),
+    );
+    await capture('pkg:key:4');
+    await CaptureDecisions(db).apply({
+      'pkg:key:4': {
+        'action': 'accept',
+        'category': 'Food',
+        'note': null,
+        'account': 'other',
+      },
+    });
+    final t = (await CaptureDecisions(db).entryFor('pkg:key:4'))!;
+    expect(t.physicalAccountId, 'other');
+    expect(t.transactionState, TransactionState.confirmed);
+    expect(await bal(), 5000000); // the account the message named is untouched
+    final other = await db.accountsDao.getPhysicalAccountById('other');
+    expect(other!.balanceMinorUnits, 1000000 - 45000);
+  });
+
   test('a decision for a capture that made no entry is skipped', () async {
     final n = await CaptureDecisions(db).apply({
       'nothing:here': {'action': 'accept', 'category': 'Food', 'note': null},

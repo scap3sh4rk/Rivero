@@ -61,6 +61,7 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen>
         _income = p.income;
         _note.text = p.note;
         if (p.category != null) _category = p.category;
+        if (p.accountId != null) _accountId = p.accountId;
       });
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) ref.read(logPrefillProvider.notifier).state = null;

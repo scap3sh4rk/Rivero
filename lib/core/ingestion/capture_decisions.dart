@@ -47,7 +47,11 @@ class CaptureDecisions {
       return true;
     }
     final all = await unreadableChoices(db);
-    all[captureId] = {'category': d['category'], 'note': d['note']};
+    all[captureId] = {
+      'category': d['category'],
+      'note': d['note'],
+      'account': d['account'],
+    };
     await db.settingsDao.set(SettingKeys.unreadableChoices, jsonEncode(all));
     return true;
   }
@@ -74,7 +78,7 @@ class CaptureDecisions {
     return id == null ? null : await db.transactionsDao.getTransactionById(id);
   }
 
-  /// Applies [decisions] ({captureId: {action, category, note}}). Returns how
+  /// Applies [decisions] ({captureId: {action, category, note, account}}). Returns how
   /// many were applied; captures that made no entry (a duplicate, a
   /// promotion) are skipped.
   Future<int> apply(Map<String, dynamic> decisions) async {
@@ -110,6 +114,7 @@ class CaptureDecisions {
         if (d['action'] != 'ignore' &&
             t.transactionState != TransactionState.ignored) {
           await _label(t, d);
+          await _move(ledger, t, d);
           applied++;
         }
         continue;
@@ -124,6 +129,7 @@ class CaptureDecisions {
             : await ledger.ignore(t.id);
       } else {
         await _label(t, d);
+        await _move(ledger, t, d);
         await ledger.confirm(t.id);
         await ReconciliationService(database: db).reconcileAll();
       }
@@ -156,6 +162,20 @@ class CaptureDecisions {
             : Value(note),
       ),
     );
+  }
+
+  /// Moves [t] to the account picked on the pop-up, if one was picked and
+  /// it still exists. A transfer stays where it is.
+  Future<void> _move(
+    LedgerService ledger,
+    LedgerTransaction t,
+    Map<String, dynamic> d,
+  ) async {
+    final account = d['account'] as String?;
+    if (account == null || account.isEmpty) return;
+    // A transfer: both sides are already matched to their accounts.
+    if (t.isInternalTransfer || t.linkedTransactionId != null) return;
+    await ledger.changeAccount(t.id, account);
   }
 
   Future<Map<String, dynamic>> _waiting() async {

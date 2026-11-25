@@ -24,10 +24,12 @@ object CaptureNotifier {
     private const val KEY_DECISIONS = "decisions"
     private const val KEY_CATEGORIES = "categories"
     private const val KEY_OPEN = "open_request"
+    private const val KEY_ACCOUNTS = "accounts"
 
     const val EXTRA_ID = "capture_id"
     const val EXTRA_TITLE = "capture_title"
     const val EXTRA_TEXT = "capture_text"
+    const val EXTRA_INCOMING = "capture_incoming"
 
     private val AMOUNT = Regex(
         "(?i)(?:rs\\.?|inr|₹)\\s*([0-9][0-9,]*(?:\\.[0-9]{1,2})?)" +
@@ -112,6 +114,7 @@ object CaptureNotifier {
             putExtra(EXTRA_ID, captureId)
             putExtra(EXTRA_TITLE, heading)
             putExtra(EXTRA_TEXT, body.take(200))
+            putExtra(EXTRA_INCOMING, incoming)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         }
         val open = Intent(context, MainActivity::class.java).apply {
@@ -185,13 +188,21 @@ object CaptureNotifier {
     // ---- decisions made in the popup, applied by the app later ----------
 
     @Synchronized
-    fun saveDecision(context: Context, captureId: String, action: String, category: String?, note: String?) {
+    fun saveDecision(
+        context: Context,
+        captureId: String,
+        action: String,
+        category: String?,
+        note: String?,
+        account: String?,
+    ) {
         val p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val all = JSONObject(p.getString(KEY_DECISIONS, "{}"))
         all.put(captureId, JSONObject().apply {
             put("action", action)
             put("category", category ?: JSONObject.NULL)
             put("note", note ?: JSONObject.NULL)
+            put("account", account ?: JSONObject.NULL)
         })
         p.edit().putString(KEY_DECISIONS, all.toString()).apply()
     }
@@ -222,6 +233,42 @@ object CaptureNotifier {
     private val DEFAULT_CATEGORIES =
         listOf("Food", "Transport", "Shopping", "Bills", "Health", "Fun", "Other")
 
+    // ---- accounts for the popup's "Paid from" chips (written by the app) --
+
+    class Account(val id: String, val name: String, val mask: String?)
+
+    fun setAccounts(context: Context, json: String) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString(KEY_ACCOUNTS, json).apply()
+    }
+
+    fun accounts(context: Context): List<Account> {
+        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_ACCOUNTS, null) ?: return emptyList()
+        return try {
+            val arr = JSONArray(raw)
+            (0 until arr.length()).map {
+                val o = arr.getJSONObject(it)
+                val mask = if (o.isNull("mask")) null else o.optString("mask").ifEmpty { null }
+                Account(o.getString("id"), o.getString("name"), mask)
+            }
+        } catch (e: org.json.JSONException) {
+            emptyList()
+        }
+    }
+
+    /** Same pattern as the app's parser: "A/c XX1234", "card ending 4321". */
+    private val MASK = Regex(
+        "(?i)(?:(?:a/c|acct|account|card)\\s*(?:no\\.?|number)?\\s*[*x\\s]*|ending\\s+(?:in\\s+)?|ending\\s+[*x\\s]*)([0-9]{3,6})\\b",
+    )
+
+    /** The account [text] names by its last digits, if exactly one does. */
+    fun accountIn(text: String, accounts: List<Account>): Account? {
+        val digits = MASK.find(text)?.groupValues?.get(1) ?: return accounts.singleOrNull()
+        val last = if (digits.length > 4) digits.takeLast(4) else digits
+        return accounts.filter { it.mask == last }.singleOrNull()
+    }
+
     // ---- "Open Rivero" on a notification ---------------------------------
 
     fun setOpenRequest(context: Context, captureId: String?) {
@@ -238,6 +285,6 @@ object CaptureNotifier {
 
     fun clear(context: Context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .remove(KEY_DECISIONS).remove(KEY_OPEN).apply()
+            .remove(KEY_DECISIONS).remove(KEY_OPEN).remove(KEY_ACCOUNTS).apply()
     }
 }
