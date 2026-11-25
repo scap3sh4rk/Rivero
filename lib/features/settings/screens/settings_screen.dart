@@ -430,6 +430,8 @@ class SettingsScreen extends ConsumerWidget {
       on ? 'Confirm to turn on app lock' : 'Confirm to turn off app lock',
     );
     if (ok) {
+      // Just verified: the open app stays open (no second prompt).
+      if (on) ref.read(appUnlockedProvider.notifier).state = true;
       ref.read(appLockEnabledProvider.notifier).state = on;
     } else if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
