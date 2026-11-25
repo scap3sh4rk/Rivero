@@ -19,6 +19,9 @@ object Diagnostics {
             .putString("last_pkg", pkg)
             .putString("last_result", result)
             .putLong("last_time", System.currentTimeMillis())
+            .apply {
+                if (result == "hidden") putLong("hidden_time", System.currentTimeMillis())
+            }
             .apply()
     }
 
@@ -46,9 +49,11 @@ object Diagnostics {
             put("queued", p.getInt("n_queued", 0))
             put("noMoney", p.getInt("n_no money", 0))
             put("noText", p.getInt("n_no text", 0))
+            put("hidden", p.getInt("n_hidden", 0))
             put("lastPackage", p.getString("last_pkg", null))
             put("lastResult", p.getString("last_result", null))
             put("lastTime", p.getLong("last_time", 0))
+            put("hiddenTime", p.getLong("hidden_time", 0))
             put("popupResult", p.getString("popup_result", null))
             put("popupTime", p.getLong("popup_time", 0))
             if (p.contains("listener_connected")) {

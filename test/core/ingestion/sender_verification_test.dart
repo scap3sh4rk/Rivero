@@ -83,4 +83,24 @@ void main() {
       expect(bal, 1500000 + 4500000);
     },
   );
+
+  test('a message Android hid waits under bank messages to check', () async {
+    // Android 15+ gives apps like Rivero this text instead of the SMS.
+    await IngestionService(database: db).processNotification(
+      RawNotification(
+        id: 'hidden:1',
+        packageName: 'com.google.android.apps.messaging',
+        sender: 'VM-SBIINB',
+        title: 'VM-SBIINB',
+        body: 'Sensitive notification content hidden',
+        receivedAt: DateTime(2026, 11, 25, 10),
+      ),
+    );
+    final waiting = await db.ingestionLogsDao.watchUnreadable().first;
+    expect(waiting.map((l) => l.id), contains('hidden:1'));
+    expect(
+      (await db.accountsDao.getPhysicalAccountById('sbi'))!.balanceMinorUnits,
+      1500000,
+    );
+  });
 }
