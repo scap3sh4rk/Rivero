@@ -34,6 +34,9 @@ class Dues extends Table {
     onDelete: KeyAction.setNull,
   )();
 
+  /// The account their payment is expected to land in (null = not chosen).
+  TextColumn get creditAccountId => text().nullable()();
+
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
 

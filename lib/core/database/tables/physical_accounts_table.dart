@@ -39,6 +39,12 @@ class PhysicalAccounts extends Table {
   /// Null = paid from spending money.
   TextColumn get billsPaidFromAccountId => text().nullable()();
 
+  /// Can pay credit-card bills. Off for money that is locked away or not
+  /// meant for bills (fixed deposits, investments): it then never counts as
+  /// money available for a card bill.
+  BoolColumn get canPayCardBills =>
+      boolean().withDefault(const Constant(true))();
+
   /// Counted in net worth (the user can leave some accounts out).
   BoolColumn get includeInNetWorth =>
       boolean().withDefault(const Constant(true))();

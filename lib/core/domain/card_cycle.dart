@@ -120,6 +120,8 @@ class CardAffordability {
 ///   alone; cards sharing one share its balance;
 /// * other cards are paid from the bank and cash accounts that are not
 ///   holding money for a card;
+/// * an account the user marked "cannot pay card bills" (a fixed deposit,
+///   say) is never counted, even if a card names it;
 /// * loans and overdrafts are long-term debt, not a bill: left out.
 /// `accounts` are in the home currency (`ExchangeRates.inHome`).
 class CardBills {
@@ -130,7 +132,7 @@ class CardBills {
         a.balanceMinorUnits < 0 ? -a.balanceMinorUnits : 0;
     final banks = {
       for (final a in accounts)
-        if (!a.isLiability && a.isActive) a.id: a,
+        if (!a.isLiability && a.isActive && a.canPayCardBills) a.id: a,
     };
     final cards = [
       for (final a in accounts)

@@ -1,11 +1,13 @@
 import 'dart:async';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivero/core/currency/currency.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/account_role.dart';
+import 'package:rivero/core/domain/custom_account_types.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/amount_parser.dart';
@@ -178,6 +180,30 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen>
   }
 
   // ---- accounts --------------------------------------------------------------
+
+  static const _newCash = '__new_cash__';
+
+  /// A Cash account with nothing in it: spends in cash are logged against it
+  /// (its balance stays at zero; the budget still counts them).
+  Future<String> _createCash() async {
+    final now = DateTime.now();
+    final id = 'acc-cash-${now.microsecondsSinceEpoch}';
+    await ref
+        .read(databaseProvider)
+        .accountsDao
+        .upsertPhysicalAccount(
+          PhysicalAccountsCompanion(
+            id: Value(id),
+            name: const Value('Cash'),
+            institution: const Value('CASH'),
+            accountMask: const Value('••••'),
+            accountType: const Value(StandardAccountTypes.cash),
+            createdAt: Value(now),
+            updatedAt: Value(now),
+          ),
+        );
+    return id;
+  }
 
   /// Chosen account, else the one spending draws from, else the first bank.
   PhysicalAccount? _account(
@@ -513,10 +539,32 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen>
                                   a.name,
                                   leading: ColorDot(accountColor(a)),
                                 ),
+                              // Spent in cash with no Cash account yet: one
+                              // tap makes it, so cash is logged like the rest.
+                              if (!accounts.any(
+                                (a) =>
+                                    !a.isLiability &&
+                                    a.accountType == StandardAccountTypes.cash,
+                              ))
+                                const PickerOption(
+                                  _newCash,
+                                  'Cash',
+                                  leading: Icon(
+                                    Icons.payments_outlined,
+                                    size: 18,
+                                  ),
+                                ),
                             ],
                           );
-                          if (picked != null) {
-                            setState(() => _accountId = picked.value);
+                          if (picked == null) return;
+                          setState(
+                            () => _accountId = picked.value == _newCash
+                                ? null
+                                : picked.value,
+                          );
+                          if (picked.value == _newCash) {
+                            final id = await _createCash();
+                            if (mounted) setState(() => _accountId = id);
                           }
                         },
                       ),

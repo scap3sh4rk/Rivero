@@ -51,6 +51,7 @@ PhysicalAccount _account(
   billsPaidFromAccountId: billsFrom,
   isActive: true,
   includeInNetWorth: true,
+  canPayCardBills: true,
   sortOrder: 0,
   createdAt: _now,
   updatedAt: _now,

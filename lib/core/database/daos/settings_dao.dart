@@ -15,6 +15,9 @@ abstract final class SettingKeys {
   static const openOnLog = 'open_on_log';
   static const accountTypes = 'account_types_json';
   static const countOwed = 'count_owed_in_sts';
+
+  /// '1' = Safe to spend shows a shortfall as a negative amount, not 0.
+  static const showNegativeSts = 'show_negative_sts';
   static const logCategories = 'log_categories_json';
   static const appLock = 'app_lock';
   static const lastLogAccount = 'last_log_account';

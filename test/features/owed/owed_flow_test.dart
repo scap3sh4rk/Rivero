@@ -82,14 +82,30 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('owed-card-to-you')));
     await settle();
     expect(find.text('Ravi'), findsOneWidget);
+    // The split is its own section, grouped under the bill.
+    expect(find.text('Split bills'), findsOneWidget);
+    expect(find.textContaining('of ₹2,000.00 back'), findsOneWidget);
+    // Tapping a name opens everything with that person.
     await tester.tap(find.text('Ravi'));
     await settle();
-    await tester.tap(find.text('Received in cash'));
+    expect(find.byKey(const ValueKey('person-totals')), findsOneWidget);
+    await tester.pageBack();
+    await settle();
+    // The rest of the row settles it, into the account the bill came from.
+    await tester.tap(find.textContaining('Share of').first);
+    await settle();
+    expect(find.byKey(const ValueKey('receive-account')), findsOneWidget);
+    await tester.tap(find.text('Mark received'));
     await settle();
 
     final ravi = (await tester.runAsync(() => db.select(db.dues).get()))!
         .firstWhere((d) => d.person == 'Ravi');
     expect(ravi.status, DueStatus.settled);
+    final credit = (await tester.runAsync(
+      () => db.select(db.transactions).get(),
+    ))!.where((t) => t.transactionType == TransactionType.reimbursement);
+    expect(credit.single.amountMinorUnits, 100000);
+    expect(credit.single.physicalAccountId, ravi.creditAccountId);
 
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 100));
@@ -187,7 +203,7 @@ void main() {
     expect(find.textContaining('limit'), findsNothing);
 
     // Pay it back in cash.
-    await tester.tap(find.text('Meera'));
+    await tester.tap(find.textContaining('Borrowed'));
     await settle();
     expect(find.textContaining('You owe Meera'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('repay-save')));

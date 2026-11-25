@@ -57,6 +57,7 @@ class SafeToSpendHeroCard extends ConsumerWidget {
     final stsAsync = ref.watch(liveSafeToSpendResultProvider);
     final breakdown = ref.watch(stsBreakdownProvider).value;
     final isPrivacy = ref.watch(privacyModeProvider);
+    final showNegative = ref.watch(showNegativeStsProvider);
     final paycycle = ref.watch(currentPaycycleProvider);
     final awaiting = ref.watch(awaitingSalaryProvider).value ?? false;
 
@@ -120,9 +121,15 @@ class SafeToSpendHeroCard extends ConsumerWidget {
             )
           else
             FinancialAmountText(
-              minorUnits: sts.isDeficit ? 0 : sts.dailySpendingPace,
+              // Optionally the real shortfall (negative), after everything
+              // that is still coming in has been counted.
+              minorUnits: sts.isDeficit
+                  ? (showNegative && (breakdown?.hasPlan ?? true)
+                        ? sts.effectiveSafeToSpend
+                        : 0)
+                  : sts.dailySpendingPace,
               size: FinancialAmountSize.hero,
-              isAnimated: true,
+              isAnimated: !(sts.isDeficit && showNegative),
               includeDecimals: false,
               customColor: sts.isDeficit && (breakdown?.hasPlan ?? true)
                   ? RiveroColors.danger

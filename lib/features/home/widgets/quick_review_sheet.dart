@@ -58,15 +58,13 @@ class _QuickReviewSheetState extends ConsumerState<QuickReviewSheet> {
               ? const Value.absent()
               : Value(_category!),
           userNotes: note.isEmpty ? const Value.absent() : Value(note),
-          // Nothing has been applied to a waiting entry yet, so it can
-          // simply be pointed at the right account before it counts.
-          physicalAccountId:
-              _accountId == null ||
-                  t.transactionState != TransactionState.needsReview
-              ? const Value.absent()
-              : Value(_accountId!),
         ),
       );
+      // Waiting or already counted: moved to the right account either way.
+      final account = _accountId;
+      if (account != null && account != t.physicalAccountId) {
+        await ledger.changeAccount(t.id, account);
+      }
       await ledger.confirm(t.id);
       await ref.read(reconciliationServiceProvider).reconcileAll();
       final category = _category;
@@ -107,13 +105,8 @@ class _QuickReviewSheetState extends ConsumerState<QuickReviewSheet> {
         _category ?? (categories.contains(t.category) ? t.category : null);
     final income = t.amountMinorUnits > 0;
     final waiting = t.transactionState == TransactionState.needsReview;
-    // Other accounts of the same kind (bank or card) it could have been.
-    final all = ref.watch(activePhysicalAccountsProvider).value ?? const [];
-    final from = all.where((a) => a.id == t.physicalAccountId).firstOrNull;
-    final choices = [
-      for (final a in all)
-        if (a.isLiability == (from?.isLiability ?? false)) a,
-    ];
+    // Any account it could have been (a bank, a card, cash).
+    final choices = ref.watch(activePhysicalAccountsProvider).value ?? const [];
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
@@ -164,7 +157,7 @@ class _QuickReviewSheetState extends ConsumerState<QuickReviewSheet> {
                 ),
             ],
           ),
-          if (waiting && !t.isInternalTransfer && choices.length > 1) ...[
+          if (!t.isInternalTransfer && choices.length > 1) ...[
             const SizedBox(height: RiveroSpacing.md),
             PickerField<String>(
               key: const ValueKey('quick-account'),

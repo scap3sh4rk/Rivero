@@ -158,6 +158,79 @@ class LedgerService {
     await db.transactionsDao.deleteTransaction(transactionId);
   });
 
+  /// Points [transactionId] at another account: the payment really came from
+  /// (or the money landed in) a different one. What it did to the old account
+  /// and the budget is undone, then done again for the new one. Moving
+  /// between a bank and a card turns spending into card spending and back.
+  /// Transfer legs are left alone (they belong to a pair).
+  Future<void> changeAccount(
+    String transactionId,
+    String accountId,
+  ) => db.transaction(() async {
+    final t = await db.transactionsDao.getTransactionById(transactionId);
+    if (t == null || t.physicalAccountId == accountId) return;
+    if (t.isInternalTransfer || t.linkedTransactionId != null) {
+      throw StateError('A transfer cannot be moved to another account');
+    }
+    final to = await db.accountsDao.getPhysicalAccountById(accountId);
+    if (to == null) return;
+    final applied =
+        !historyOnly(t) &&
+        (t.transactionState == TransactionState.confirmed ||
+            t.transactionState == TransactionState.reconciled);
+    if (applied) {
+      if (await _movesBalance(t)) {
+        await db.accountsDao.adjustAccountBalance(
+          t.physicalAccountId,
+          -(t.appliedMinorUnits ?? t.amountMinorUnits),
+        );
+      }
+      final spend = await _budgetSpend(t);
+      final bucket = t.allocationBucketId ?? await _defaultExpenseBucketId();
+      if (spend != 0 && bucket != null) {
+        await db.accountsDao.recordBucketSpend(bucket, -spend);
+      }
+    }
+    final from = await db.accountsDao.getPhysicalAccountById(
+      t.physicalAccountId,
+    );
+    var type = t.transactionType;
+    if (from != null && from.isLiability != to.isLiability) {
+      if (to.isLiability && type == TransactionType.expense) {
+        type = TransactionType.creditCardPurchase;
+      } else if (!to.isLiability &&
+          type == TransactionType.creditCardPurchase) {
+        type = TransactionType.expense;
+      }
+    }
+    await (db.update(
+      db.transactions,
+    )..where((x) => x.id.equals(transactionId))).write(
+      TransactionsCompanion(
+        physicalAccountId: Value(accountId),
+        transactionType: Value(type),
+      ),
+    );
+    if (!applied) return;
+    final moved = (await db.transactionsDao.getTransactionById(transactionId))!;
+    var now = 0;
+    if (await _movesBalance(moved)) {
+      final before = await _balance(accountId);
+      await db.accountsDao.adjustAccountBalance(
+        accountId,
+        moved.amountMinorUnits,
+      );
+      now = await _balance(accountId) - before;
+    }
+    await (db.update(db.transactions)..where((x) => x.id.equals(transactionId)))
+        .write(TransactionsCompanion(appliedMinorUnits: Value(now)));
+    final spend = await _budgetSpend(moved);
+    final bucket = moved.allocationBucketId ?? await _defaultExpenseBucketId();
+    if (spend != 0 && bucket != null) {
+      await db.accountsDao.recordBucketSpend(bucket, spend);
+    }
+  });
+
   /// Ids of entries Rivero creates in pairs (plan moves, card-bill legs,
   /// the cash side of an ATM withdrawal).
   static bool _pairedByApp(String id) =>

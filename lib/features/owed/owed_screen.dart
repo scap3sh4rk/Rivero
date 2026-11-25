@@ -12,6 +12,7 @@ import 'package:rivero/core/utils/amount_parser.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/bank_badge.dart';
+import 'package:rivero/design_system/widgets/person_field.dart';
 import 'package:rivero/design_system/widgets/photo_picker.dart';
 import 'package:rivero/design_system/widgets/picker.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
@@ -280,6 +281,20 @@ class OwedToYouScreen extends ConsumerWidget {
     final mine = dues.where((d) => d.kind != DueKind.borrowed).toList();
     final open = mine.where((d) => d.status == DueStatus.open).toList();
     final closed = mine.where((d) => d.status != DueStatus.open).toList();
+    final splits = open.where((d) => d.kind == DueKind.split).toList();
+    final lent = open.where((d) => d.kind == DueKind.lent).toList();
+    // The bill each share came from, so "Swiggy" stays one group.
+    final splitGroups = <String, List<Due>>{};
+    for (final d in splits) {
+      (splitGroups[d.sourceTransactionId ?? d.id] ??= []).add(d);
+    }
+    Widget header(String text) => Padding(
+      padding: const EdgeInsets.only(
+        top: RiveroSpacing.xl,
+        bottom: RiveroSpacing.sm,
+      ),
+      child: Text(text, style: RiveroTypography.titleMedium),
+    );
     return Scaffold(
       backgroundColor: RiveroColors.background,
       appBar: RiveroAppBar(
@@ -306,7 +321,14 @@ class OwedToYouScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: RiveroSpacing.lg),
-          for (final d in open) _DueTile(d, money: money),
+          if (splits.isNotEmpty) header('Split bills'),
+          // One card per bill that was split, its people underneath.
+          for (final g in splitGroups.values) ...[
+            _SplitGroupHeader(g, money: money),
+            for (final d in g) _DueTile(d, money: money),
+          ],
+          if (lent.isNotEmpty) header('Money lent'),
+          for (final d in lent) _DueTile(d, money: money),
           if (closed.isNotEmpty) _ClosedList(closed, money: money),
         ],
       ),
@@ -449,11 +471,141 @@ class _Total extends StatelessWidget {
   );
 }
 
+/// A split bill's title: what it was, when, and how much of it is back.
+class _SplitGroupHeader extends StatelessWidget {
+  const _SplitGroupHeader(this.group, {required this.money});
+
+  final List<Due> group;
+  final String Function(int) money;
+
+  @override
+  Widget build(BuildContext context) {
+    final total = group.fold<int>(0, (s, d) => s + d.amountMinorUnits);
+    final back = group.fold<int>(0, (s, d) => s + d.receivedMinorUnits);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: RiveroSpacing.xs),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              '${group.first.note ?? 'Bill'} · '
+              '${DateFormat('d MMM').format(group.first.createdAt)}',
+              style: RiveroTypography.bodyMedium,
+            ),
+          ),
+          Text(
+            '${money(back)} of ${money(total)} back',
+            style: RiveroTypography.bodySmall,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Everything with one person, in one place: what they owe you, what you
+/// owe them, and every entry. Opened by tapping a name.
+class PersonDuesScreen extends ConsumerWidget {
+  const PersonDuesScreen(this.person, {super.key});
+
+  final String person;
+
+  static Future<void> open(BuildContext context, String person) => Navigator.of(
+    context,
+  ).push(MaterialPageRoute<void>(builder: (_) => PersonDuesScreen(person)));
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final all = ref.watch(duesProvider).value ?? const [];
+    final privacy = ref.watch(privacyModeProvider);
+    String money(int v) => privacy ? '••••' : CurrencyFormatter.format(v);
+    final mine = all.where((d) => DuesService.samePerson(d.person, person));
+    final open = mine.where((d) => d.status == DueStatus.open).toList();
+    final closed = mine.where((d) => d.status != DueStatus.open).toList();
+    final owedToYou = DuesService.totalOutstanding(mine);
+    final youOwe = DuesService.totalYouOwe(mine);
+    final net = owedToYou - youOwe;
+    final splits = open.where((d) => d.kind == DueKind.split).toList();
+    Widget line(String label, String value, {Color? color}) => Padding(
+      padding: const EdgeInsets.only(top: RiveroSpacing.xs),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: RiveroTypography.bodyMedium)),
+          Text(
+            value,
+            style: RiveroTypography.titleMedium.copyWith(color: color),
+          ),
+        ],
+      ),
+    );
+    return Scaffold(
+      backgroundColor: RiveroColors.background,
+      appBar: RiveroAppBar(
+        title: person,
+        showProfile: false,
+        leading: BackButton(onPressed: () => Navigator.of(context).pop()),
+      ),
+      body: ListView(
+        padding: EdgeInsets.fromLTRB(
+          RiveroSpacing.xl,
+          0,
+          RiveroSpacing.xl,
+          RiveroSpacing.huge + MediaQuery.paddingOf(context).bottom,
+        ),
+        children: [
+          RiveroCard(
+            key: const ValueKey('person-totals'),
+            child: Column(
+              children: [
+                line(
+                  'Owes you',
+                  money(owedToYou),
+                  color: owedToYou > 0 ? RiveroColors.success : null,
+                ),
+                if (splits.isNotEmpty)
+                  line(
+                    '  of which splits',
+                    money(
+                      splits.fold<int>(
+                        0,
+                        (s, d) => s + d.amountMinorUnits - d.receivedMinorUnits,
+                      ),
+                    ),
+                  ),
+                line(
+                  'You owe them',
+                  money(youOwe),
+                  color: youOwe > 0 ? RiveroColors.warning : null,
+                ),
+                const Divider(),
+                line(
+                  net == 0
+                      ? 'All square'
+                      : net > 0
+                      ? 'Net: they owe you'
+                      : 'Net: you owe them',
+                  money(net.abs()),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: RiveroSpacing.lg),
+          for (final d in open) _DueTile(d, money: money, linkPerson: false),
+          if (closed.isNotEmpty) _ClosedList(closed, money: money),
+        ],
+      ),
+    );
+  }
+}
+
 class _DueTile extends StatelessWidget {
-  const _DueTile(this.d, {required this.money});
+  const _DueTile(this.d, {required this.money, this.linkPerson = true});
 
   final Due d;
   final String Function(int) money;
+
+  /// Tapping the name opens everything with that person.
+  final bool linkPerson;
 
   @override
   Widget build(BuildContext context) {
@@ -484,7 +636,14 @@ class _DueTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(d.person, style: RiveroTypography.bodyLarge),
+                    GestureDetector(
+                      key: ValueKey('due-person-${d.id}'),
+                      behavior: HitTestBehavior.opaque,
+                      onTap: linkPerson
+                          ? () => PersonDuesScreen.open(context, d.person)
+                          : null,
+                      child: Text(d.person, style: RiveroTypography.bodyLarge),
+                    ),
                     Text(
                       '$what · ${DateFormat('d MMM').format(d.createdAt)}'
                       '${borrowed && d.dueDate != null && open ? ' · pay by ${DateFormat('d MMM').format(d.dueDate!)}' : ''}'
@@ -545,6 +704,8 @@ class _DueSheetState extends ConsumerState<_DueSheet> {
   String? _matched;
   String?
   _paidFrom; // borrowed money: the account it is repaid from (null = cash)
+  // Money owed to you: the account it lands in (null = cash).
+  late String? _creditTo = widget.due.creditAccountId;
 
   static String _rupees(int v) => v % 100 == 0
       ? '${v ~/ 100}'
@@ -677,6 +838,14 @@ class _DueSheetState extends ConsumerState<_DueSheet> {
     final privacy = ref.watch(privacyModeProvider);
     String money(int v) => privacy ? '••••' : CurrencyFormatter.format(v);
     if (widget.due.kind == DueKind.borrowed) return _borrowedBody(money);
+    final receiveAccounts =
+        (ref.watch(activePhysicalAccountsProvider).value ?? [])
+            .where((a) => !a.isLiability)
+            .toList();
+    // An account that has since gone is just cash.
+    if (_creditTo != null && !receiveAccounts.any((a) => a.id == _creditTo)) {
+      _creditTo = null;
+    }
     return Padding(
       padding: EdgeInsets.fromLTRB(
         RiveroSpacing.xl,
@@ -703,6 +872,19 @@ class _DueSheetState extends ConsumerState<_DueSheet> {
               prefixText: '₹',
             ),
           ),
+          if (_matched == null) ...[
+            const SizedBox(height: RiveroSpacing.field),
+            PickerField<String?>(
+              key: const ValueKey('receive-account'),
+              label: 'Received in',
+              value: _creditTo,
+              options: [
+                const PickerOption(null, 'Cash'),
+                for (final a in receiveAccounts) PickerOption(a.id, a.name),
+              ],
+              onChanged: (v) => setState(() => _creditTo = v),
+            ),
+          ],
           if (_candidates.isNotEmpty) ...[
             const SizedBox(height: RiveroSpacing.md),
             Text('Match a payment you got', style: RiveroTypography.bodySmall),
@@ -739,10 +921,13 @@ class _DueSheetState extends ConsumerState<_DueSheet> {
                   widget.due.id,
                   parseAmountMinorUnits(_amount.text.trim()),
                   creditTransactionId: _matched,
+                  accountId: _matched == null ? _creditTo : null,
                 ),
               ),
               child: Text(
-                _matched == null ? 'Received in cash' : 'Mark received',
+                _matched == null && _creditTo == null
+                    ? 'Received in cash'
+                    : 'Mark received',
               ),
             ),
           ),
@@ -861,10 +1046,12 @@ class _MoneySheetState extends ConsumerState<_MoneySheet> {
             style: RiveroTypography.titleLarge,
           ),
           const SizedBox(height: RiveroSpacing.lg),
-          TextField(
+          PersonField(
             key: const ValueKey('lend-person'),
             controller: _person,
-            textCapitalization: TextCapitalization.words,
+            people: DuesService.knownPeople(
+              ref.watch(duesProvider).value ?? const [],
+            ),
             decoration: InputDecoration(labelText: borrowing ? 'From' : 'To'),
           ),
           const SizedBox(height: RiveroSpacing.field),

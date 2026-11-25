@@ -153,4 +153,41 @@ void main() {
     expect(t.userNotes, 'split later');
     expect(await spent(), 12000);
   });
+
+  test('changing the account moves balance and budget, bank to card', () async {
+    await db.accountsDao.updateAccountBalance('bank', 100000);
+    await txn('e', 'bank', -50000, TransactionType.expense);
+    await ledger.confirm('e');
+    expect(await balance('bank'), 50000);
+    expect(await spent(), 50000);
+
+    await ledger.changeAccount('e', 'card');
+    final t = (await db.transactionsDao.getTransactionById('e'))!;
+    expect(t.physicalAccountId, 'card');
+    expect(t.transactionType, TransactionType.creditCardPurchase);
+    expect(await balance('bank'), 100000); // given back
+    expect(await balance('card'), -50000); // now owed
+    expect(await spent(), 0); // card spend is not budget until the bill
+
+    await ledger.changeAccount('e', 'bank');
+    expect(await balance('bank'), 50000);
+    expect(await balance('card'), 0);
+    expect(await spent(), 50000);
+    expect(
+      (await db.transactionsDao.getTransactionById('e'))!.transactionType,
+      TransactionType.expense,
+    );
+  });
+
+  test('changing the account of a waiting entry just repoints it', () async {
+    await txn('w', 'bank', -50000, TransactionType.expense);
+    await ledger.changeAccount('w', 'card');
+    expect(
+      (await db.transactionsDao.getTransactionById('w'))!.physicalAccountId,
+      'card',
+    );
+    expect(await balance('card'), 0);
+    await ledger.confirm('w');
+    expect(await balance('card'), -50000);
+  });
 }

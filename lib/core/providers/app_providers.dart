@@ -185,6 +185,8 @@ class SettingsSync {
     }
     ref.read(includePendingReimbursementsProvider.notifier).state =
         (await dao.get(SettingKeys.countOwed)) == '1';
+    ref.read(showNegativeStsProvider.notifier).state =
+        (await dao.get(SettingKeys.showNegativeSts)) == '1';
     ref.read(openOnLogProvider.notifier).state =
         (await dao.get(SettingKeys.openOnLog)) == '1';
     // No setup wizard: the app opens straight away, with a guided tour
@@ -291,6 +293,10 @@ class SettingsSync {
         (_, v) => save(SettingKeys.countOwed, v ? '1' : '0'),
       )
       ..listen(
+        showNegativeStsProvider,
+        (_, v) => save(SettingKeys.showNegativeSts, v ? '1' : '0'),
+      )
+      ..listen(
         openOnLogProvider,
         (_, v) => save(SettingKeys.openOnLog, v ? '1' : '0'),
       )
@@ -346,6 +352,9 @@ final plannedCycleStartProvider = StreamProvider<DateTime?>((ref) {
       .watch(SettingKeys.lastPlannedCycleStart)
       .map((v) => v == null ? null : DateTime.tryParse(v));
 });
+
+/// Show a Safe-to-spend shortfall as a negative amount instead of zero.
+final showNegativeStsProvider = StateProvider<bool>((ref) => false);
 
 /// Preference whether to include pending unreceived reimbursements in Safe-to-Spend.
 final includePendingReimbursementsProvider = StateProvider<bool>(
