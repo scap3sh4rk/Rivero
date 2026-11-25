@@ -54,14 +54,9 @@ class QuickAddActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Opens over the lock screen: pick a category and add it without
-        // unlocking. Only this payment is shown, never the rest of Rivero.
-        if (Build.VERSION.SDK_INT >= 27) {
-            setShowWhenLocked(true)
-        } else {
-            @Suppress("DEPRECATION")
-            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED)
-        }
+        // Never over the lock screen: tapping the notification there makes
+        // Android ask to unlock first, so the message and the Add/Ignore
+        // choice are only for whoever can unlock the phone.
         val id = intent.getStringExtra(CaptureNotifier.EXTRA_ID)
         if (id == null) {
             finish()

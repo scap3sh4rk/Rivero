@@ -140,7 +140,7 @@ object CaptureNotifier {
             .setAutoCancel(true)
             .addAction(Notification.Action.Builder(null, "Add", quickPi).build())
             // On the lock screen: no amount or message, just a way to add it
-            // (the pop-up then opens over the lock screen).
+            // (Android asks to unlock before the pop-up opens).
             .setVisibility(Notification.VISIBILITY_PRIVATE)
             .setPublicVersion(
                 builder0(context)

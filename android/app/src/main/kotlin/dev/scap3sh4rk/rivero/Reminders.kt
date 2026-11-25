@@ -103,6 +103,17 @@ object Reminders {
                 .setStyle(Notification.BigTextStyle().bigText(body))
                 .setContentIntent(open)
                 .setAutoCancel(true)
+                // Amounts and names only once unlocked (if the phone hides
+                // sensitive content on the lock screen).
+                .setVisibility(Notification.VISIBILITY_PRIVATE)
+                .setPublicVersion(
+                    (if (Build.VERSION.SDK_INT >= 26) Notification.Builder(context, CHANNEL) else @Suppress("DEPRECATION") Notification.Builder(context))
+                        .setSmallIcon(context.applicationInfo.icon)
+                        .setContentTitle("Rivero reminder")
+                        .setContentIntent(open)
+                        .setAutoCancel(true)
+                        .build(),
+                )
                 .build(),
         )
     }
