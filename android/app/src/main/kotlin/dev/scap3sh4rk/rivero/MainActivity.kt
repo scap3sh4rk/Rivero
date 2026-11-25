@@ -147,6 +147,7 @@ class MainActivity : FlutterFragmentActivity() {
                 // "Delete all data": nothing captured may survive it.
                 "clearQueue" -> synchronized(RiveroNotificationListener.LOCK) {
                     CaptureQueue.clear(this)
+                    Seen.clear(this)
                     Diagnostics.clear(this)
                     CaptureNotifier.clear(this)
                     Reminders.clear(this)

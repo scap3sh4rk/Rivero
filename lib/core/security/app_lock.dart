@@ -24,6 +24,11 @@ final authenticatorProvider = Provider<Authenticator>((ref) {
 /// Whether the app asks for biometrics / PIN to open.
 final appLockEnabledProvider = StateProvider<bool>((ref) => false);
 
+/// Whether the person was verified since the app last locked. Turning the
+/// lock on (which verifies first) sets it, so the open app is not locked
+/// again straight away.
+final appUnlockedProvider = StateProvider<bool>((ref) => false);
+
 /// Covers [child] with a lock screen until the user is verified. Locks again
 /// after the app has been in the background for [relockAfter].
 class AppLockGate extends ConsumerStatefulWidget {
@@ -42,7 +47,6 @@ class AppLockGate extends ConsumerStatefulWidget {
 
 class _AppLockGateState extends ConsumerState<AppLockGate>
     with WidgetsBindingObserver {
-  bool _unlocked = false;
   bool _prompting = false;
   DateTime? _leftAt;
 
@@ -68,7 +72,7 @@ class _AppLockGateState extends ConsumerState<AppLockGate>
       if (!_prompting &&
           left != null &&
           DateTime.now().difference(left) >= widget.relockAfter) {
-        setState(() => _unlocked = false);
+        ref.read(appUnlockedProvider.notifier).state = false;
       }
       _leftAt = null;
     }
@@ -79,13 +83,13 @@ class _AppLockGateState extends ConsumerState<AppLockGate>
     _prompting = true;
     final ok = await ref.read(authenticatorProvider)('Unlock Rivero');
     _prompting = false;
-    if (ok && mounted) setState(() => _unlocked = true);
+    if (ok && mounted) ref.read(appUnlockedProvider.notifier).state = true;
   }
 
   @override
   Widget build(BuildContext context) {
     final enabled = ref.watch(appLockEnabledProvider);
-    if (!enabled || _unlocked) return widget.child;
+    if (!enabled || ref.watch(appUnlockedProvider)) return widget.child;
     WidgetsBinding.instance.addPostFrameCallback((_) => _unlock());
     return Scaffold(
       backgroundColor: RiveroColors.background,

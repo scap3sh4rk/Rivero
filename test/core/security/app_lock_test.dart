@@ -100,6 +100,34 @@ void main() {
     expect(find.text('account page'), findsNothing);
   });
 
+  testWidgets('turning the lock on after verifying keeps the app open', (
+    tester,
+  ) async {
+    late WidgetRef r;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authenticatorProvider.overrideWithValue((_) async => false),
+        ],
+        child: MaterialApp(
+          builder: (context, child) => AppLockGate(child: child!),
+          home: Consumer(
+            builder: (context, ref, _) {
+              r = ref;
+              return const Text('settings page');
+            },
+          ),
+        ),
+      ),
+    );
+    // What Settings does once the person is verified.
+    r.read(appUnlockedProvider.notifier).state = true;
+    r.read(appLockEnabledProvider.notifier).state = true;
+    await tester.pumpAndSettle();
+    expect(find.text('settings page'), findsOneWidget);
+    expect(find.text('Rivero is locked'), findsNothing);
+  });
+
   testWidgets('no lock screen when the setting is off', (tester) async {
     await tester.pumpWidget(
       const ProviderScope(

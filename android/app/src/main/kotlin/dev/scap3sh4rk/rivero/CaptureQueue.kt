@@ -90,3 +90,31 @@ object CaptureQueue {
             .apply()
     }
 }
+
+/**
+ * Messages of conversation notifications already taken, so a conversation
+ * that updates (each new SMS re-posts the earlier unread ones) is not
+ * captured again. Ids only (package, key, time), never message text; the
+ * newest [MAX] are kept. Callers hold [RiveroNotificationListener.LOCK].
+ */
+object Seen {
+    private const val PREFS = "rivero_capture_seen"
+    private const val KEY = "ids"
+    private const val MAX = 400
+
+    /** True if [id] is new (and remembers it). */
+    fun add(context: Context, id: String): Boolean {
+        val p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val ids = JSONArray(p.getString(KEY, "[]"))
+        for (i in 0 until ids.length()) if (ids.getString(i) == id) return false
+        ids.put(id)
+        val kept = JSONArray()
+        for (i in maxOf(0, ids.length() - MAX) until ids.length()) kept.put(ids.get(i))
+        p.edit().putString(KEY, kept.toString()).apply()
+        return true
+    }
+
+    fun clear(context: Context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().apply()
+    }
+}

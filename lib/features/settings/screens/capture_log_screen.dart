@@ -108,6 +108,21 @@ class _CaptureLogScreenState extends ConsumerState<CaptureLogScreen> {
         'your messages and UPI apps.';
     final lines = <String>['Notification access: $access', heard];
     if (lastLine != null) lines.add(lastLine);
+    // Android 15+ can hide bank messages from apps like Rivero.
+    final hidden = (_diag['hidden'] as int?) ?? 0;
+    final hiddenTime = (_diag['hiddenTime'] as int?) ?? 0;
+    if (hidden > 0) {
+      final at = hiddenTime > 0
+          ? ', last at ${DateFormat('d MMM, h:mm a').format(DateTime.fromMillisecondsSinceEpoch(hiddenTime))}'
+          : '';
+      lines.add(
+        'Android hid the text of $hidden bank or payment '
+        '${hidden == 1 ? 'message' : 'messages'} from '
+        'Rivero$at (newer Android versions hide messages they think are '
+        'sensitive). Rivero cannot read the amount of those: each waits on '
+        'Home under bank messages to check, so you can add it from there.',
+      );
+    }
     // Is the listener still connected (it can drop after an update)?
     if (_diag['listenerConnected'] == false) {
       lines.add(
