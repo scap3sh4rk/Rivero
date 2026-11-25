@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rivero/core/backup/auto_backup.dart';
 import 'package:rivero/core/database/daos/settings_dao.dart';
 import 'package:rivero/core/ingestion/platform/notification_bridge.dart';
 import 'package:rivero/core/ingestion/upi_apps.dart';
@@ -485,6 +486,8 @@ class SettingsScreen extends ConsumerWidget {
     );
     if (ok != true || !context.mounted) return;
     Navigator.of(context).popUntil((r) => r.isFirst);
+    // Also forgets the automatic backup's passphrase.
+    await AutoBackup(ref.read(databaseProvider)).configure(BackupFrequency.off);
     await ref.read(databaseProvider).wipeAll();
     await MediaStore.wipe();
     await NotificationBridge.clearQueue();
@@ -783,7 +786,7 @@ class _CaptureRowsState extends ConsumerState<_CaptureRows>
           icon: Icons.fact_check_outlined,
           title: 'Accept payments automatically',
           subtitle: ref.watch(captureAutoAcceptProvider)
-              ? 'On · confident captures count straight away'
+              ? 'On · confident captures from your bank or UPI app count straight away'
               : 'Off · each captured payment waits for your Accept',
           trailing: Switch(
             key: const ValueKey('auto-accept-switch'),
