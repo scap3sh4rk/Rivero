@@ -163,6 +163,68 @@ void main() {
     expect(BankIcons.lookup(icons, 'SBI'), isNull);
   });
 
+  test("a backup naming a picture outside Rivero's folders is refused "
+      'whole, and nothing is written or replaced', () async {
+    final tmp = await Directory.systemTemp.createTemp('rivero-media');
+    addTearDown(() => tmp.delete(recursive: true));
+    final root = Directory('${tmp.path}/app')..createSync();
+    MediaStore.rootOverride = root;
+    addTearDown(() => MediaStore.rootOverride = null);
+    final db = RiveroDatabase.memory();
+    addTearDown(db.close);
+    await DatabaseSeeder(db).seedIfEmpty();
+    final before = (await db.select(db.transactions).get()).length;
+    final data = base64Encode([1, 2, 3]);
+
+    for (final (folder, name) in [
+      ('../escaped', 'pwned.txt'), // relative path
+      ('${tmp.path}/shared_prefs', 'FlutterSecureStorage.xml'), // absolute
+      ('.', 'rivero_encrypted.db'), // the database file itself
+      ('', 'x.jpg'),
+      (MediaStore.bills, '../x.jpg'),
+      (MediaStore.bills, '..'),
+    ]) {
+      await expectLater(
+        BackupCodec.restore(db, {
+          'schema': db.schemaVersion,
+          'media': [
+            {'folder': MediaStore.bills, 'name': 'ok.jpg', 'data': data},
+            {'folder': folder, 'name': name, 'data': data},
+          ],
+        }),
+        throwsA(isA<BackupException>()),
+        reason: '$folder/$name',
+      );
+    }
+    final written = tmp
+        .listSync(recursive: true)
+        .whereType<File>()
+        .map((f) => f.path);
+    expect(written, isEmpty); // not even the valid picture
+    expect((await db.select(db.transactions).get()).length, before);
+    expect(() => MediaStore.write('../escaped', 'x', [1]), throwsArgumentError);
+  });
+
+  test('a backup asking for absurd key rounds is refused at once', () async {
+    final file = await codec.encrypt({'schema': 1}, 'correct horse battery');
+    final head = jsonDecode(utf8.decode(file)) as Map<String, dynamic>;
+    for (final iter in [2000000000, 0, '1000', null]) {
+      final bad = utf8.encode(jsonEncode({...head, 'iter': iter}));
+      await expectLater(
+        codec
+            .decrypt(bad, 'correct horse battery')
+            .timeout(const Duration(seconds: 5)),
+        throwsA(isA<BackupException>()),
+        reason: '$iter',
+      );
+    }
+    final broken = utf8.encode(jsonEncode({...head, 'salt': '%%%'}));
+    await expectLater(
+      codec.decrypt(broken, 'correct horse battery'),
+      throwsA(isA<BackupException>()),
+    );
+  });
+
   test('Google errors are explained, not shown raw', () {
     expect(
       friendlyBackupError(

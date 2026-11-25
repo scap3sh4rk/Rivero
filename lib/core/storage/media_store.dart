@@ -12,6 +12,19 @@ abstract final class MediaStore {
   static const bills = 'bills';
   static const bankIcons = 'bank_icons';
 
+  /// The only folders Rivero keeps pictures in.
+  static const Set<String> folders = {accountImages, bills, bankIcons};
+
+  /// Whether `<folder>/<name>` stays inside Rivero's picture folders: a
+  /// known folder and a plain file name (no path, not "." or "..").
+  static bool allowed(String folder, String name) =>
+      folders.contains(folder) &&
+      name.isNotEmpty &&
+      name != '.' &&
+      name != '..' &&
+      p.basename(name) == name &&
+      !name.contains(r'\');
+
   /// For tests.
   static Directory? rootOverride;
 
@@ -45,8 +58,12 @@ abstract final class MediaStore {
     String name,
     List<int> bytes,
   ) async {
+    // The folder and name come from a backup file: never outside our folders.
+    if (!allowed(folder, name)) {
+      throw ArgumentError('Not a picture location: $folder/$name');
+    }
     final dir = await _dir(folder);
-    final file = File(p.join(dir.path, p.basename(name)));
+    final file = File(p.join(dir.path, name));
     await file.writeAsBytes(bytes, flush: true);
     return file.path;
   }
