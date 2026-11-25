@@ -34,23 +34,75 @@ class RiveroNotificationListener : NotificationListenerService() {
         if (!isTest && (sbn.packageName == packageName || isPrivate(sbn.packageName))) return
         val known = isTest || isFinancialSource(this, sbn.packageName)
         val title = extras.getCharSequence("android.title")?.toString()
+        // A conversation (SMS apps): Android folds several quick messages
+        // into one notification and its text shows only the latest, so each
+        // message in it is taken, once.
+        val messages = if (isTest) null else conversation(sbn)
+        if (messages != null) {
+            for (m in messages) {
+                capture(sbn, known, isTest, m.sender ?: title, m.text, m.time, "${sbn.packageName}:${sbn.key}:${m.time}")
+            }
+            return
+        }
         val body = (extras.getCharSequence("android.bigText")
             ?: extras.getCharSequence("android.text"))?.toString()
+        capture(sbn, known, isTest, title, body, sbn.postTime, "${sbn.packageName}:${sbn.key}:${sbn.postTime}")
+    }
+
+    private class Message(val sender: String?, val text: String?, val time: Long)
+
+    /** The messages of a conversation notification not taken before, or
+     *  null when it is not a conversation. */
+    private fun conversation(sbn: StatusBarNotification): List<Message>? {
+        @Suppress("DEPRECATION")
+        val raw = sbn.notification.extras.getParcelableArray("android.messages") ?: return null
+        val all = raw.mapNotNull { p ->
+            val b = p as? android.os.Bundle ?: return@mapNotNull null
+            @Suppress("DEPRECATION")
+            val person = if (android.os.Build.VERSION.SDK_INT >= 28) {
+                (b.getParcelable("sender_person") as? android.app.Person)?.name?.toString()
+            } else {
+                null
+            }
+            Message(b.getCharSequence("sender")?.toString() ?: person, b.getCharSequence("text")?.toString(), b.getLong("time"))
+        }
+        if (all.isEmpty()) return null
+        // Older messages still in the conversation were seen when they came
+        // (or are history from before Rivero listened): only recent ones.
+        val since = sbn.postTime - RECENT_MS
+        return synchronized(LOCK) {
+            all.filter { it.time >= since && Seen.add(this, "${sbn.packageName}:${sbn.key}:${it.time}") }
+        }
+    }
+
+    private fun capture(
+        sbn: StatusBarNotification,
+        known: Boolean,
+        isTest: Boolean,
+        title: String?,
+        body: String?,
+        time: Long,
+        captureId: String,
+    ) {
         // Titles often carry the amount in payment apps ("Paid ₹500 to X").
         val searchable = "${title ?: ""} ${body ?: ""}"
+        // Android 15+ hides messages it thinks are sensitive (bank SMS among
+        // them) from apps like Rivero: only a fixed "content hidden" text
+        // arrives. From a bank or payment app it is still a payment that
+        // happened, so it waits under "bank messages to check" to be added.
+        val hidden = known && body != null && isHiddenByAndroid(body)
         // Any other app (a bank's own app, a wallet, a card app Rivero does
         // not list): kept only when it reads like a real transaction, and
         // nothing about it is recorded otherwise.
         if (!known && (body == null || !looksLikeTransaction(searchable))) return
-        if (body == null || !MONEY.containsMatchIn(searchable)) {
+        if (body == null || (!hidden && !MONEY.containsMatchIn(searchable))) {
             // Seen from an allowed app but not about money (chat, OTP-only,
             // or text the phone hid): counted so the user can see it.
             Diagnostics.note(this, sbn.packageName, if (body.isNullOrBlank()) "no text" else "no money")
             return
         }
-        Diagnostics.note(this, sbn.packageName, "queued")
+        Diagnostics.note(this, sbn.packageName, if (hidden) "hidden" else "queued")
 
-        val captureId = "${sbn.packageName}:${sbn.key}:${sbn.postTime}"
         synchronized(LOCK) {
             val queue = CaptureQueue.read(this)
             queue.put(JSONObject().apply {
@@ -58,7 +110,7 @@ class RiveroNotificationListener : NotificationListenerService() {
                 put("package", sbn.packageName)
                 put("title", title)
                 put("body", body)
-                put("time", sbn.postTime)
+                put("time", time)
             })
             // Encrypted, and capped so a never-opened app can't grow it.
             CaptureQueue.write(this, queue)
@@ -86,8 +138,19 @@ class RiveroNotificationListener : NotificationListenerService() {
         }
     }
 
+    /** Android's own "Sensitive notification content hidden" (in the
+     *  phone's language), which replaces a hidden notification's text. */
+    private fun isHiddenByAndroid(body: String): Boolean {
+        val id = resources.getIdentifier("redacted_notification_message", "string", "android")
+        val placeholder = if (id != 0) android.content.res.Resources.getSystem().getString(id) else REDACTED_EN
+        return body.trim() == placeholder.trim() || body.trim() == REDACTED_EN
+    }
+
     companion object {
         const val EXTRA_TEST = "rivero_test"
+        private const val REDACTED_EN = "Sensitive notification content hidden"
+        /** Messages in a conversation older than this are not new. */
+        private const val RECENT_MS = 2 * 60 * 60 * 1000L
 
         /** Set by MainActivity while the Flutter UI is alive. */
         @Volatile
