@@ -19,13 +19,19 @@ concurrency:
   group: ios-${{ github.ref }}
   cancel-in-progress: true
 
+# Read-only token: these jobs only build and test.
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: macos-15
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           flutter-version: 3.50.0
           channel: stable
@@ -44,7 +50,7 @@ jobs:
           zip -qry dist/rivero-ios-unsigned.ipa Payload
           ls -la dist
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: rivero-ios-unsigned
           path: dist/rivero-ios-unsigned.ipa
@@ -71,7 +77,7 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: rivero-ios-simulator-screenshot

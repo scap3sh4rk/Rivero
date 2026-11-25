@@ -13,7 +13,7 @@ import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 
 /// Back up to Google Drive (or a file), and restore. Always encrypted with
-/// a passphrase chosen here; Rivero never stores it.
+/// a passphrase chosen here (kept in secure storage only for automatic backups).
 class BackupScreen extends ConsumerStatefulWidget {
   const BackupScreen({super.key});
 
@@ -103,7 +103,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
       _say('Automatic backup is off');
       return;
     }
-    final pass = await _askPassphrase(confirm: true);
+    final pass = await _askPassphrase(confirm: true, kept: true);
     if (pass == null) return;
     final data = await BackupCodec.export(ref.read(databaseProvider));
     await DriveBackup().upload(await _codec.encrypt(data, pass));
@@ -113,7 +113,9 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     _say('Backed up now; the next ones happen by themselves');
   }
 
-  Future<String?> _askPassphrase({required bool confirm}) {
+  /// [kept]: automatic backups keep the passphrase on this phone (in its
+  /// secure storage) so they can run by themselves; say so.
+  Future<String?> _askPassphrase({required bool confirm, bool kept = false}) {
     final a = TextEditingController();
     final b = TextEditingController();
     return showDialog<String>(
@@ -127,9 +129,14 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (confirm)
-                  const Text(
-                    'It encrypts the backup. Rivero does not keep it: if it '
-                    'is lost, the backup cannot be opened.',
+                  Text(
+                    kept
+                        ? 'It encrypts every backup. Rivero keeps it in this '
+                              "phone's secure storage so backups run by "
+                              'themselves; it is never uploaded. Write it '
+                              'down: without it a backup cannot be opened.'
+                        : 'It encrypts the backup. Rivero does not keep it: '
+                              'if it is lost, the backup cannot be opened.',
                   ),
                 const SizedBox(height: RiveroSpacing.md),
                 TextField(

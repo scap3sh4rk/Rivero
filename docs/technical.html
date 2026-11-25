@@ -134,9 +134,10 @@ android/.../kotlin/          RiveroNotificationListener, CaptureQueue, MainActiv
        6  duplicate check          reference-first, else amount+time+merchant; manual entries ±6h
        7  card bill pairing        link bank leg and card leg, either order
        8  insert                   needsReview by default (Accept/Ignore on Home); confirmed only
-                                    when 'accept automatically' is on, confidence is high and the
-                                    account is certain
-       9  apply effects, adopt "Avl bal", reconcile</code></pre>
+                                    when 'accept automatically' is on, the sender is verified (a
+                                    listed bank/UPI app, or a bank DLT header in an SMS app),
+                                    confidence is high and the account is certain
+       9  apply effects (the amount only, never "Avl bal"), reconcile</code></pre>
 <h3>Parser notes</h3>
 <ul>
 <li>Handles formats such as <code>Rs 450.00 debited</code>, <code>INR 1,299.00</code>, <code>₹500</code> and SBI-style <code>debited by 500.0</code> with no currency symbol.</li>

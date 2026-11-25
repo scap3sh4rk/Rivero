@@ -36,7 +36,6 @@
         <activity
             android:name=".QuickAddActivity"
             android:exported="false"
-            android:showWhenLocked="true"
             android:excludeFromRecents="true"
             android:taskAffinity="dev.scap3sh4rk.rivero.quickadd"
             android:theme="@style/QuickAddTheme"

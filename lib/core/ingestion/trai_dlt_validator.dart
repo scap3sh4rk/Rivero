@@ -92,6 +92,28 @@ class TraiDltValidator {
     return (match.group(1) ?? match.group(2))?.toUpperCase();
   }
 
+  /// SMS apps: their notification title is the SMS sender, so a bank's
+  /// DLT header there really came from the bank. Any other app chooses its
+  /// own titles. Null is a raw SMS (no app).
+  static const Set<String> smsApps = {
+    'com.google.android.apps.messaging',
+    'com.samsung.android.messaging',
+    'com.android.mms',
+    'com.truecaller',
+    'com.microsoft.android.smsorganizer',
+  };
+
+  /// Whether this message provably comes from a bank or payment app: a
+  /// listed app, or a bank's DLT header shown by an SMS app. Wording alone
+  /// proves nothing (anyone can send an SMS that reads like a bank's).
+  bool isVerifiedSender({String? senderHeader, String? packageName}) =>
+      isFinancialSender(
+        senderHeader: packageName == null || smsApps.contains(packageName)
+            ? senderHeader
+            : null,
+        packageName: packageName,
+      );
+
   /// Checks if either the [senderHeader] or [packageName] belongs to a recognized financial source.
   bool isFinancialSender({String? senderHeader, String? packageName}) {
     if (packageName != null &&

@@ -135,7 +135,14 @@ class _RiveroAppState extends ConsumerState<RiveroApp>
   /// Daily upkeep, on start, on resume and at midnight: today's date (so
   /// days-to-payday is never stale), autopays whose date passed unseen,
   /// and raw bank messages older than 90 days (privacy).
-  Future<void> _maintain() async {
+  Future<void> _maintaining = Future.value();
+
+  /// One run at a time: a resume during a slow backup waits for it instead
+  /// of starting a second upload.
+  Future<void> _maintain() =>
+      _maintaining = _maintaining.then((_) => _maintainOnce());
+
+  Future<void> _maintainOnce() async {
     final now = DateTime.now();
     ref.read(todayProvider.notifier).state = now;
     _midnight?.cancel();

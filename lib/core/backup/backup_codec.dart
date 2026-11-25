@@ -81,7 +81,12 @@ class BackupCodec {
 
   // ---- data <-> json -----------------------------------------------------
 
-  static Future<Map<String, dynamic>> export(RiveroDatabase db) async {
+  /// One consistent snapshot: a capture landing meanwhile is either wholly
+  /// in it or wholly not.
+  static Future<Map<String, dynamic>> export(RiveroDatabase db) =>
+      db.transaction(() => _export(db));
+
+  static Future<Map<String, dynamic>> _export(RiveroDatabase db) async {
     List<Map<String, dynamic>> rows(List<dynamic> list) => [
       for (final r in list) (r as dynamic).toJson() as Map<String, dynamic>,
     ];
