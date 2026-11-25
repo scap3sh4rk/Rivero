@@ -239,10 +239,20 @@ class IngestionService {
     // By default (set when the app starts) every capture waits on Home for
     // Accept or Ignore, so nothing counts, or counts twice, unseen. Turning
     // "accept automatically" on lets confident, certain ones through.
+    // Only from a sender Rivero can verify: an SMS worded like a bank's,
+    // from anyone's number, always waits for the user.
     final auto =
         await database.settingsDao.get(SettingKeys.captureAutoAccept) != '0';
+    final verified = parser.dltValidator.isVerifiedSender(
+      senderHeader: notification.sender,
+      packageName: notification.packageName,
+    );
     final state =
-        auto && category == null && parsed.isHighConfidence && resolved.sure
+        auto &&
+            verified &&
+            category == null &&
+            parsed.isHighConfidence &&
+            resolved.sure
         ? TransactionState.confirmed
         // A guess about WHICH category is always the user's call to confirm.
         : TransactionState.needsReview;
