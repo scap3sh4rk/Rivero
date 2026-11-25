@@ -6,6 +6,8 @@ import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/utils/amount_parser.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
+import 'package:rivero/design_system/widgets/person_field.dart';
+import 'package:rivero/design_system/widgets/picker.dart';
 
 /// "Split this bill": who owes you what. Equal split by default (remainder
 /// paise stay with you); amounts can be edited per person.
@@ -29,6 +31,10 @@ class SplitSheet extends ConsumerStatefulWidget {
 class _SplitSheetState extends ConsumerState<SplitSheet> {
   final _names = <TextEditingController>[TextEditingController()];
   final _amounts = <TextEditingController>[TextEditingController()];
+
+  /// Where their payments are expected to land (null = cash). Starts as the
+  /// account the bill was paid from.
+  late String? _creditTo = widget.transaction.physicalAccountId;
 
   int get _bill => -widget.transaction.amountMinorUnits;
 
@@ -79,7 +85,11 @@ class _SplitSheetState extends ConsumerState<SplitSheet> {
     try {
       await ref
           .read(duesServiceProvider)
-          .splitExpense(transactionId: widget.transaction.id, shares: shares);
+          .splitExpense(
+            transactionId: widget.transaction.id,
+            shares: shares,
+            creditAccountId: _creditTo,
+          );
       if (mounted) Navigator.pop(context);
     } on DueValidationException catch (e) {
       if (mounted) {
@@ -96,6 +106,12 @@ class _SplitSheetState extends ConsumerState<SplitSheet> {
       (s, c) => s + parseAmountMinorUnits(c.text.trim()),
     );
     final yours = _bill - others;
+    final people = DuesService.knownPeople(
+      ref.watch(duesProvider).value ?? const [],
+    );
+    final accounts = (ref.watch(activePhysicalAccountsProvider).value ?? [])
+        .where((a) => !a.isLiability)
+        .toList();
     return Padding(
       padding: EdgeInsets.fromLTRB(
         RiveroSpacing.xl,
@@ -128,10 +144,10 @@ class _SplitSheetState extends ConsumerState<SplitSheet> {
                 child: Row(
                   children: [
                     Expanded(
-                      child: TextField(
+                      child: PersonField(
                         key: ValueKey('split-name-$i'),
                         controller: _names[i],
-                        textCapitalization: TextCapitalization.words,
+                        people: people,
                         decoration: const InputDecoration(hintText: 'Name'),
                       ),
                     ),
@@ -171,6 +187,17 @@ class _SplitSheetState extends ConsumerState<SplitSheet> {
                   child: const Text('Split equally'),
                 ),
               ],
+            ),
+            const SizedBox(height: RiveroSpacing.md),
+            PickerField<String?>(
+              key: const ValueKey('split-credit-to'),
+              label: 'They pay back to',
+              value: _creditTo,
+              options: [
+                const PickerOption(null, 'Cash'),
+                for (final a in accounts) PickerOption(a.id, a.name),
+              ],
+              onChanged: (v) => setState(() => _creditTo = v),
             ),
             const SizedBox(height: RiveroSpacing.lg),
             SizedBox(

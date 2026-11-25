@@ -19,6 +19,7 @@ void main() {
         isLiability: false,
         isActive: true,
         includeInNetWorth: true,
+        canPayCardBills: true,
         sortOrder: 0,
         createdAt: now,
         updatedAt: now,

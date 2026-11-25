@@ -21,14 +21,17 @@ import android.widget.TextView
 import android.widget.Toast
 
 /**
- * The popup opened from a capture notification: pick a category, optionally
- * type a note, and Add (or Ignore). It is plain Android UI so it appears at
+ * The popup opened from a capture notification: pick a category and the
+ * account (the one the message names is picked already), optionally type a
+ * note, and Add (or Ignore). It is plain Android UI so it appears at
  * once, without starting the whole app; the choice is applied the next time
  * Rivero processes captures (immediately if Rivero is running).
  */
 class QuickAddActivity : Activity() {
     private var selected: String? = null
     private val chips = mutableListOf<TextView>()
+    private var account: String? = null
+    private val accountChips = mutableListOf<Pair<String, TextView>>()
     private var addButton: TextView? = null
 
     // Rivero's "Ink & Sky" dark palette.
@@ -138,6 +141,42 @@ class QuickAddActivity : Activity() {
             addView(row)
         })
 
+        // Which account: the one the message names by its last digits is
+        // picked already; tap another to change it. Left unpicked, Rivero
+        // decides from the message as before.
+        val accounts = CaptureNotifier.accounts(this)
+        if (accounts.isNotEmpty()) {
+            val incoming = intent.getBooleanExtra(CaptureNotifier.EXTRA_INCOMING, false)
+            card.addView(TextView(this).apply {
+                this.text = if (incoming) "Received in" else "Paid from"
+                setTextColor(muted)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+                setPadding(0, dp(16), 0, dp(8))
+            })
+            val accountRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            for (a in accounts) {
+                val chip = TextView(this).apply {
+                    this.text = if (a.mask != null) "${a.name} ··${a.mask}" else a.name
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+                    setPadding(dp(16), dp(10), dp(16), dp(10))
+                    setOnClickListener { pickAccount(a.id) }
+                }
+                accountChips += a.id to chip
+                accountRow.addView(
+                    chip,
+                    LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ).apply { marginEnd = dp(8) },
+                )
+            }
+            card.addView(HorizontalScrollView(this).apply {
+                isHorizontalScrollBarEnabled = false
+                addView(accountRow)
+            })
+            pickAccount(CaptureNotifier.accountIn(message, accounts)?.id)
+        }
+
         val note = EditText(this).apply {
             hint = "Description (optional)"
             setHintTextColor(muted)
@@ -173,13 +212,13 @@ class QuickAddActivity : Activity() {
             setOnClickListener { onTap() }
         }
         val weight = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-        buttons.addView(button("Ignore", false) { decide(id, "ignore", null, null) }, weight)
+        buttons.addView(button("Ignore", false) { decide(id, "ignore", null, null, null) }, weight)
         buttons.addView(View(this), LinearLayout.LayoutParams(dp(12), 1))
         val add = button("Add", true) {
             if (selected == null) {
                 Toast.makeText(this, "Pick a category first", Toast.LENGTH_SHORT).show()
             } else {
-                decide(id, "accept", selected, note.text?.toString()?.trim()?.ifEmpty { null })
+                decide(id, "accept", selected, note.text?.toString()?.trim()?.ifEmpty { null }, account)
             }
         }
         addButton = add
@@ -214,13 +253,22 @@ class QuickAddActivity : Activity() {
         refreshAdd()
     }
 
+    private fun pickAccount(id: String?) {
+        account = id
+        for ((chipId, chip) in accountChips) {
+            val on = chipId == account
+            chip.background = pill(if (on) accent else chipBg)
+            chip.setTextColor(if (on) onAccent else text)
+        }
+    }
+
     /** Add looks enabled only once a category is picked. */
     private fun refreshAdd() {
         addButton?.alpha = if (selected == null) 0.45f else 1f
     }
 
-    private fun decide(id: String, action: String, category: String?, note: String?) {
-        CaptureNotifier.saveDecision(this, id, action, category, note)
+    private fun decide(id: String, action: String, category: String?, note: String?, account: String?) {
+        CaptureNotifier.saveDecision(this, id, action, category, note, account)
         CaptureNotifier.cancel(this, id)
         val running = RiveroNotificationListener.onQueued
         if (running != null) {

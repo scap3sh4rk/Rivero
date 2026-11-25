@@ -128,6 +128,10 @@ class MainActivity : FlutterFragmentActivity() {
                     CaptureNotifier.setCategories(this, call.argument<List<String>>("names") ?: emptyList())
                     result.success(null)
                 }
+                "setAccounts" -> {
+                    CaptureNotifier.setAccounts(this, call.argument<String>("json") ?: "[]")
+                    result.success(null)
+                }
                 // Capture notifications need this permission on Android 13+.
                 "askNotifyPermission" -> {
                     if (Build.VERSION.SDK_INT >= 33 &&

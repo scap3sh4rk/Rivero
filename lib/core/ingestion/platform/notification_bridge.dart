@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
+import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/ingestion/capture_decisions.dart';
 import 'package:rivero/core/ingestion/ingestion_service.dart';
 import 'package:rivero/core/ingestion/models/raw_notification.dart';
@@ -87,6 +88,32 @@ class NotificationBridge {
     if (!supported) return;
     try {
       await _channel.invokeMethod<void>('setCategories', {'names': names});
+    } on MissingPluginException {
+      // Not running on a device (tests).
+    }
+  }
+
+  /// The accounts the notification popup offers: id, name and last digits
+  /// (only when known, so the popup can tell which one a message names).
+  /// Balances are never sent: the popup can open over the lock screen.
+  static Future<void> setAccounts(List<PhysicalAccount> accounts) async {
+    if (!supported) return;
+    final known = RegExp(r'^\d{3,6}$');
+    try {
+      await _channel.invokeMethod<void>('setAccounts', {
+        'json': jsonEncode([
+          for (final a in accounts)
+            {
+              'id': a.id,
+              'name': a.name,
+              'mask':
+                  known.hasMatch(a.accountMask.trim()) &&
+                      !RegExp(r'^0+$').hasMatch(a.accountMask.trim())
+                  ? a.accountMask.trim()
+                  : null,
+            },
+        ]),
+      });
     } on MissingPluginException {
       // Not running on a device (tests).
     }

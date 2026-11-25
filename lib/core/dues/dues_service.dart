@@ -47,6 +47,7 @@ class DuesService {
     required String transactionId,
     required Map<String, int> shares,
     String? note,
+    String? creditAccountId,
   }) async {
     final t = await db.transactionsDao.getTransactionById(transactionId);
     if (t == null || t.amountMinorUnits >= 0) {
@@ -83,6 +84,7 @@ class DuesService {
               status: DueStatus.open,
               note: Value(note ?? t.merchant),
               sourceTransactionId: Value(t.id),
+              creditAccountId: Value(creditAccountId),
               createdAt: now,
               updatedAt: now,
             ),
@@ -233,12 +235,15 @@ class DuesService {
       });
 
   /// Records [amountMinorUnits] paid back. With [creditTransactionId] the
-  /// matching bank credit is tagged "Paid back" (not income); without, it was
-  /// received in cash. Split money goes back into the budget it came from.
+  /// matching bank credit is tagged "Paid back" (not income); with
+  /// [accountId] the money is credited to that account as "Paid back"; with
+  /// neither, it was received in cash. Split money goes back into the budget
+  /// it came from.
   Future<void> receive(
     String dueId,
     int amountMinorUnits, {
     String? creditTransactionId,
+    String? accountId,
   }) async {
     final d = await _get(dueId);
     if (d.kind == DueKind.borrowed) {
@@ -252,6 +257,15 @@ class DuesService {
       throw const DueValidationException('Amount is more than what is owed');
     }
     await db.transaction(() async {
+      if (creditTransactionId == null && accountId != null) {
+        await LedgerService(db).recordManual(
+          accountId: accountId,
+          amountMinorUnits: amountMinorUnits,
+          type: TransactionType.reimbursement,
+          merchant: 'Paid back by ${d.person}',
+          category: 'Paid back',
+        );
+      }
       if (creditTransactionId != null) {
         await db.transactionsDao.updateTransactionType(
           creditTransactionId,
@@ -336,6 +350,25 @@ class DuesService {
       out[src] = (out[src] ?? 0) + d.amountMinorUnits;
     }
     return out;
+  }
+
+  /// Whether two typed names are the same person (case and spaces ignored).
+  static bool samePerson(String a, String b) =>
+      a.trim().toLowerCase() == b.trim().toLowerCase();
+
+  /// Everyone ever entered, once each, most recent first: the names to
+  /// suggest while typing, so one person's entries stay together.
+  static List<String> knownPeople(Iterable<Due> dues) {
+    final byKey = <String, Due>{};
+    for (final d in dues) {
+      final k = d.person.trim().toLowerCase();
+      final seen = byKey[k];
+      if (seen == null || d.createdAt.isAfter(seen.createdAt)) byKey[k] = d;
+    }
+    return (byKey.values.toList()
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt)))
+        .map((d) => d.person.trim())
+        .toList();
   }
 
   /// Total still owed TO YOU (split bills and loans) across open dues.

@@ -22,6 +22,7 @@ void main() {
     isLiability: liability,
     isActive: true,
     includeInNetWorth: true,
+    canPayCardBills: true,
     currencyCode: 'INR',
     sortOrder: 0,
     fdRateBps: rate,

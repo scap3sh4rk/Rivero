@@ -278,4 +278,52 @@ void main() {
       );
     });
   });
+
+  test(
+    'a share paid back into an account credits it, once, as paid back',
+    () async {
+      await db.accountsDao.updateAccountBalance('bank', 100000);
+      final id = await ledger.recordManual(
+        accountId: 'bank',
+        amountMinorUnits: -40000,
+        type: TransactionType.expense,
+        merchant: 'Swiggy',
+        category: 'Food',
+      );
+      await dues.splitExpense(
+        transactionId: id,
+        shares: {'Ravi': 20000},
+        creditAccountId: 'bank',
+      );
+      final due = (await all()).single;
+      expect(due.creditAccountId, 'bank');
+      expect(await spent(), 40000);
+
+      await dues.receive(due.id, 20000, accountId: due.creditAccountId);
+      final bank = (await db.accountsDao.getPhysicalAccountById('bank'))!;
+      expect(bank.balanceMinorUnits, 80000); // 100000 - 40000 + 20000
+      expect(await spent(), 20000); // budget refilled once, not twice
+      final credit = (await db.select(db.transactions).get()).firstWhere(
+        (t) => t.amountMinorUnits > 0,
+      );
+      expect(credit.transactionType, TransactionType.reimbursement);
+      expect(credit.category, 'Paid back');
+    },
+  );
+
+  test('the same person typed two ways is one person', () {
+    final a = Due(
+      id: '1',
+      person: 'Ravi ',
+      amountMinorUnits: 1,
+      receivedMinorUnits: 0,
+      kind: DueKind.lent,
+      status: DueStatus.open,
+      createdAt: DateTime(2026),
+      updatedAt: DateTime(2026),
+    );
+    final b = a.copyWith(id: '2', person: 'ravi', createdAt: DateTime(2026, 2));
+    expect(DuesService.samePerson(a.person, b.person), isTrue);
+    expect(DuesService.knownPeople([a, b]), ['ravi']);
+  });
 }

@@ -73,6 +73,7 @@ void main() {
       String id,
       int balance, {
       bool card = false,
+      bool canPay = true,
       String? paidFrom,
       String type = 'Savings',
     }) => PhysicalAccount(
@@ -86,6 +87,7 @@ void main() {
       isLiability: card,
       isActive: true,
       includeInNetWorth: true,
+      canPayCardBills: canPay,
       billsPaidFromAccountId: paidFrom,
       currencyCode: 'INR',
       sortOrder: 0,
@@ -104,6 +106,17 @@ void main() {
       expect(b.payerOf['slice']!.id, 'slicebank');
       // All cards together: the salary account can top up the rest.
       expect(b.all.canPay, isTrue);
+    });
+
+    test('an account marked as not for card bills is never counted', () {
+      final b = CardBills.of([
+        acc('spend', 40000),
+        acc('fd', 5000000, canPay: false), // a fixed deposit
+        acc('hdfc', -100000, card: true, paidFrom: 'fd'),
+      ]);
+      expect(b.payerOf.containsKey('hdfc'), isFalse);
+      expect(b.all.available, 40000);
+      expect(b.all.shortBy, 60000);
     });
 
     test('cards sharing an account share its balance', () {

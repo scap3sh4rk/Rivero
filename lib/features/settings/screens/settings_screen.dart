@@ -269,6 +269,19 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           _Row(
+            icon: Icons.trending_down_rounded,
+            title: 'Show a shortfall as negative',
+            subtitle:
+                'When bills and cards are more than you have, Safe to spend '
+                'shows how much you are short (e.g. −₹2,000) instead of ₹0',
+            trailing: Switch(
+              key: const ValueKey('negative-sts'),
+              value: ref.watch(showNegativeStsProvider),
+              onChanged: (v) =>
+                  ref.read(showNegativeStsProvider.notifier).state = v,
+            ),
+          ),
+          _Row(
             icon: Icons.handshake_outlined,
             title: 'Count money owed to me',
             subtitle:

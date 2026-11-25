@@ -54,10 +54,20 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
   String? _billsFrom; // cards: account the bills are paid from
   String _currency = homeCurrency; // bank/cash accounts only
   bool _inNetWorth = true;
+  // null = decided by the type: money locked away (a fixed deposit, an
+  // investment) cannot pay card bills unless the user says otherwise.
+  bool? _canPayBills;
   // Fixed deposits: yearly rate (%), opened on, matures on.
   final _rateController = TextEditingController();
   DateTime? _fdStart;
   DateTime? _fdMaturity;
+
+  bool get _lockedAway {
+    final t = _selectedAccountType.toLowerCase();
+    return t.contains('fixed deposit') ||
+        t.contains('recurring deposit') ||
+        t.contains('investment');
+  }
 
   bool get _isFd =>
       !_isLiability &&
@@ -98,6 +108,7 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
       _billsFrom = a.billsPaidFromAccountId;
       _currency = a.currencyCode;
       _inNetWorth = a.includeInNetWorth;
+      _canPayBills = a.canPayCardBills;
       _fdStart = a.fdStartDate;
       _fdMaturity = a.fdMaturityDate;
       final r = a.fdRateBps;
@@ -290,6 +301,9 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
         // Cards stay in rupees, so a bill is always compared like for like.
         currencyCode: drift.Value(_isLiability ? homeCurrency : _currency),
         includeInNetWorth: drift.Value(_inNetWorth),
+        canPayCardBills: drift.Value(
+          !_isLiability && (_canPayBills ?? !_lockedAway),
+        ),
         fdRateBps: drift.Value(_isFd ? _rateBps : null),
         fdStartDate: drift.Value(_isFd ? _fdStart : null),
         fdMaturityDate: drift.Value(_isFd ? _fdMaturity : null),
@@ -740,7 +754,9 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
                                     .watch(activePhysicalAccountsProvider)
                                     .value ??
                                 const <PhysicalAccount>[])
-                          if (!a.isLiability && a.id != widget.existing?.id)
+                          if (!a.isLiability &&
+                              a.canPayCardBills &&
+                              a.id != widget.existing?.id)
                             PickerOption(a.id, a.name),
                       ],
                       onChanged: (v) =>
@@ -812,6 +828,18 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
                     if (_isFd) ..._fdFields(),
                   ],
                   const SizedBox(height: RiveroSpacing.md),
+                  if (!_isLiability)
+                    SwitchListTile(
+                      key: const ValueKey('can-pay-cards'),
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Can pay credit card bills'),
+                      subtitle: const Text(
+                        'Off for money that is locked away or not meant for '
+                        'bills, like a fixed deposit',
+                      ),
+                      value: _canPayBills ?? !_lockedAway,
+                      onChanged: (v) => setState(() => _canPayBills = v),
+                    ),
                   SwitchListTile(
                     key: const ValueKey('in-net-worth'),
                     contentPadding: EdgeInsets.zero,

@@ -12,6 +12,7 @@ import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/account_color.dart';
 import 'package:rivero/design_system/widgets/bank_badge.dart';
 import 'package:rivero/design_system/widgets/photo_picker.dart';
+import 'package:rivero/design_system/widgets/picker.dart';
 import 'package:rivero/features/settings/screens/categories_screen.dart';
 import 'package:rivero/features/transactions/widgets/split_sheet.dart';
 
@@ -46,6 +47,27 @@ class _TransactionDetailSheetState
   );
   late String _category = widget.transaction.category;
   late String? _bill = widget.transaction.attachmentPath;
+  late String _accountId = widget.transaction.physicalAccountId;
+
+  /// The payment came from (or landed in) another account: move it there.
+  Future<void> _pickAccount(
+    BuildContext anchor,
+    List<PhysicalAccount> accounts,
+  ) async {
+    final picked = await showDropdown<String>(
+      anchor,
+      options: [
+        for (final a in accounts)
+          PickerOption(a.id, a.name, leading: ColorDot(accountColor(a))),
+      ],
+      selected: _accountId,
+    );
+    if (picked == null || picked.value == _accountId) return;
+    await ref
+        .read(ledgerServiceProvider)
+        .changeAccount(widget.transaction.id, picked.value);
+    if (mounted) setState(() => _accountId = picked.value);
+  }
 
   Future<void> _attachBill() async {
     final picked = await pickPhoto(context);
@@ -131,10 +153,14 @@ class _TransactionDetailSheetState
   Widget build(BuildContext context) {
     final t = widget.transaction;
     final privacy = ref.watch(privacyModeProvider);
-    final account =
-        (ref.watch(activePhysicalAccountsProvider).value ?? const [])
-            .where((a) => a.id == t.physicalAccountId)
-            .firstOrNull;
+    final accounts =
+        ref.watch(activePhysicalAccountsProvider).value ?? const [];
+    final account = accounts.where((a) => a.id == _accountId).firstOrNull;
+    // A transfer is a pair of legs: its accounts are not edited one by one.
+    final canMove =
+        !t.isInternalTransfer &&
+        t.linkedTransactionId == null &&
+        accounts.length > 1;
     final pending = t.transactionState == TransactionState.needsReview;
     final credit = t.amountMinorUnits > 0;
     final cats = {
@@ -183,28 +209,43 @@ class _TransactionDetailSheetState
                   ),
                 ),
                 if (account != null)
-                  Column(
-                    key: const ValueKey('detail-account'),
-                    children: [
-                      BankBadge(
-                        name: account.institution,
-                        color: accountColor(account),
-                        imagePath: account.imagePath,
-                        size: 40,
-                        circle: true,
+                  Builder(
+                    builder: (anchor) => InkWell(
+                      key: const ValueKey('detail-account'),
+                      borderRadius: RiveroRadii.borderMd,
+                      onTap: canMove
+                          ? () => _pickAccount(anchor, accounts)
+                          : null,
+                      child: Column(
+                        children: [
+                          BankBadge(
+                            name: account.institution,
+                            color: accountColor(account),
+                            imagePath: account.imagePath,
+                            size: 40,
+                            circle: true,
+                          ),
+                          const SizedBox(height: 4),
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 110),
+                            child: Text(
+                              '${account.institution}\n••${account.accountMask}',
+                              textAlign: TextAlign.center,
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                              style: RiveroTypography.bodySmall,
+                            ),
+                          ),
+                          if (canMove)
+                            Text(
+                              'Change',
+                              style: RiveroTypography.bodySmall.copyWith(
+                                color: RiveroColors.accent,
+                              ),
+                            ),
+                        ],
                       ),
-                      const SizedBox(height: 4),
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 110),
-                        child: Text(
-                          '${account.institution}\n••${account.accountMask}',
-                          textAlign: TextAlign.center,
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                          style: RiveroTypography.bodySmall,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
               ],
             ),

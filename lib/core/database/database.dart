@@ -84,7 +84,7 @@ class RiveroDatabase extends _$RiveroDatabase {
   }
 
   @override
-  int get schemaVersion => 15;
+  int get schemaVersion => 16;
 
   @override
   MigrationStrategy get migration {
@@ -176,6 +176,15 @@ class RiveroDatabase extends _$RiveroDatabase {
           await m.addColumn(physicalAccounts, physicalAccounts.fdRateBps);
           await m.addColumn(physicalAccounts, physicalAccounts.fdStartDate);
           await m.addColumn(physicalAccounts, physicalAccounts.fdMaturityDate);
+        }
+        if (from < 16) {
+          await m.addColumn(physicalAccounts, physicalAccounts.canPayCardBills);
+          await m.addColumn(dues, dues.creditAccountId);
+          // Locked-away money was never meant for card bills.
+          await customStatement(
+            'UPDATE physical_accounts SET can_pay_card_bills = 0 '
+            "WHERE account_type IN ('Fixed Deposit', 'Investment / Demat')",
+          );
         }
       },
       beforeOpen: (details) async {

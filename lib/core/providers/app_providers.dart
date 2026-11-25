@@ -185,6 +185,8 @@ class SettingsSync {
     }
     ref.read(includePendingReimbursementsProvider.notifier).state =
         (await dao.get(SettingKeys.countOwed)) == '1';
+    ref.read(showNegativeStsProvider.notifier).state =
+        (await dao.get(SettingKeys.showNegativeSts)) == '1';
     ref.read(openOnLogProvider.notifier).state =
         (await dao.get(SettingKeys.openOnLog)) == '1';
     // No setup wizard: the app opens straight away, with a guided tour
@@ -291,6 +293,10 @@ class SettingsSync {
         (_, v) => save(SettingKeys.countOwed, v ? '1' : '0'),
       )
       ..listen(
+        showNegativeStsProvider,
+        (_, v) => save(SettingKeys.showNegativeSts, v ? '1' : '0'),
+      )
+      ..listen(
         openOnLogProvider,
         (_, v) => save(SettingKeys.openOnLog, v ? '1' : '0'),
       )
@@ -346,6 +352,9 @@ final plannedCycleStartProvider = StreamProvider<DateTime?>((ref) {
       .watch(SettingKeys.lastPlannedCycleStart)
       .map((v) => v == null ? null : DateTime.tryParse(v));
 });
+
+/// Show a Safe-to-spend shortfall as a negative amount instead of zero.
+final showNegativeStsProvider = StateProvider<bool>((ref) => false);
 
 /// Preference whether to include pending unreceived reimbursements in Safe-to-Spend.
 final includePendingReimbursementsProvider = StateProvider<bool>(
@@ -473,7 +482,11 @@ final activePhysicalAccountsProvider = StreamProvider<List<PhysicalAccount>>((
   ref,
 ) {
   final db = ref.watch(databaseProvider);
-  return db.accountsDao.watchActivePhysicalAccounts();
+  return db.accountsDao.watchActivePhysicalAccounts().map((accounts) {
+    // The notification popup offers the same accounts (no balances).
+    NotificationBridge.setAccounts(accounts);
+    return accounts;
+  });
 });
 
 /// Stream of all virtual allocation buckets.
@@ -613,6 +626,7 @@ class LogPrefill {
     required this.note,
     this.income = false,
     this.category,
+    this.accountId,
   });
 
   /// Best guess from a raw message: the first amount that follows Rs / INR /
@@ -654,16 +668,21 @@ class LogPrefill {
   /// Picked on the message's notification, if anything was.
   final String? category;
 
+  /// The account picked on the message's notification, if any.
+  final String? accountId;
+
   /// The same, with what was chosen on the notification ([choice] holds
-  /// "category" and "note", either may be null).
+  /// "category", "note" and "account", any may be null).
   LogPrefill withChoice(Map<String, dynamic>? choice) {
     final c = choice?['category'] as String?;
     final n = (choice?['note'] as String?)?.trim();
+    final a = choice?['account'] as String?;
     return LogPrefill(
       amountText: amountText,
       note: n == null || n.isEmpty ? note : n,
       income: income,
       category: c == null || c.isEmpty ? category : c,
+      accountId: a == null || a.isEmpty ? accountId : a,
     );
   }
 }
