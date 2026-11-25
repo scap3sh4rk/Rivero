@@ -75,6 +75,10 @@ class BackupCodec {
   static const _format = 'rivero-backup';
   static const _version = 1;
 
+  /// The most PBKDF2 rounds a backup may ask for (ten times the default):
+  /// a file cannot make the phone hash for minutes.
+  static const maxIterations = 2100000;
+
   // ---- data <-> json -----------------------------------------------------
 
   static Future<Map<String, dynamic>> export(RiveroDatabase db) async {
@@ -145,6 +149,20 @@ class BackupCodec {
     List<Map<String, dynamic>> list(String k) =>
         ((data[k] as List?) ?? const []).cast<Map<String, dynamic>>();
 
+    // Check every picture's place before writing any: a backup that names
+    // another folder (or a path) is refused whole.
+    for (final m in list('media')) {
+      final folder = m['folder'];
+      final name = m['name'];
+      if (folder is! String ||
+          name is! String ||
+          m['data'] is! String ||
+          !MediaStore.allowed(folder, name)) {
+        throw const BackupException(
+          'This backup file is damaged or was changed: nothing was restored',
+        );
+      }
+    }
     final moved = <String, String>{};
     for (final m in list('media')) {
       final path = await MediaStore.write(
@@ -286,24 +304,34 @@ class BackupCodec {
     } on Object {
       throw const BackupException('This is not a Rivero backup file');
     }
-    if (head['format'] != _format) {
+    final iter = head['iter'];
+    final fields = [head['salt'], head['data'], head['nonce'], head['mac']];
+    if (head['format'] != _format ||
+        iter is! int ||
+        iter < 1 ||
+        iter > maxIterations ||
+        fields.any((f) => f is! String)) {
       throw const BackupException('This is not a Rivero backup file');
     }
-    final salt = base64Decode(head['salt'] as String);
+    final SecretBox box;
+    final List<int> salt;
+    try {
+      salt = base64Decode(head['salt'] as String);
+      box = SecretBox(
+        base64Decode(head['data'] as String),
+        nonce: base64Decode(head['nonce'] as String),
+        mac: Mac(base64Decode(head['mac'] as String)),
+      );
+    } on FormatException {
+      throw const BackupException('This is not a Rivero backup file');
+    }
     final key = await Pbkdf2(
       macAlgorithm: Hmac.sha256(),
-      iterations: head['iter'] as int,
+      iterations: iter,
       bits: 256,
     ).deriveKeyFromPassword(password: passphrase, nonce: salt);
     try {
-      final clear = await AesGcm.with256bits().decrypt(
-        SecretBox(
-          base64Decode(head['data'] as String),
-          nonce: base64Decode(head['nonce'] as String),
-          mac: Mac(base64Decode(head['mac'] as String)),
-        ),
-        secretKey: key,
-      );
+      final clear = await AesGcm.with256bits().decrypt(box, secretKey: key);
       return jsonDecode(utf8.decode(clear)) as Map<String, dynamic>;
     } on SecretBoxAuthenticationError {
       throw const BackupException('Wrong passphrase, or the file was changed');
