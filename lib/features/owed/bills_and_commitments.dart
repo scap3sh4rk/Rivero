@@ -89,7 +89,10 @@ class BillsAndCommitments extends ConsumerWidget {
         .toList();
     int owedOn(PhysicalAccount a) =>
         a.balanceMinorUnits < 0 ? -a.balanceMinorUnits : 0;
-    final bills = CardBills.of(accounts);
+    // A card's bill is what its last statement asks for; what was spent
+    // since goes on the next statement.
+    final cardBills = ref.watch(cardBillsProvider);
+    final bills = CardBills.of(accounts, due: cardBills);
 
     final due = upcomingMandates(mandates, now, cycle.cycleEndDate);
     final accountIds = accounts.map((a) => a.id).toSet();
@@ -182,14 +185,25 @@ class BillsAndCommitments extends ConsumerWidget {
               paymentDueDay: c.paymentDueDay,
               now: now,
             );
-            final owed = owedOn(c);
-            final status = billStatus(bills, c, money);
-            final when = owed == 0
-                ? 'Nothing to settle'
-                : cc == null
-                ? 'Set the statement and due days on the card'
-                : 'Settle by ${DateFormat('d MMM').format(cc.dueDate)} · '
+            final bill = cardBills[c.id];
+            final owed = bill?.due ?? owedOn(c);
+            final next = bill?.nextBill ?? 0;
+            final status = owed == 0 ? null : billStatus(bills, c, money);
+            final f = DateFormat('d MMM');
+            final when = cc == null
+                ? (owed == 0
+                      ? 'Nothing to settle'
+                      : 'Set the statement and due days on the card')
+                : owed == 0
+                ? 'Nothing due from the ${f.format(cc.lastStatement)} statement'
+                : bill?.overdueSince != null
+                ? 'Overdue since ${f.format(bill!.overdueSince!)} · pay now'
+                : 'Settle by ${f.format(cc.dueDate)} · '
                       '${cc.daysToDue == 0 ? 'today' : 'in ${cc.daysToDue} days'}';
+            final nextLine = cc == null || next == 0
+                ? null
+                : '${money(next)} spent since ${f.format(cc.lastStatement)} '
+                      'goes on the ${f.format(cc.nextStatement)} statement';
             return line(
               BankBadge(
                 name: c.institution,
@@ -198,9 +212,10 @@ class BillsAndCommitments extends ConsumerWidget {
                 circle: true,
               ),
               c.name,
-              status == null ? when : '$when\n${status.text}',
+              [when, ?status?.text, ?nextLine].join('\n'),
               money(owed),
-              subColor: status != null && !status.ok
+              subColor:
+                  bill?.overdueSince != null || (status != null && !status.ok)
                   ? RiveroColors.danger
                   : null,
               onTap: () => AccountDetailScreen.open(context, c.id),

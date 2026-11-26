@@ -91,8 +91,10 @@ class AccountDetailScreen extends ConsumerWidget {
     // Same rule as the Accounts page (cards sharing an account share it).
     final afford = account == null
         ? null
-        : CardBills.of(ref.watch(exchangeRatesProvider).inHome(all))
-              .byCard[account.id];
+        : CardBills.of(
+            ref.watch(exchangeRatesProvider).inHome(all),
+            due: ref.watch(cardBillsProvider),
+          ).byCard[account.id];
     if (account == null) {
       // Removed (or still loading): nothing to show.
       return Scaffold(

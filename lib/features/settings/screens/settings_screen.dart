@@ -949,7 +949,7 @@ class _ReminderRowsState extends ConsumerState<_ReminderRows> {
           SettingKeys.remindCards,
           Icons.credit_card_rounded,
           'Card bills',
-          '3 days and 1 day before each due date',
+          'Every day from 5 days before the due date, and daily while overdue',
         ),
         row(
           SettingKeys.remindAutopay,

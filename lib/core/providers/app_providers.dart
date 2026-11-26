@@ -7,6 +7,7 @@ import 'package:rivero/core/database/daos/settings_dao.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/database/database_seeder.dart';
 import 'package:rivero/core/domain/account_group.dart';
+import 'package:rivero/core/domain/card_cycle.dart';
 import 'package:rivero/core/domain/custom_account_types.dart';
 import 'package:rivero/core/domain/log_category.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
@@ -741,6 +742,17 @@ final fontFamilyProvider = StateProvider<String>(
 
 /// Open the app on the quick-log keypad instead of Home.
 final openOnLogProvider = StateProvider<bool>((ref) => false);
+
+/// Each card's current bill (what its last statement still asks for), in
+/// the home currency. Refreshes with the ledger and at midnight.
+final cardBillsProvider = Provider<Map<String, CardBill>>((ref) {
+  return CardBill.of(
+    accounts: ref.watch(activePhysicalAccountsProvider).value ?? const [],
+    transactions: ref.watch(allTransactionsStreamProvider).value ?? const [],
+    now: ref.watch(todayProvider),
+    rates: ref.watch(exchangeRatesProvider),
+  );
+});
 
 /// Stream of all transactions across the ledger.
 final allTransactionsStreamProvider = StreamProvider<List<LedgerTransaction>>((

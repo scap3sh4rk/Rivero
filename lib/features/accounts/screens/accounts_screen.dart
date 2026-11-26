@@ -49,7 +49,10 @@ class AccountsScreen extends ConsumerWidget {
     final debt = counted
         .where((a) => a.isLiability)
         .fold<int>(0, (s, a) => s + owedOn(a));
-    final bills = CardBills.of(home);
+    // Each card's bill is what its last statement asks for (spends since
+    // go on the next one).
+    final cardBills = ref.watch(cardBillsProvider);
+    final bills = CardBills.of(home, due: cardBills);
     final groups = {
       for (final g in AccountGroup.values)
         g: [
@@ -143,6 +146,7 @@ class AccountsScreen extends ConsumerWidget {
                     child: _AccountRow(
                       group[i],
                       bills: bills,
+                      bill: cardBills[group[i].id],
                       paysFor: [
                         for (final e in bills.payerOf.entries)
                           if (e.value.id == group[i].id)
@@ -336,7 +340,7 @@ class _ArrangeSheetState extends ConsumerState<_ArrangeSheet> {
 
 /// A bank/cash account or a credit card, with what matters for each.
 class _AccountRow extends ConsumerWidget {
-  const _AccountRow(this.a, {this.bills, this.paysFor = const []});
+  const _AccountRow(this.a, {this.bills, this.bill, this.paysFor = const []});
 
   final PhysicalAccount a;
 
@@ -345,6 +349,9 @@ class _AccountRow extends ConsumerWidget {
 
   /// Every card's bill (see CardBills); a loan has no entry.
   final CardBills? bills;
+
+  /// This card's bill: what its last statement still asks for.
+  final CardBill? bill;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -574,7 +581,7 @@ class _AccountRow extends ConsumerWidget {
 
   /// Just whether the bill can be paid (compact cards).
   List<Widget> _affordLine(int owed, String Function(int) money) {
-    final status = bills == null || owed == 0
+    final status = bills == null || (bill?.due ?? owed) == 0
         ? null
         : billStatus(bills!, a, money);
     if (status == null) return const [];
@@ -639,7 +646,13 @@ class _AccountRow extends ConsumerWidget {
             ),
           ),
           Text(
-            'Pay by $due · ${cycle.daysToDue == 0 ? 'today' : '${cycle.daysToDue} days'}',
+            (bill?.due ?? owed) == 0
+                ? 'Nothing due · statement ${DateFormat('d MMM').format(cycle.nextStatement)}'
+                : bill?.overdueSince != null
+                ? 'Pay ${money(bill!.due)} · overdue since '
+                      '${DateFormat('d MMM').format(bill!.overdueSince!)}'
+                : 'Pay ${money(bill?.due ?? owed)} by $due · '
+                      '${cycle.daysToDue == 0 ? 'today' : '${cycle.daysToDue} days'}',
             key: ValueKey('due-${a.id}'),
             style: RiveroTypography.bodySmall,
           ),
