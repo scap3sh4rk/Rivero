@@ -148,20 +148,84 @@ void main() {
     expect(row.userNotes, 'Team lunch, Ravi owes half');
     expect(find.text('Team lunch, Ravi owes half'), findsOneWidget);
 
+    Future<LedgerTransaction?> row1() => tester.runAsync<LedgerTransaction?>(
+      () => db.transactionsDao.getTransactionById('txn-review-1'),
+    );
+
+    // Delete, then Undo: it comes back and was never deleted.
     await tester.tap(find.text('Zomato'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     await tester.tap(find.text('Delete entry'));
+    await settle();
+    expect(find.text('Zomato'), findsNothing); // gone at once
+    expect(find.text('Entry deleted'), findsOneWidget);
+    await tester.tap(find.text('Undo'));
+    await settle(); // the snackbar leaves
+    await settle(); // the list reloads with it back
+    expect(find.text('Zomato'), findsOneWidget);
+    expect(await row1(), isNotNull);
+
+    // Delete without Undo: deleted for real once Undo is gone.
+    await tester.tap(find.text('Zomato'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.text('Delete entry'));
+    await settle();
+    expect(await row1(), isNotNull); // not yet: Undo is still offered
+    await tester.pump(const Duration(seconds: 6));
+    for (var i = 0; i < 4; i++) {
+      await settle(); // the snackbar leaves, then the delete runs
+    }
+    expect(await row1(), isNull);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 100));
+  });
+
+  testWidgets('edit a payment: amount and name are corrected in place', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final db = RiveroDatabase.memory();
+    addTearDown(db.close);
+    await DatabaseSeeder(db).seedIfEmpty();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [databaseProvider.overrideWithValue(db)],
+        child: const MaterialApp(home: TransactionsScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    await tester.tap(find.text('Zomato'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.byKey(const ValueKey('detail-edit')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
-    await settle();
-    expect(
-      await tester.runAsync(
-        () => db.transactionsDao.getTransactionById('txn-review-1'),
-      ),
-      isNull,
+    await tester.enterText(find.byKey(const ValueKey('edit-amount')), '123.5');
+    await tester.enterText(find.byKey(const ValueKey('edit-name')), 'Swiggy');
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('edit-save')));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 250)),
     );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    final row = (await tester.runAsync(
+      () => db.transactionsDao.getTransactionById('txn-review-1'),
+    ))!;
+    expect(row.amountMinorUnits, -12350);
+    expect(row.merchant, 'Swiggy');
+    // The open sheet shows the corrected entry.
+    expect(find.text('₹123.50'), findsWidgets);
 
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 100));

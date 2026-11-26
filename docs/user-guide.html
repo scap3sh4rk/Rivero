@@ -132,7 +132,8 @@
 <ul>
 <li>Search by merchant, category or <strong>note</strong>. Put <strong>#tags</strong> in a note ("Dinner #goa #office") and each tag becomes a chip above the list: tap one to see only those entries. The filter button sets the <strong>type</strong> (All, Expenses, Income, Transfers) and the <strong>date</strong>: today, yesterday, the last 7 days, this or last month, any of the last 12 months, a single day, or a from–to range. The chosen dates show as a chip you can clear.</li>
 <li>Each day starts with a heading (Today, Yesterday, Sat, 14 Nov) and what you spent that day.</li>
-<li>Tap an entry to edit the note and category, attach a bill photo, split the bill, confirm or ignore it, or delete it. Deleting undoes its effect on balances and budget.</li>
+<li>Tap an entry to edit the note and category, attach a bill photo, split the bill, confirm or ignore it, or delete it. <strong>Edit</strong> corrects the amount, who it was with, or the date (a misread bank message, say): if it already counted, balances and budget move by the difference. Transfers are edited as a pair, so they cannot be edited one side at a time.</li>
+<li><strong>Undo</strong>: deleting an entry hides it at once and shows <em>Entry deleted · Undo</em> for 5 seconds; it is deleted (balances and budget corrected) only after that. Ignoring a payment also offers Undo, which puts it back under To review.</li>
 <li>The small overview at the top shows what you spent this cycle, or in the dates you picked; tap it for a daily chart and top categories. <strong>Analytics</strong> shows month by month and per account.</li>
 </ul>
 
@@ -142,6 +143,7 @@
 <ul>
 <li>Everyone who owes you: split bills and loans. Tap a person to record a part-payment or full repayment; if it arrives in your bank, Rivero offers matching credits and tags the one you pick as "Paid back", never as income.</li>
 <li><strong>Split this bill</strong> (from any payment in Activity): their share stops counting as your spending immediately.</li>
+<li><strong>One row per person</strong>, whoever owes the most first: their total from split bills and loans, what it is made of ("2 split bills · 1 loan") and since when. The same name typed differently counts as one person. Tap a person for the <strong>whole breakdown</strong>: what they owe you, what you owe them and the net, then each split bill by name, each loan, and past entries; tap an entry to record money received. <em>You owe people</em> works the same way.</li>
 <li><strong>Write off</strong> gives up on what is left; for a loan, that remainder becomes spending.</li>
 </ul>
 <h3>You owe people</h3>
@@ -193,6 +195,13 @@
 <li>A payment you already typed in, up to 6 hours earlier, is matched with the bank's message instead of being counted twice.</li>
 <li>Promotional messages ("Get ₹500 cashback…") are ignored.</li>
 <li>The bank's "available balance" corrects the account's balance when a captured payment is confirmed.</li>
+</ul>
+
+<h2 id="widget-and-shortcuts">Home-screen widget and shortcuts (Android)</h2>
+<ul>
+<li><strong>Widget</strong>: long-press your home screen → Widgets → Rivero. It shows Safe to spend per day and the days to payday, with a <strong>Log</strong> button. It updates whenever Rivero's number changes. With <em>Hide amounts</em> or <em>App lock</em> on, it shows ₹•••• instead of the amount.</li>
+<li><strong>Shortcuts</strong>: long-press the Rivero icon for <em>Log</em>, <em>Scan bill</em> and <em>Activity</em>.</li>
+<li><strong>About</strong>: Settings → About Rivero shows the version, what changed in each version, the privacy page, the user guide and the open-source licences.</li>
 </ul>
 
 <h2 id="backup-restore-lock">Backup, restore, lock</h2>

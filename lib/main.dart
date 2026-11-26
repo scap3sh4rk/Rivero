@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,10 +18,13 @@ import 'package:rivero/core/reminders/reminder_planner.dart';
 import 'package:rivero/core/security/app_lock.dart';
 import 'package:rivero/core/security/database_key_manager.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
+import 'package:rivero/features/main/data_gate.dart';
 import 'package:rivero/features/main/main_screen.dart';
+import 'package:rivero/features/settings/screens/about_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  registerFontLicenses();
 
   final RiveroDatabase db;
   try {
@@ -34,18 +38,18 @@ Future<void> main() async {
     return;
   }
 
-  // Gracefully handle UI errors without displaying harsh full-screen red boxes
+  // A part of a screen that fails to draw shows a calm note, never the
+  // error's text (that stays in the log; details only in debug builds).
   ErrorWidget.builder = (details) {
     return Container(
       padding: const EdgeInsets.all(RiveroSpacing.md),
       alignment: Alignment.center,
       color: RiveroColors.surfaceElevated,
       child: Text(
-        'Unable to render: ${details.exception.toString().split('\n').first}',
-        style: RiveroTypography.bodySmall.copyWith(
-          color: RiveroColors.expenseAccent,
-          fontSize: 11,
-        ),
+        kDebugMode
+            ? 'Unable to render: ${details.exception.toString().split('\n').first}'
+            : 'This part could not be shown. Go back and open it again.',
+        style: RiveroTypography.bodySmall,
         textAlign: TextAlign.center,
       ),
     );
@@ -73,6 +77,10 @@ class _RiveroAppState extends ConsumerState<RiveroApp>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // The home-screen widget follows Safe to spend whenever it changes.
+    ref.listenManual(homeWidgetTextProvider, (_, v) {
+      if (v != null) NotificationBridge.updateHomeWidget(v.amount, v.caption);
+    }, fireImmediately: true);
     Future.microtask(() {
       final sync = ref.read(settingsSyncProvider);
       sync.load().then((_) => sync.listen());
@@ -182,6 +190,17 @@ class _RiveroAppState extends ConsumerState<RiveroApp>
   /// "Open Rivero" was tapped on a capture notification: show that payment
   /// in the quick-add sheet (MainScreen opens it).
   Future<void> _openRequested() async {
+    // A launcher shortcut or the widget's Log button.
+    switch (await NotificationBridge.takeOpenTab()) {
+      case 'log':
+        ref.read(selectedNavIndexProvider.notifier).state = MainScreen.logIndex;
+      case 'scan':
+        ref.read(pendingScanProvider.notifier).state = true;
+        ref.read(selectedNavIndexProvider.notifier).state = MainScreen.logIndex;
+      case 'activity':
+        ref.read(selectedNavIndexProvider.notifier).state =
+            MainScreen.activityIndex;
+    }
     final id = await NotificationBridge.takeOpenRequest();
     if (id == null) return;
     final t = await CaptureDecisions(ref.read(databaseProvider)).entryFor(id);
@@ -244,7 +263,7 @@ class _RiveroAppState extends ConsumerState<RiveroApp>
       },
       home: switch (ref.watch(onboardedProvider)) {
         null => Scaffold(backgroundColor: RiveroColors.background),
-        _ => const MainScreen(),
+        _ => const DataGate(child: MainScreen()),
       },
     );
   }
