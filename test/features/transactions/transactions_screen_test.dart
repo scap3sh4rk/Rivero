@@ -148,20 +148,36 @@ void main() {
     expect(row.userNotes, 'Team lunch, Ravi owes half');
     expect(find.text('Team lunch, Ravi owes half'), findsOneWidget);
 
+    Future<LedgerTransaction?> row1() => tester.runAsync<LedgerTransaction?>(
+      () => db.transactionsDao.getTransactionById('txn-review-1'),
+    );
+
+    // Delete, then Undo: it comes back and was never deleted.
     await tester.tap(find.text('Zomato'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     await tester.tap(find.text('Delete entry'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
     await settle();
-    expect(
-      await tester.runAsync(
-        () => db.transactionsDao.getTransactionById('txn-review-1'),
-      ),
-      isNull,
-    );
+    expect(find.text('Zomato'), findsNothing); // gone at once
+    expect(find.text('Entry deleted'), findsOneWidget);
+    await tester.tap(find.text('Undo'));
+    await settle(); // the snackbar leaves
+    await settle(); // the list reloads with it back
+    expect(find.text('Zomato'), findsOneWidget);
+    expect(await row1(), isNotNull);
+
+    // Delete without Undo: deleted for real once Undo is gone.
+    await tester.tap(find.text('Zomato'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.text('Delete entry'));
+    await settle();
+    expect(await row1(), isNotNull); // not yet: Undo is still offered
+    await tester.pump(const Duration(seconds: 6));
+    for (var i = 0; i < 4; i++) {
+      await settle(); // the snackbar leaves, then the delete runs
+    }
+    expect(await row1(), isNull);
 
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 100));

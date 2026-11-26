@@ -10,6 +10,7 @@ import 'package:rivero/design_system/widgets/bank_badge.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
 import 'package:rivero/features/home/widgets/quick_review_sheet.dart';
 import 'package:rivero/features/home/widgets/unreadable_sheet.dart';
+import 'package:rivero/features/transactions/widgets/undo.dart';
 
 /// Captured transactions the app was not sure about. Buttons, not swipes, so
 /// it never fights the page swipe. Hidden entirely when there is nothing.
@@ -65,8 +66,7 @@ class ReviewInbox extends ConsumerWidget {
     if (pending.isEmpty) return unreadableCard!;
     final privacy = ref.watch(privacyModeProvider);
 
-    Future<void> ignore(LedgerTransaction t) =>
-        ref.read(ledgerServiceProvider).ignore(t.id);
+    Future<void> ignore(LedgerTransaction t) => ignoreWithUndo(context, t.id);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

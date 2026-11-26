@@ -187,6 +187,15 @@ void main() {
     },
   );
 
+  test('an ignored entry can be brought back to review', () async {
+    await txn('w', 'bank', -50000, TransactionType.expense);
+    await ledger.ignore('w');
+    await ledger.unignore('w');
+    final t = (await db.transactionsDao.getTransactionById('w'))!;
+    expect(t.transactionState, TransactionState.needsReview);
+    expect(await balance('bank'), 0); // nothing counted either way
+  });
+
   test('deleting a confirmed expense gives back balance and budget', () async {
     await db.accountsDao.updateAccountBalance('bank', 100000);
     await txn('e', 'bank', -50000, TransactionType.expense);

@@ -17,6 +17,7 @@ import 'package:rivero/design_system/widgets/photo_picker.dart';
 import 'package:rivero/design_system/widgets/picker.dart';
 import 'package:rivero/features/settings/screens/categories_screen.dart';
 import 'package:rivero/features/transactions/widgets/split_sheet.dart';
+import 'package:rivero/features/transactions/widgets/undo.dart';
 
 /// One transaction: what it was, a note, its category, and fixes
 /// (confirm / ignore / delete). Opened by tapping a row in Activity.
@@ -136,31 +137,10 @@ class _TransactionDetailSheetState
     if (mounted) Navigator.pop(context);
   }
 
-  Future<void> _delete() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete this entry?'),
-        content: const Text(
-          'Balances and your budget are corrected as if it never happened.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Keep'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-    if (ok != true) return;
-    await ref
-        .read(ledgerServiceProvider)
-        .removeWithPlanPartner(widget.transaction.id);
-    if (mounted) Navigator.pop(context);
+  /// Deletes with Undo (see deleteWithUndo): no "are you sure" first.
+  void _delete() {
+    deleteWithUndo(context, widget.transaction.id);
+    Navigator.pop(context);
   }
 
   Future<void> _confirm() async {
@@ -170,7 +150,7 @@ class _TransactionDetailSheetState
   }
 
   Future<void> _ignore() async {
-    await ref.read(ledgerServiceProvider).ignore(widget.transaction.id);
+    await ignoreWithUndo(context, widget.transaction.id);
     await _saveAndClose();
   }
 

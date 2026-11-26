@@ -9,6 +9,7 @@ import 'package:rivero/core/rules/capture_rules.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/picker.dart';
+import 'package:rivero/features/transactions/widgets/undo.dart';
 
 /// Add a captured payment in two taps: pick a category, optionally a note,
 /// then Add (or Ignore). Opened from a capture notification ("Open Rivero")
@@ -86,8 +87,8 @@ class _QuickReviewSheetState extends ConsumerState<QuickReviewSheet> {
           ),
         );
       }
-    } else {
-      await ledger.ignore(t.id);
+    } else if (mounted) {
+      await ignoreWithUndo(context, t.id);
     }
     if (mounted) Navigator.pop(context);
   }

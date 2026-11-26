@@ -324,6 +324,21 @@ class LedgerService {
   static bool _pairedByApp(String id) =>
       id.startsWith('plan-') || id.startsWith('cc-') || id.startsWith('atm-');
 
+  /// Undoes [ignore]: the entry (and a partner ignored with it) waits for
+  /// Accept or Ignore again. Nothing else changed when it was ignored.
+  Future<void> unignore(String transactionId) => db.transaction(() async {
+    final t = await db.transactionsDao.getTransactionById(transactionId);
+    if (t == null || t.transactionState != TransactionState.ignored) return;
+    await db.transactionsDao.updateTransactionState(
+      transactionId,
+      TransactionState.needsReview,
+    );
+    final partner = t.linkedTransactionId;
+    if (partner != null && _decidedTogether(t, partner)) {
+      await unignore(partner);
+    }
+  });
+
   /// Whether [t] and its linked [partner] are accepted or ignored together:
   /// pairs Rivero made, and the two messages of one card bill (the bank's
   /// debit and the card's "payment received").

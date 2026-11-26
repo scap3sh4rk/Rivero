@@ -759,8 +759,22 @@ final allTransactionsStreamProvider = StreamProvider<List<LedgerTransaction>>((
   ref,
 ) {
   final db = ref.watch(databaseProvider);
-  return db.transactionsDao.watchAllTransactions();
+  final stream = db.transactionsDao.watchAllTransactions();
+  // Entries just deleted are hidden at once, while their Undo is offered.
+  final hidden = ref.watch(pendingRemovalsProvider);
+  return hidden.isEmpty
+      ? stream
+      : stream.map(
+          (all) => [
+            for (final t in all)
+              if (!hidden.contains(t.id)) t,
+          ],
+        );
 });
+
+/// Entries the user just deleted: hidden everywhere at once, and deleted for
+/// real only when their Undo is no longer offered (see deleteWithUndo).
+final pendingRemovalsProvider = StateProvider<Set<String>>((ref) => const {});
 
 /// List of account types (starts with default presets, can hold up to 100 custom types).
 final customAccountTypesProvider = StateProvider<List<String>>((ref) {
