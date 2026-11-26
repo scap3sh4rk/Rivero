@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Long-press the Rivero icon: straight to Log, a bill scan, or Activity. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:icon="@drawable/ic_shortcut_log"
+        android:shortcutId="log"
+        android:shortcutLongLabel="@string/shortcut_log_long"
+        android:shortcutShortLabel="@string/shortcut_log_short">
+        <intent
+            android:action="dev.scap3sh4rk.rivero.action.LOG"
+            android:targetClass="dev.scap3sh4rk.rivero.MainActivity"
+            android:targetPackage="dev.scap3sh4rk.rivero" />
+    </shortcut>
+    <shortcut
+        android:icon="@drawable/ic_shortcut_scan"
+        android:shortcutId="scan"
+        android:shortcutLongLabel="@string/shortcut_scan_long"
+        android:shortcutShortLabel="@string/shortcut_scan_short">
+        <intent
+            android:action="dev.scap3sh4rk.rivero.action.SCAN"
+            android:targetClass="dev.scap3sh4rk.rivero.MainActivity"
+            android:targetPackage="dev.scap3sh4rk.rivero" />
+    </shortcut>
+    <shortcut
+        android:icon="@drawable/ic_shortcut_activity"
+        android:shortcutId="activity"
+        android:shortcutLongLabel="@string/shortcut_activity_long"
+        android:shortcutShortLabel="@string/shortcut_activity_short">
+        <intent
+            android:action="dev.scap3sh4rk.rivero.action.ACTIVITY"
+            android:targetClass="dev.scap3sh4rk.rivero.MainActivity"
+            android:targetPackage="dev.scap3sh4rk.rivero" />
+    </shortcut>
+</shortcuts>

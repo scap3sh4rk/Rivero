@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_description">Safe to spend per day, and a button to log a payment</string>
+    <string name="shortcut_log_short">Log</string>
+    <string name="shortcut_log_long">Log a payment</string>
+    <string name="shortcut_scan_short">Scan bill</string>
+    <string name="shortcut_scan_long">Scan a bill</string>
+    <string name="shortcut_activity_short">Activity</string>
+    <string name="shortcut_activity_long">See activity</string>
+</resources>

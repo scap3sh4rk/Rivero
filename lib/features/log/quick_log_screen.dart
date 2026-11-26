@@ -53,6 +53,14 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // "Scan a bill" from the launcher shortcut: start it once Log is up.
+    ref.listenManual<bool>(pendingScanProvider, (_, scan) {
+      if (!scan) return;
+      ref.read(pendingScanProvider.notifier).state = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) scanBill(context, ref);
+      });
+    }, fireImmediately: true);
     // A message sent here from Home ("Add it") arrives pre-filled.
     ref.listenManual<LogPrefill?>(logPrefillProvider, (_, p) {
       if (p == null) return;

@@ -743,6 +743,39 @@ final fontFamilyProvider = StateProvider<String>(
 /// Open the app on the quick-log keypad instead of Home.
 final openOnLogProvider = StateProvider<bool>((ref) => false);
 
+/// What the home-screen widget shows: Safe to spend per day (the same
+/// number as the Home card) and a short caption. Amounts are hidden when
+/// the app hides them or App lock is on (the widget sits outside the lock).
+final homeWidgetTextProvider = Provider<({String amount, String caption})?>((
+  ref,
+) {
+  final sts = ref.watch(liveSafeToSpendResultProvider).value;
+  final breakdown = ref.watch(stsBreakdownProvider).value;
+  if (sts == null) return null;
+  final hasPlan = breakdown?.hasPlan ?? true;
+  final showNegative = ref.watch(showNegativeStsProvider);
+  final value = sts.isDeficit
+      ? (showNegative && hasPlan ? sts.effectiveSafeToSpend : 0)
+      : sts.dailySpendingPace;
+  final hidden =
+      ref.watch(privacyModeProvider) || ref.watch(appLockEnabledProvider);
+  final awaiting = ref.watch(awaitingSalaryProvider).value ?? false;
+  final days = ref.watch(currentPaycycleProvider).daysRemaining;
+  return (
+    amount: hidden
+        ? '₹••••'
+        : CurrencyFormatter.format(value, includeDecimals: false),
+    caption: !hasPlan
+        ? 'Set up your plan in Rivero'
+        : awaiting
+        ? 'Waiting for salary'
+        : '$days ${days == 1 ? 'day' : 'days'} to payday',
+  );
+});
+
+/// A bill scan to start when Log opens (from the launcher shortcut).
+final pendingScanProvider = StateProvider<bool>((ref) => false);
+
 /// Each card's current bill (what its last statement still asks for), in
 /// the home currency. Refreshes with the ledger and at midnight.
 final cardBillsProvider = Provider<Map<String, CardBill>>((ref) {

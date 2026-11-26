@@ -20,15 +20,19 @@ import 'package:rivero/features/transactions/screens/transactions_screen.dart';
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
 
+  // Home sits in the middle so every other page is at most two swipes away.
+  static const homeIndex = 2;
+  static const logIndex = 3;
+  static const activityIndex = 4;
+
   @override
   ConsumerState<MainScreen> createState() => _MainScreenState();
 }
 
 class _MainScreenState extends ConsumerState<MainScreen> {
-  // Home sits in the middle so every other page is at most two swipes away.
-  static const homeIndex = 2;
-  static const logIndex = 3;
-  static const activityIndex = 4;
+  static const int homeIndex = MainScreen.homeIndex;
+  static const int logIndex = MainScreen.logIndex;
+  static const int activityIndex = MainScreen.activityIndex;
 
   static const _screens = <Widget>[
     OwedScreen(asTab: true),

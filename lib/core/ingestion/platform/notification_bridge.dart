@@ -119,6 +119,30 @@ class NotificationBridge {
     }
   }
 
+  /// The tab a launcher shortcut or the widget asked for ("log", "scan",
+  /// "activity"), removed once read.
+  static Future<String?> takeOpenTab() async {
+    if (!supported) return null;
+    try {
+      return await _channel.invokeMethod<String>('takeOpenTab');
+    } on MissingPluginException {
+      return null;
+    }
+  }
+
+  /// Sends the home-screen widget its text.
+  static Future<void> updateHomeWidget(String amount, String caption) async {
+    if (!supported) return;
+    try {
+      await _channel.invokeMethod<void>('updateWidget', {
+        'amount': amount,
+        'caption': caption,
+      });
+    } on MissingPluginException {
+      // Not running on a device (tests).
+    }
+  }
+
   /// The installed version ("1.2.5 (19)"), or null off Android.
   static Future<String?> appVersion() async {
     if (!supported) return null;
