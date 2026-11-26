@@ -269,10 +269,9 @@ class OwedScreen extends ConsumerWidget {
       );
 }
 
-/// Split bills on "Owed to you": one group per person (true) or per bill.
-final splitsByPersonProvider = StateProvider<bool>((ref) => true);
-
-/// Everyone who owes you (split bills, loans). The plus adds a loan.
+/// Everyone who owes you (split bills, loans): one row per person with
+/// what they owe in all; tapping a person opens the whole breakdown. The
+/// plus adds a loan.
 class OwedToYouScreen extends ConsumerWidget {
   const OwedToYouScreen({super.key});
 
@@ -284,31 +283,6 @@ class OwedToYouScreen extends ConsumerWidget {
     final mine = dues.where((d) => d.kind != DueKind.borrowed).toList();
     final open = mine.where((d) => d.status == DueStatus.open).toList();
     final closed = mine.where((d) => d.status != DueStatus.open).toList();
-    final splits = open.where((d) => d.kind == DueKind.split).toList();
-    final lent = open.where((d) => d.kind == DueKind.lent).toList();
-    // By bill: the bill each share came from, so "Swiggy" stays one group.
-    // By person: everything one person owes you from splits, together
-    // (names compared like the person page: case and outer spaces ignored),
-    // whoever owes the most first.
-    final byPerson = ref.watch(splitsByPersonProvider);
-    final splitGroups = <String, List<Due>>{};
-    for (final d in splits) {
-      final key = byPerson
-          ? d.person.trim().toLowerCase()
-          : d.sourceTransactionId ?? d.id;
-      (splitGroups[key] ??= []).add(d);
-    }
-    int left(List<Due> g) =>
-        g.fold<int>(0, (s, d) => s + d.amountMinorUnits - d.receivedMinorUnits);
-    final groups = splitGroups.values.toList();
-    if (byPerson) groups.sort((a, b) => left(b).compareTo(left(a)));
-    Widget header(String text) => Padding(
-      padding: const EdgeInsets.only(
-        top: RiveroSpacing.xl,
-        bottom: RiveroSpacing.sm,
-      ),
-      child: Text(text, style: RiveroTypography.titleMedium),
-    );
     return Scaffold(
       backgroundColor: RiveroColors.background,
       appBar: RiveroAppBar(
@@ -334,44 +308,107 @@ class OwedToYouScreen extends ConsumerWidget {
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: RiveroSpacing.lg),
-          if (splits.isNotEmpty)
-            Row(
-              children: [
-                Expanded(child: header('Split bills')),
-                Padding(
-                  padding: const EdgeInsets.only(top: RiveroSpacing.lg),
-                  child: SegmentedButton<bool>(
-                    key: const ValueKey('splits-view'),
-                    showSelectedIcon: false,
-                    style: const ButtonStyle(
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    segments: const [
-                      ButtonSegment(value: true, label: Text('By person')),
-                      ButtonSegment(value: false, label: Text('By bill')),
-                    ],
-                    selected: {byPerson},
-                    onSelectionChanged: (s) =>
-                        ref.read(splitsByPersonProvider.notifier).state =
-                            s.first,
-                  ),
-                ),
-              ],
-            ),
-          // One group per person (their shares underneath, by bill), or one
-          // per bill that was split (its people underneath).
-          for (final g in groups) ...[
-            if (byPerson)
-              _PersonGroupHeader(g, money: money)
-            else
-              _SplitGroupHeader(g, money: money),
-            for (final d in g) _DueTile(d, money: money, underPerson: byPerson),
-          ],
-          if (lent.isNotEmpty) header('Money lent'),
-          for (final d in lent) _DueTile(d, money: money),
+          if (open.isNotEmpty) const _Heading('People'),
+          for (final p in _byPerson(open))
+            _PersonRow(p, money: money, owedToYou: true),
           if (closed.isNotEmpty) _ClosedList(closed, money: money),
         ],
+      ),
+    );
+  }
+}
+
+/// Open entries grouped by person (names compared like the person page:
+/// case and outer spaces ignored), whoever owes the most first.
+List<List<Due>> _byPerson(Iterable<Due> open) {
+  final groups = <String, List<Due>>{};
+  for (final d in open) {
+    (groups[d.person.trim().toLowerCase()] ??= []).add(d);
+  }
+  int left(List<Due> g) =>
+      g.fold<int>(0, (s, d) => s + d.amountMinorUnits - d.receivedMinorUnits);
+  return groups.values.toList()..sort((a, b) => left(b).compareTo(left(a)));
+}
+
+class _Heading extends StatelessWidget {
+  const _Heading(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(
+      top: RiveroSpacing.xl,
+      bottom: RiveroSpacing.sm,
+    ),
+    child: Text(text, style: RiveroTypography.titleMedium),
+  );
+}
+
+/// One person on Owed to you / You owe people: what is open with them in
+/// all, and what it is made of. Tapping opens the whole breakdown.
+class _PersonRow extends StatelessWidget {
+  const _PersonRow(this.group, {required this.money, required this.owedToYou});
+
+  final List<Due> group;
+  final String Function(int) money;
+  final bool owedToYou;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = group.first.person.trim();
+    final left = group.fold<int>(
+      0,
+      (s, d) => s + d.amountMinorUnits - d.receivedMinorUnits,
+    );
+    int count(DueKind k) => group.where((d) => d.kind == k).length;
+    String n(int c, String one, String many) => c == 1 ? '1 $one' : '$c $many';
+    final parts = [
+      if (count(DueKind.split) > 0)
+        n(count(DueKind.split), 'split bill', 'split bills'),
+      if (count(DueKind.lent) > 0) n(count(DueKind.lent), 'loan', 'loans'),
+      if (count(DueKind.borrowed) > 0)
+        n(count(DueKind.borrowed), 'loan', 'loans'),
+    ];
+    final oldest = group
+        .map((d) => d.createdAt)
+        .reduce((a, b) => a.isBefore(b) ? a : b);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: RiveroSpacing.sm),
+      child: RiveroCard(
+        key: ValueKey('person-row-${name.toLowerCase()}'),
+        onTap: () => PersonDuesScreen.open(context, name),
+        child: Row(
+          children: [
+            BankBadge(name: name, size: 40, circle: true, bankIcon: false),
+            const SizedBox(width: RiveroSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(name, style: RiveroTypography.bodyLarge),
+                  Text(
+                    '${parts.join(' · ')} · since '
+                    '${DateFormat('d MMM').format(oldest)}',
+                    style: RiveroTypography.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              money(left),
+              key: ValueKey('person-row-amount-${name.toLowerCase()}'),
+              style: RiveroTypography.titleMedium.copyWith(
+                color: owedToYou ? RiveroColors.success : RiveroColors.warning,
+              ),
+            ),
+            const SizedBox(width: RiveroSpacing.xs),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: RiveroColors.textSecondary,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -423,7 +460,8 @@ class YouOweScreen extends ConsumerWidget {
             ),
           ),
           if (open.isNotEmpty) header('People'),
-          for (final d in open) _DueTile(d, money: money),
+          for (final p in _byPerson(open))
+            _PersonRow(p, money: money, owedToYou: false),
           header('Bills & commitments'),
           const BillsAndCommitments(),
           if (closed.isNotEmpty) _ClosedList(closed, money: money),
@@ -434,10 +472,17 @@ class YouOweScreen extends ConsumerWidget {
 }
 
 class _ClosedList extends StatelessWidget {
-  const _ClosedList(this.closed, {required this.money});
+  const _ClosedList(
+    this.closed, {
+    required this.money,
+    this.underPerson = false,
+  });
 
   final List<Due> closed;
   final String Function(int) money;
+
+  /// On a person's page (their name is the page title).
+  final bool underPerson;
 
   @override
   Widget build(BuildContext context) => Theme(
@@ -448,7 +493,10 @@ class _ClosedList extends StatelessWidget {
         'Settled & written off · ${closed.length}',
         style: RiveroTypography.bodyMedium,
       ),
-      children: [for (final d in closed) _DueTile(d, money: money)],
+      children: [
+        for (final d in closed)
+          _DueTile(d, money: money, underPerson: underPerson),
+      ],
     ),
   );
 }
@@ -510,91 +558,6 @@ class _Total extends StatelessWidget {
       ),
     ),
   );
-}
-
-/// A split bill's title: what it was, when, and how much of it is back.
-class _SplitGroupHeader extends StatelessWidget {
-  const _SplitGroupHeader(this.group, {required this.money});
-
-  final List<Due> group;
-  final String Function(int) money;
-
-  @override
-  Widget build(BuildContext context) {
-    final total = group.fold<int>(0, (s, d) => s + d.amountMinorUnits);
-    final back = group.fold<int>(0, (s, d) => s + d.receivedMinorUnits);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: RiveroSpacing.xs),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              '${group.first.note ?? 'Bill'} · '
-              '${DateFormat('d MMM').format(group.first.createdAt)}',
-              style: RiveroTypography.bodyMedium,
-            ),
-          ),
-          Text(
-            '${money(back)} of ${money(total)} back',
-            style: RiveroTypography.bodySmall,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// A person's split shares on "Owed to you": their name (opens everything
-/// with them), how many bills, and what they still owe from splits.
-class _PersonGroupHeader extends StatelessWidget {
-  const _PersonGroupHeader(this.group, {required this.money});
-
-  final List<Due> group;
-  final String Function(int) money;
-
-  @override
-  Widget build(BuildContext context) {
-    final total = group.fold<int>(0, (s, d) => s + d.amountMinorUnits);
-    final back = group.fold<int>(0, (s, d) => s + d.receivedMinorUnits);
-    final name = group.first.person.trim();
-    final bills = group.length == 1 ? '1 bill' : '${group.length} bills';
-    return InkWell(
-      key: ValueKey('split-person-${name.toLowerCase()}'),
-      borderRadius: RiveroRadii.borderMd,
-      onTap: () => PersonDuesScreen.open(context, name),
-      child: Padding(
-        padding: const EdgeInsets.only(
-          top: RiveroSpacing.sm,
-          bottom: RiveroSpacing.xs,
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(name, style: RiveroTypography.titleMedium),
-                  Text(
-                    back > 0
-                        ? '$bills · ${money(back)} of ${money(total)} back'
-                        : bills,
-                    style: RiveroTypography.bodySmall,
-                  ),
-                ],
-              ),
-            ),
-            Text(
-              money(total - back),
-              key: ValueKey('split-person-owes-${name.toLowerCase()}'),
-              style: RiveroTypography.titleMedium.copyWith(
-                color: RiveroColors.success,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 /// Everything with one person, in one place: what they owe you, what you
@@ -684,8 +647,19 @@ class PersonDuesScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: RiveroSpacing.lg),
-          for (final d in open) _DueTile(d, money: money, linkPerson: false),
-          if (closed.isNotEmpty) _ClosedList(closed, money: money),
+          // The whole breakdown, by kind; each entry opens to settle it.
+          for (final (title, kind) in const [
+            ('Split bills', DueKind.split),
+            ('Money lent', DueKind.lent),
+            ('You owe them', DueKind.borrowed),
+          ])
+            if (open.any((d) => d.kind == kind)) ...[
+              _Heading(title),
+              for (final d in open.where((d) => d.kind == kind))
+                _DueTile(d, money: money, underPerson: true),
+            ],
+          if (closed.isNotEmpty)
+            _ClosedList(closed, money: money, underPerson: true),
         ],
       ),
     );
@@ -693,21 +667,13 @@ class PersonDuesScreen extends ConsumerWidget {
 }
 
 class _DueTile extends StatelessWidget {
-  const _DueTile(
-    this.d, {
-    required this.money,
-    this.linkPerson = true,
-    this.underPerson = false,
-  });
+  const _DueTile(this.d, {required this.money, this.underPerson = false});
 
   final Due d;
   final String Function(int) money;
 
   /// Under a person's group: the bill is the title (the name is above).
   final bool underPerson;
-
-  /// Tapping the name opens everything with that person.
-  final bool linkPerson;
 
   @override
   Widget build(BuildContext context) {
@@ -740,23 +706,29 @@ class _DueTile extends StatelessWidget {
                   children: [
                     if (underPerson)
                       Text(
-                        d.note ?? 'A bill',
+                        d.kind == DueKind.split
+                            ? d.note ?? 'A bill'
+                            : borrowed
+                            ? 'Borrowed'
+                            : 'Lent',
                         style: RiveroTypography.bodyLarge,
                       )
                     else
                       GestureDetector(
                         key: ValueKey('due-person-${d.id}'),
                         behavior: HitTestBehavior.opaque,
-                        onTap: linkPerson
-                            ? () => PersonDuesScreen.open(context, d.person)
-                            : null,
+                        onTap: () => PersonDuesScreen.open(context, d.person),
                         child: Text(
                           d.person,
                           style: RiveroTypography.bodyLarge,
                         ),
                       ),
                     Text(
-                      '${underPerson ? 'Their share' : what} · '
+                      '${underPerson ? (d.kind == DueKind.split
+                                ? 'Their share'
+                                : (d.note?.isNotEmpty ?? false)
+                                ? d.note!
+                                : what) : what} · '
                       '${DateFormat('d MMM').format(d.createdAt)}'
                       '${borrowed && d.dueDate != null && open ? ' · pay by ${DateFormat('d MMM').format(d.dueDate!)}' : ''}'
                       '${d.attachmentPath != null ? ' · photo' : ''}',

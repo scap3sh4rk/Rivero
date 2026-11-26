@@ -82,30 +82,23 @@ void main() {
     // Two frames; the first opens everyone who owes you.
     await tester.tap(find.byKey(const ValueKey('owed-card-to-you')));
     await settle();
-    // The split is its own section, grouped by person by default: each
-    // person once, with what they owe from splits.
-    expect(find.text('Split bills'), findsOneWidget);
-    expect(find.byKey(const ValueKey('split-person-ravi')), findsOneWidget);
-    expect(find.byKey(const ValueKey('split-person-asha')), findsOneWidget);
+    // One row per person, with what they owe in all.
+    expect(find.byKey(const ValueKey('person-row-ravi')), findsOneWidget);
+    expect(find.byKey(const ValueKey('person-row-asha')), findsOneWidget);
     expect(
       tester
-          .widget<Text>(find.byKey(const ValueKey('split-person-owes-ravi')))
+          .widget<Text>(find.byKey(const ValueKey('person-row-amount-ravi')))
           .data,
       '₹1,000.00',
     );
-    // By bill: the bill, with both people under it.
-    await tester.tap(find.text('By bill'));
-    await settle();
-    expect(find.text('Ravi'), findsOneWidget);
-    expect(find.textContaining('of ₹2,000.00 back'), findsOneWidget);
-    // Tapping a name opens everything with that person.
-    await tester.tap(find.text('Ravi'));
+    expect(find.textContaining('1 split bill'), findsNWidgets(2));
+    // Opening a person shows the whole breakdown.
+    await tester.tap(find.byKey(const ValueKey('person-row-ravi')));
     await settle();
     expect(find.byKey(const ValueKey('person-totals')), findsOneWidget);
-    await tester.pageBack();
-    await settle();
-    // The rest of the row settles it, into the account the bill came from.
-    await tester.tap(find.textContaining('Share of').first);
+    expect(find.text('Split bills'), findsOneWidget);
+    // Each entry settles it, into the account the bill came from.
+    await tester.tap(find.textContaining('Their share').first);
     await settle();
     expect(find.byKey(const ValueKey('receive-account')), findsOneWidget);
     await tester.tap(find.text('Mark received'));
@@ -172,17 +165,19 @@ void main() {
     );
     await settle();
     // Ravi once, for both bills: ₹500 + ₹500.
-    expect(find.byKey(const ValueKey('split-person-ravi')), findsOneWidget);
+    expect(find.byKey(const ValueKey('person-row-ravi')), findsOneWidget);
     expect(
       tester
-          .widget<Text>(find.byKey(const ValueKey('split-person-owes-ravi')))
+          .widget<Text>(find.byKey(const ValueKey('person-row-amount-ravi')))
           .data,
       '₹1,000.00',
     );
-    expect(find.text('2 bills'), findsNWidgets(2)); // Ravi and Asha
-    // Under each person, each bill by name.
-    expect(find.text('Swiggy'), findsNWidgets(2));
-    expect(find.text('Movie'), findsNWidgets(2));
+    expect(find.textContaining('2 split bills'), findsNWidgets(2));
+    // Ravi's breakdown: each bill by name.
+    await tester.tap(find.byKey(const ValueKey('person-row-ravi')));
+    await settle();
+    expect(find.text('Swiggy'), findsOneWidget);
+    expect(find.text('Movie'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 100));
@@ -279,8 +274,11 @@ void main() {
     expect(find.textContaining('From '), findsWidgets);
     expect(find.textContaining('limit'), findsNothing);
 
-    // Pay it back in cash.
-    await tester.tap(find.textContaining('Borrowed'));
+    // Pay it back in cash: open Meera, then the loan.
+    await tester.tap(find.byKey(const ValueKey('person-row-meera')));
+    await settle();
+    expect(find.text('You owe them'), findsWidgets);
+    await tester.tap(find.text('Borrowed'));
     await settle();
     expect(find.textContaining('You owe Meera'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('repay-save')));
