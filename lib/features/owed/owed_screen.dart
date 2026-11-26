@@ -269,6 +269,9 @@ class OwedScreen extends ConsumerWidget {
       );
 }
 
+/// Split bills on "Owed to you": one group per person (true) or per bill.
+final splitsByPersonProvider = StateProvider<bool>((ref) => true);
+
 /// Everyone who owes you (split bills, loans). The plus adds a loan.
 class OwedToYouScreen extends ConsumerWidget {
   const OwedToYouScreen({super.key});
@@ -283,11 +286,22 @@ class OwedToYouScreen extends ConsumerWidget {
     final closed = mine.where((d) => d.status != DueStatus.open).toList();
     final splits = open.where((d) => d.kind == DueKind.split).toList();
     final lent = open.where((d) => d.kind == DueKind.lent).toList();
-    // The bill each share came from, so "Swiggy" stays one group.
+    // By bill: the bill each share came from, so "Swiggy" stays one group.
+    // By person: everything one person owes you from splits, together
+    // (names compared like the person page: case and outer spaces ignored),
+    // whoever owes the most first.
+    final byPerson = ref.watch(splitsByPersonProvider);
     final splitGroups = <String, List<Due>>{};
     for (final d in splits) {
-      (splitGroups[d.sourceTransactionId ?? d.id] ??= []).add(d);
+      final key = byPerson
+          ? d.person.trim().toLowerCase()
+          : d.sourceTransactionId ?? d.id;
+      (splitGroups[key] ??= []).add(d);
     }
+    int left(List<Due> g) =>
+        g.fold<int>(0, (s, d) => s + d.amountMinorUnits - d.receivedMinorUnits);
+    final groups = splitGroups.values.toList();
+    if (byPerson) groups.sort((a, b) => left(b).compareTo(left(a)));
     Widget header(String text) => Padding(
       padding: const EdgeInsets.only(
         top: RiveroSpacing.xl,
@@ -321,11 +335,38 @@ class OwedToYouScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: RiveroSpacing.lg),
-          if (splits.isNotEmpty) header('Split bills'),
-          // One card per bill that was split, its people underneath.
-          for (final g in splitGroups.values) ...[
-            _SplitGroupHeader(g, money: money),
-            for (final d in g) _DueTile(d, money: money),
+          if (splits.isNotEmpty)
+            Row(
+              children: [
+                Expanded(child: header('Split bills')),
+                Padding(
+                  padding: const EdgeInsets.only(top: RiveroSpacing.lg),
+                  child: SegmentedButton<bool>(
+                    key: const ValueKey('splits-view'),
+                    showSelectedIcon: false,
+                    style: const ButtonStyle(
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    segments: const [
+                      ButtonSegment(value: true, label: Text('By person')),
+                      ButtonSegment(value: false, label: Text('By bill')),
+                    ],
+                    selected: {byPerson},
+                    onSelectionChanged: (s) =>
+                        ref.read(splitsByPersonProvider.notifier).state =
+                            s.first,
+                  ),
+                ),
+              ],
+            ),
+          // One group per person (their shares underneath, by bill), or one
+          // per bill that was split (its people underneath).
+          for (final g in groups) ...[
+            if (byPerson)
+              _PersonGroupHeader(g, money: money)
+            else
+              _SplitGroupHeader(g, money: money),
+            for (final d in g) _DueTile(d, money: money, underPerson: byPerson),
           ],
           if (lent.isNotEmpty) header('Money lent'),
           for (final d in lent) _DueTile(d, money: money),
@@ -503,6 +544,59 @@ class _SplitGroupHeader extends StatelessWidget {
   }
 }
 
+/// A person's split shares on "Owed to you": their name (opens everything
+/// with them), how many bills, and what they still owe from splits.
+class _PersonGroupHeader extends StatelessWidget {
+  const _PersonGroupHeader(this.group, {required this.money});
+
+  final List<Due> group;
+  final String Function(int) money;
+
+  @override
+  Widget build(BuildContext context) {
+    final total = group.fold<int>(0, (s, d) => s + d.amountMinorUnits);
+    final back = group.fold<int>(0, (s, d) => s + d.receivedMinorUnits);
+    final name = group.first.person.trim();
+    final bills = group.length == 1 ? '1 bill' : '${group.length} bills';
+    return InkWell(
+      key: ValueKey('split-person-${name.toLowerCase()}'),
+      borderRadius: RiveroRadii.borderMd,
+      onTap: () => PersonDuesScreen.open(context, name),
+      child: Padding(
+        padding: const EdgeInsets.only(
+          top: RiveroSpacing.sm,
+          bottom: RiveroSpacing.xs,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(name, style: RiveroTypography.titleMedium),
+                  Text(
+                    back > 0
+                        ? '$bills · ${money(back)} of ${money(total)} back'
+                        : bills,
+                    style: RiveroTypography.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              money(total - back),
+              key: ValueKey('split-person-owes-${name.toLowerCase()}'),
+              style: RiveroTypography.titleMedium.copyWith(
+                color: RiveroColors.success,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Everything with one person, in one place: what they owe you, what you
 /// owe them, and every entry. Opened by tapping a name.
 class PersonDuesScreen extends ConsumerWidget {
@@ -599,10 +693,18 @@ class PersonDuesScreen extends ConsumerWidget {
 }
 
 class _DueTile extends StatelessWidget {
-  const _DueTile(this.d, {required this.money, this.linkPerson = true});
+  const _DueTile(
+    this.d, {
+    required this.money,
+    this.linkPerson = true,
+    this.underPerson = false,
+  });
 
   final Due d;
   final String Function(int) money;
+
+  /// Under a person's group: the bill is the title (the name is above).
+  final bool underPerson;
 
   /// Tapping the name opens everything with that person.
   final bool linkPerson;
@@ -636,16 +738,26 @@ class _DueTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    GestureDetector(
-                      key: ValueKey('due-person-${d.id}'),
-                      behavior: HitTestBehavior.opaque,
-                      onTap: linkPerson
-                          ? () => PersonDuesScreen.open(context, d.person)
-                          : null,
-                      child: Text(d.person, style: RiveroTypography.bodyLarge),
-                    ),
+                    if (underPerson)
+                      Text(
+                        d.note ?? 'A bill',
+                        style: RiveroTypography.bodyLarge,
+                      )
+                    else
+                      GestureDetector(
+                        key: ValueKey('due-person-${d.id}'),
+                        behavior: HitTestBehavior.opaque,
+                        onTap: linkPerson
+                            ? () => PersonDuesScreen.open(context, d.person)
+                            : null,
+                        child: Text(
+                          d.person,
+                          style: RiveroTypography.bodyLarge,
+                        ),
+                      ),
                     Text(
-                      '$what · ${DateFormat('d MMM').format(d.createdAt)}'
+                      '${underPerson ? 'Their share' : what} · '
+                      '${DateFormat('d MMM').format(d.createdAt)}'
                       '${borrowed && d.dueDate != null && open ? ' · pay by ${DateFormat('d MMM').format(d.dueDate!)}' : ''}'
                       '${d.attachmentPath != null ? ' · photo' : ''}',
                       style: RiveroTypography.bodySmall,

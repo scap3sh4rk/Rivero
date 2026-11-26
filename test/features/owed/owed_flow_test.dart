@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/database/database_seeder.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
+import 'package:rivero/core/dues/dues_service.dart';
 import 'package:rivero/core/ledger/ledger_service.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/features/owed/owed_screen.dart';
@@ -81,9 +82,21 @@ void main() {
     // Two frames; the first opens everyone who owes you.
     await tester.tap(find.byKey(const ValueKey('owed-card-to-you')));
     await settle();
-    expect(find.text('Ravi'), findsOneWidget);
-    // The split is its own section, grouped under the bill.
+    // The split is its own section, grouped by person by default: each
+    // person once, with what they owe from splits.
     expect(find.text('Split bills'), findsOneWidget);
+    expect(find.byKey(const ValueKey('split-person-ravi')), findsOneWidget);
+    expect(find.byKey(const ValueKey('split-person-asha')), findsOneWidget);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('split-person-owes-ravi')))
+          .data,
+      '₹1,000.00',
+    );
+    // By bill: the bill, with both people under it.
+    await tester.tap(find.text('By bill'));
+    await settle();
+    expect(find.text('Ravi'), findsOneWidget);
     expect(find.textContaining('of ₹2,000.00 back'), findsOneWidget);
     // Tapping a name opens everything with that person.
     await tester.tap(find.text('Ravi'));
@@ -106,6 +119,70 @@ void main() {
     ))!.where((t) => t.transactionType == TransactionType.reimbursement);
     expect(credit.single.amountMinorUnits, 100000);
     expect(credit.single.physicalAccountId, ravi.creditAccountId);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 100));
+  });
+
+  testWidgets('one person across several split bills is one group', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final db = RiveroDatabase.memory();
+    addTearDown(db.close);
+    await DatabaseSeeder(db).seedIfEmpty();
+    await tester.runAsync(() async {
+      final ledger = LedgerService(db);
+      final dues = DuesService(db);
+      for (final (merchant, ravi) in [
+        ('Swiggy', 'Ravi'),
+        ('Movie', ' ravi '), // the same person, typed differently
+      ]) {
+        final id = await ledger.recordManual(
+          accountId: 'acc-expense',
+          amountMinorUnits: -200000,
+          type: TransactionType.expense,
+          merchant: merchant,
+          category: 'Food',
+        );
+        await dues.splitExpense(
+          transactionId: id,
+          shares: {ravi: 50000, 'Asha': 50000},
+          note: merchant,
+        );
+      }
+    });
+
+    Future<void> settle() async {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 250)),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+    }
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [databaseProvider.overrideWithValue(db)],
+        child: const MaterialApp(home: OwedToYouScreen()),
+      ),
+    );
+    await settle();
+    // Ravi once, for both bills: ₹500 + ₹500.
+    expect(find.byKey(const ValueKey('split-person-ravi')), findsOneWidget);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('split-person-owes-ravi')))
+          .data,
+      '₹1,000.00',
+    );
+    expect(find.text('2 bills'), findsNWidgets(2)); // Ravi and Asha
+    // Under each person, each bill by name.
+    expect(find.text('Swiggy'), findsNWidgets(2));
+    expect(find.text('Movie'), findsNWidgets(2));
 
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 100));
