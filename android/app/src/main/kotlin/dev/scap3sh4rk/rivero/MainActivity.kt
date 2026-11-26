@@ -144,6 +144,13 @@ class MainActivity : FlutterFragmentActivity() {
                 }
                 // UPI apps installed on this phone: apps that can open upi://pay.
                 "upiApps" -> result.success(installedUpiApps())
+                // The installed version, for Settings > About.
+                "appVersion" -> {
+                    val info = packageManager.getPackageInfo(packageName, 0)
+                    @Suppress("DEPRECATION")
+                    val code = if (Build.VERSION.SDK_INT >= 28) info.longVersionCode else info.versionCode.toLong()
+                    result.success("${info.versionName} ($code)")
+                }
                 // "Delete all data": nothing captured may survive it.
                 "clearQueue" -> synchronized(RiveroNotificationListener.LOCK) {
                     CaptureQueue.clear(this)

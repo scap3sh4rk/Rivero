@@ -119,6 +119,16 @@ class NotificationBridge {
     }
   }
 
+  /// The installed version ("1.2.5 (19)"), or null off Android.
+  static Future<String?> appVersion() async {
+    if (!supported) return null;
+    try {
+      return await _channel.invokeMethod<String>('appVersion');
+    } on MissingPluginException {
+      return null;
+    }
+  }
+
   /// Asks for permission to show capture notifications (Android 13+).
   static Future<void> askNotifyPermission() async {
     if (!supported) return;

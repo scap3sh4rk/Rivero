@@ -20,9 +20,11 @@ import 'package:rivero/core/security/database_key_manager.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/features/main/data_gate.dart';
 import 'package:rivero/features/main/main_screen.dart';
+import 'package:rivero/features/settings/screens/about_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  registerFontLicenses();
 
   final RiveroDatabase db;
   try {

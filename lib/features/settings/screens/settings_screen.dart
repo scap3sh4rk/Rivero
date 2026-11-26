@@ -17,6 +17,7 @@ import 'package:rivero/design_system/widgets/picker.dart';
 import 'package:rivero/design_system/widgets/rivero_app_bar.dart';
 import 'package:rivero/design_system/widgets/rivero_card.dart';
 import 'package:rivero/features/backup/backup_screen.dart';
+import 'package:rivero/features/settings/screens/about_screen.dart';
 import 'package:rivero/features/settings/screens/account_types_screen.dart';
 import 'package:rivero/features/settings/screens/appearance_screen.dart';
 import 'package:rivero/features/settings/screens/bank_icons_screen.dart';
@@ -198,6 +199,13 @@ class SettingsScreen extends ConsumerWidget {
               final nav = Navigator.of(context)..popUntil((r) => r.isFirst);
               AppTour.show(nav.context);
             },
+          ),
+          _Row(
+            key: const ValueKey('about'),
+            icon: Icons.info_outline_rounded,
+            title: 'About Rivero',
+            subtitle: "Version, what's new, privacy, licenses",
+            onTap: () => AboutScreen.open(context),
           ),
           const SizedBox(height: RiveroSpacing.xl),
           const _DeveloperCard(),

@@ -52,6 +52,13 @@ flutter:
   uses-material-design: true
   assets:
     - assets/icon/logo.png
+    # Licences of the bundled fonts (Settings > About > Open-source licenses).
+    - assets/fonts/OFL-DMSans.txt
+    - assets/fonts/OFL-Inter.txt
+    - assets/fonts/OFL-JetBrainsMono.txt
+    - assets/fonts/OFL-Manrope.txt
+    - assets/fonts/OFL-PlusJakartaSans.txt
+    - assets/fonts/OFL-Urbanist.txt
   fonts:
     - family: Urbanist
       fonts:
