@@ -25,6 +25,7 @@ object CaptureNotifier {
     private const val KEY_CATEGORIES = "categories"
     private const val KEY_OPEN = "open_request"
     private const val KEY_ACCOUNTS = "accounts"
+    private const val KEY_TAB = "open_tab"
 
     const val EXTRA_ID = "capture_id"
     const val EXTRA_TITLE = "capture_title"
@@ -281,6 +282,18 @@ object CaptureNotifier {
         val id = p.getString(KEY_OPEN, "")
         p.edit().remove(KEY_OPEN).apply()
         return id?.ifEmpty { null }
+    }
+
+    /** A tab to open ("log", "scan", "activity"), from a shortcut or the widget. */
+    fun setOpenTab(context: Context, tab: String) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY_TAB, tab).apply()
+    }
+
+    fun takeOpenTab(context: Context): String? {
+        val p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val tab = p.getString(KEY_TAB, null)
+        p.edit().remove(KEY_TAB).apply()
+        return tab
     }
 
     fun clear(context: Context) {

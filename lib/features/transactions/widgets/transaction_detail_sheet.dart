@@ -5,8 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:rivero/core/database/database.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
+import 'package:rivero/core/ledger/ledger_service.dart';
 import 'package:rivero/core/providers/app_providers.dart';
 import 'package:rivero/core/storage/media_store.dart';
+import 'package:rivero/core/utils/amount_parser.dart';
 import 'package:rivero/core/utils/currency_formatter.dart';
 import 'package:rivero/design_system/rivero_tokens.dart';
 import 'package:rivero/design_system/widgets/account_color.dart';
@@ -15,6 +17,7 @@ import 'package:rivero/design_system/widgets/photo_picker.dart';
 import 'package:rivero/design_system/widgets/picker.dart';
 import 'package:rivero/features/settings/screens/categories_screen.dart';
 import 'package:rivero/features/transactions/widgets/split_sheet.dart';
+import 'package:rivero/features/transactions/widgets/undo.dart';
 
 /// One transaction: what it was, a note, its category, and fixes
 /// (confirm / ignore / delete). Opened by tapping a row in Activity.
@@ -48,6 +51,29 @@ class _TransactionDetailSheetState
   late String _category = widget.transaction.category;
   late String? _bill = widget.transaction.attachmentPath;
   late String _accountId = widget.transaction.physicalAccountId;
+
+  /// The entry as it is now (amount, date and name can be corrected here).
+  late LedgerTransaction _t = widget.transaction;
+
+  /// Corrects the amount, date or name; balances and budget follow.
+  Future<void> _edit() async {
+    final t = _t;
+    final r = await showDialog<({int amount, String name, DateTime when})>(
+      context: context,
+      builder: (_) => _EditEntryDialog(entry: t),
+    );
+    if (r == null) return;
+    await ref
+        .read(ledgerServiceProvider)
+        .edit(
+          t.id,
+          amountMinorUnits: r.amount,
+          timestamp: r.when,
+          merchant: r.name,
+        );
+    final fresh = await _db.transactionsDao.getTransactionById(t.id);
+    if (fresh != null && mounted) setState(() => _t = fresh);
+  }
 
   /// The payment came from (or landed in) another account: move it there.
   Future<void> _pickAccount(
@@ -111,31 +137,10 @@ class _TransactionDetailSheetState
     if (mounted) Navigator.pop(context);
   }
 
-  Future<void> _delete() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete this entry?'),
-        content: const Text(
-          'Balances and your budget are corrected as if it never happened.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Keep'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-    if (ok != true) return;
-    await ref
-        .read(ledgerServiceProvider)
-        .removeWithPlanPartner(widget.transaction.id);
-    if (mounted) Navigator.pop(context);
+  /// Deletes with Undo (see deleteWithUndo): no "are you sure" first.
+  void _delete() {
+    deleteWithUndo(context, widget.transaction.id);
+    Navigator.pop(context);
   }
 
   Future<void> _confirm() async {
@@ -145,13 +150,13 @@ class _TransactionDetailSheetState
   }
 
   Future<void> _ignore() async {
-    await ref.read(ledgerServiceProvider).ignore(widget.transaction.id);
+    await ignoreWithUndo(context, widget.transaction.id);
     await _saveAndClose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final t = widget.transaction;
+    final t = _t;
     final privacy = ref.watch(privacyModeProvider);
     final accounts =
         ref.watch(activePhysicalAccountsProvider).value ?? const [];
@@ -250,10 +255,29 @@ class _TransactionDetailSheetState
               ],
             ),
             const SizedBox(height: RiveroSpacing.sm),
-            Text(t.merchant, style: RiveroTypography.titleMedium),
-            Text(
-              DateFormat('d MMM y, h:mm a').format(t.transactionTimestamp),
-              style: RiveroTypography.bodySmall,
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(t.merchant, style: RiveroTypography.titleMedium),
+                      Text(
+                        DateFormat('d MMM y, h:mm a')
+                            .format(t.transactionTimestamp),
+                        style: RiveroTypography.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+                if (LedgerService.canEdit(t))
+                  TextButton.icon(
+                    key: const ValueKey('detail-edit'),
+                    onPressed: _edit,
+                    icon: const Icon(Icons.edit_rounded, size: 18),
+                    label: const Text('Edit'),
+                  ),
+              ],
             ),
             const SizedBox(height: RiveroSpacing.lg),
             TextField(
@@ -404,6 +428,124 @@ class _TransactionDetailSheetState
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Amount, name and date of an entry, to correct them. Returns the new
+/// values, or null when cancelled.
+class _EditEntryDialog extends StatefulWidget {
+  const _EditEntryDialog({required this.entry});
+
+  final LedgerTransaction entry;
+
+  @override
+  State<_EditEntryDialog> createState() => _EditEntryDialogState();
+}
+
+class _EditEntryDialogState extends State<_EditEntryDialog> {
+  late final TextEditingController _amount;
+  late final TextEditingController _name;
+  late DateTime _when = widget.entry.transactionTimestamp;
+
+  @override
+  void initState() {
+    super.initState();
+    final whole = widget.entry.amountMinorUnits.abs();
+    _amount = TextEditingController(
+      text: whole % 100 == 0
+          ? '${whole ~/ 100}'
+          : '${whole ~/ 100}.${(whole % 100).toString().padLeft(2, '0')}',
+    );
+    _name = TextEditingController(text: widget.entry.merchant);
+  }
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    _name.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final d = await showDatePicker(
+      context: context,
+      initialDate: _when.isAfter(now) ? now : _when,
+      firstDate: DateTime(now.year - 10),
+      lastDate: now,
+    );
+    if (d == null) return;
+    // Keeps the time of day it happened.
+    setState(
+      () => _when = DateTime(d.year, d.month, d.day, _when.hour, _when.minute),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final value = parseAmountMinorUnits(_amount.text);
+    final ok = value > 0 && _name.text.trim().isNotEmpty;
+    return AlertDialog(
+      title: const Text('Edit entry'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            key: const ValueKey('edit-amount'),
+            controller: _amount,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              labelText: 'Amount',
+              prefixText: '₹ ',
+              errorText: isAmountTooLarge(_amount.text)
+                  ? 'Amount too large'
+                  : null,
+            ),
+          ),
+          const SizedBox(height: RiveroSpacing.field),
+          TextField(
+            key: const ValueKey('edit-name'),
+            controller: _name,
+            maxLength: 120,
+            textCapitalization: TextCapitalization.words,
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(
+              labelText: 'Paid to / received from',
+              counterText: '',
+            ),
+          ),
+          const SizedBox(height: RiveroSpacing.field),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              key: const ValueKey('edit-date'),
+              icon: const Icon(Icons.event_rounded),
+              label: Text(DateFormat('d MMM y').format(_when)),
+              onPressed: _pickDate,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const ValueKey('edit-save'),
+          onPressed: ok
+              ? () => Navigator.pop(context, (
+                  amount: value,
+                  name: _name.text,
+                  when: _when,
+                ))
+              : null,
+          child: const Text('Save'),
+        ),
+      ],
     );
   }
 }

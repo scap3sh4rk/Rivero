@@ -40,6 +40,12 @@ void main() {
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
+    // The data loads before Home shows (DataGate): let the database answer.
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 250)),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
     expect(find.text('Rivero'), findsOneWidget);
     expect(find.text('SAFE TO SPEND PER DAY'), findsOneWidget);

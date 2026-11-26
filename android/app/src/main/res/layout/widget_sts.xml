@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:gravity="center_vertical"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:letterSpacing="0.12"
+        android:text="SAFE TO SPEND PER DAY"
+        android:textColor="#FFA1A1AA"
+        android:textSize="11sp" />
+
+    <TextView
+        android:id="@+id/widget_amount"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:maxLines="1"
+        android:text="—"
+        android:textColor="#FFF5F5F7"
+        android:textSize="32sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/widget_caption"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:maxLines="2"
+        android:text="Open Rivero once"
+        android:textColor="#FFA1A1AA"
+        android:textSize="12sp" />
+
+    <Button
+        android:id="@+id/widget_log"
+        android:layout_width="wrap_content"
+        android:layout_height="36dp"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/widget_button"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:text="Log"
+        android:textAllCaps="false"
+        android:textColor="#FF04101F"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+</LinearLayout>

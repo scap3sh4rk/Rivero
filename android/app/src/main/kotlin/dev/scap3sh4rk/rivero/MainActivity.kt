@@ -38,8 +38,14 @@ class MainActivity : FlutterFragmentActivity() {
         RiveroNotificationListener.onQueued?.invoke()
     }
 
-    /** "Open Rivero" on a capture notification: show that payment once open. */
+    /** "Open Rivero" on a capture notification: show that payment once open.
+     *  A launcher shortcut or the widget's Log button: open that tab. */
     private fun rememberOpenRequest(intent: Intent?) {
+        when (intent?.action) {
+            RiveroWidget.ACTION_LOG -> CaptureNotifier.setOpenTab(this, "log")
+            "dev.scap3sh4rk.rivero.action.SCAN" -> CaptureNotifier.setOpenTab(this, "scan")
+            "dev.scap3sh4rk.rivero.action.ACTIVITY" -> CaptureNotifier.setOpenTab(this, "activity")
+        }
         val id = intent?.getStringExtra(CaptureNotifier.EXTRA_ID) ?: return
         CaptureNotifier.setOpenRequest(this, id)
         CaptureNotifier.cancel(this, id)
@@ -124,6 +130,15 @@ class MainActivity : FlutterFragmentActivity() {
                 // Choices made in the notification popup, and "Open Rivero" taps.
                 "takeDecisions" -> result.success(CaptureNotifier.takeDecisions(this))
                 "takeOpenRequest" -> result.success(CaptureNotifier.takeOpenRequest(this))
+                "takeOpenTab" -> result.success(CaptureNotifier.takeOpenTab(this))
+                "updateWidget" -> {
+                    RiveroWidget.update(
+                        this,
+                        call.argument<String>("amount") ?: "—",
+                        call.argument<String>("caption") ?: "",
+                    )
+                    result.success(null)
+                }
                 "setCategories" -> {
                     CaptureNotifier.setCategories(this, call.argument<List<String>>("names") ?: emptyList())
                     result.success(null)
@@ -144,6 +159,13 @@ class MainActivity : FlutterFragmentActivity() {
                 }
                 // UPI apps installed on this phone: apps that can open upi://pay.
                 "upiApps" -> result.success(installedUpiApps())
+                // The installed version, for Settings > About.
+                "appVersion" -> {
+                    val info = packageManager.getPackageInfo(packageName, 0)
+                    @Suppress("DEPRECATION")
+                    val code = if (Build.VERSION.SDK_INT >= 28) info.longVersionCode else info.versionCode.toLong()
+                    result.success("${info.versionName} ($code)")
+                }
                 // "Delete all data": nothing captured may survive it.
                 "clearQueue" -> synchronized(RiveroNotificationListener.LOCK) {
                     CaptureQueue.clear(this)
@@ -151,6 +173,7 @@ class MainActivity : FlutterFragmentActivity() {
                     Diagnostics.clear(this)
                     CaptureNotifier.clear(this)
                     Reminders.clear(this)
+                    RiveroWidget.clear(this)
                     result.success(null)
                 }
                 // Blocks screenshots and blanks the recent-apps preview.
