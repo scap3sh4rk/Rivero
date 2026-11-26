@@ -96,17 +96,20 @@ class HomeShortcuts extends ConsumerWidget {
               a.balanceMinorUnits < 0,
         )
         .toList();
-    final cardOwed = ref
-        .watch(exchangeRatesProvider)
-        .inHome(cards)
-        .fold<int>(0, (s, a) => s - a.balanceMinorUnits);
+    // What the cards' last statements ask for (spends since go on the next).
+    final cardBills = ref.watch(cardBillsProvider);
+    final cardOwed = cards.fold<int>(
+      0,
+      (s, c) => s + (cardBills[c.id]?.due ?? -c.balanceMinorUnits),
+    );
     final dueDates = [
       for (final c in cards)
-        ?CardCycle.of(
-          statementDay: c.statementDay,
-          paymentDueDay: c.paymentDueDay,
-          now: DateTime.now(),
-        )?.dueDate,
+        if ((cardBills[c.id]?.due ?? 1) > 0)
+          ?CardCycle.of(
+            statementDay: c.statementDay,
+            paymentDueDay: c.paymentDueDay,
+            now: DateTime.now(),
+          )?.dueDate,
     ]..sort();
     final youOwe = DuesService.totalYouOwe(dues);
     final youOwePeople = {

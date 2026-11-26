@@ -10,7 +10,8 @@ void main() {
     final c = cycle(15, 5, DateTime(2026, 11, 20));
     expect(c.lastStatement, DateTime(2026, 11, 15));
     expect(c.nextStatement, DateTime(2026, 12, 15));
-    expect(c.cycleStart, DateTime(2026, 11, 16));
+    // The statement day itself starts the next cycle.
+    expect(c.cycleStart, DateTime(2026, 11, 15));
     expect(c.daysToStatement, 25);
     // The 15 Nov statement is due on 5 Dec.
     expect(c.dueDate, DateTime(2026, 12, 5));

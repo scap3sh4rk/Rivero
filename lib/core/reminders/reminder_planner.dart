@@ -47,11 +47,15 @@ class ReminderPrefs {
 }
 
 /// Works out the reminders for the next two weeks from the user's data:
-/// card bills (3 days and 1 day before the due date, with whether the bank
-/// balance covers them), autopay the day before, debts due the day before,
-/// and money owed to you for more than 30 days. All at 9 am, local time.
+/// card bills (every day from 5 days before the due date until the due date,
+/// while the statement's bill is unpaid, with whether the paying account
+/// covers it), autopay the day before, debts due the day before, and money
+/// owed to you for more than 30 days. All at 9 am, local time.
 abstract final class ReminderPlanner {
   static const horizon = Duration(days: 14);
+
+  /// Card bill reminders: every day from this many days before the due date.
+  static const cardBillDaysBefore = 5;
 
   static DateTime _at9(DateTime day) =>
       DateTime(day.year, day.month, day.day, 9);
@@ -61,6 +65,7 @@ abstract final class ReminderPlanner {
     required List<PhysicalAccount> accounts,
     required List<Mandate> mandates,
     required List<Due> dues,
+    Map<String, CardBill> cardBills = const {},
     ReminderPrefs prefs = const ReminderPrefs(),
   }) {
     final out = <Reminder>[];
@@ -68,11 +73,14 @@ abstract final class ReminderPlanner {
     final f = DateFormat('d MMM');
     String money(int v) => CurrencyFormatter.format(v);
     bool upcoming(DateTime t) => t.isAfter(now) && t.isBefore(until);
-    final bills = CardBills.of(accounts);
+    final bills = CardBills.of(accounts, due: cardBills);
 
     if (prefs.cardBills) {
       for (final c in accounts.where((a) => a.isLiability && a.isActive)) {
-        final owed = c.balanceMinorUnits < 0 ? -c.balanceMinorUnits : 0;
+        // The statement's bill, not what was spent since (next bill).
+        final owed =
+            cardBills[c.id]?.due ??
+            (c.balanceMinorUnits < 0 ? -c.balanceMinorUnits : 0);
         final cycle = CardCycle.of(
           statementDay: c.statementDay,
           paymentDueDay: c.paymentDueDay,
@@ -88,7 +96,28 @@ abstract final class ReminderPlanner {
                   : '$from can cover it.')
             : 'Short by ${money(afford.shortBy)}'
                   '${from == null ? '' : ' in $from'}.';
-        for (final daysBefore in const [3, 1]) {
+        // Unpaid after its due date: a reminder every day until it is paid.
+        final overdue = cardBills[c.id]?.overdueSince;
+        if (overdue != null) {
+          for (var d = 0; d < horizon.inDays; d++) {
+            final at = _at9(now.add(Duration(days: d)));
+            if (!upcoming(at)) continue;
+            out.add(
+              Reminder(
+                id: 'card-${c.id}-overdue-${f.format(at)}',
+                at: at,
+                title: '${c.name} bill ${money(owed)} is overdue',
+                body: 'It was due on ${f.format(overdue)}. Pay it now. $tail',
+              ),
+            );
+          }
+          continue;
+        }
+        for (
+          var daysBefore = cardBillDaysBefore;
+          daysBefore >= 0;
+          daysBefore--
+        ) {
           final at = _at9(cycle.dueDate.subtract(Duration(days: daysBefore)));
           if (!upcoming(at)) continue;
           out.add(
@@ -97,7 +126,11 @@ abstract final class ReminderPlanner {
               at: at,
               title:
                   '${c.name} bill ${money(owed)} due '
-                  '${daysBefore == 1 ? 'tomorrow' : 'in $daysBefore days'}',
+                  '${switch (daysBefore) {
+                    0 => 'today',
+                    1 => 'tomorrow',
+                    _ => 'in $daysBefore days',
+                  }}',
               body: 'Pay by ${f.format(cycle.dueDate)}. $tail',
             ),
           );
@@ -186,12 +219,21 @@ Future<List<Reminder>> replanReminders(
     autopay: await on(SettingKeys.remindAutopay),
     owed: await on(SettingKeys.remindOwed),
   );
+  final at = now ?? DateTime.now();
+  final rates = ExchangeRates.fromJson(
+    await db.settingsDao.get(SettingKeys.exchangeRates),
+  );
+  final accounts = await db.accountsDao.getAllActivePhysicalAccounts();
   final plan = ReminderPlanner.plan(
-    now: now ?? DateTime.now(),
+    now: at,
     // In rupees, like the rest of the app's totals.
-    accounts: ExchangeRates.fromJson(
-      await db.settingsDao.get(SettingKeys.exchangeRates),
-    ).inHome(await db.accountsDao.getAllActivePhysicalAccounts()),
+    accounts: rates.inHome(accounts),
+    cardBills: CardBill.of(
+      accounts: accounts,
+      transactions: await db.select(db.transactions).get(),
+      now: at,
+      rates: rates,
+    ),
     mandates: await db.mandatesDao.getAllMandates(),
     dues: await db.select(db.dues).get(),
     prefs: prefs,
