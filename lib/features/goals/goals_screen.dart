@@ -284,6 +284,7 @@ class _GoalEditorState extends ConsumerState<GoalEditor> {
       SnackBar(
         content: Text('Deleted "${g.name}"'),
         duration: const Duration(seconds: 6),
+        persist: false, // goes after 6 s even though it has a button
         action: SnackBarAction(
           label: 'Undo',
           onPressed: () async {

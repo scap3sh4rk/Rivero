@@ -78,6 +78,7 @@ class _QuickReviewSheetState extends ConsumerState<QuickReviewSheet> {
           SnackBar(
             content: Text('Always put ${t.merchant} in $category?'),
             duration: const Duration(seconds: 8),
+            persist: false, // goes after 8 s even though it has a button
             action: SnackBarAction(
               label: 'Make a rule',
               onPressed: () => rules.add(
