@@ -6,6 +6,7 @@ import 'package:rivero/core/domain/account_role.dart';
 import 'package:rivero/core/domain/custom_account_types.dart';
 import 'package:rivero/core/domain/transaction_enums.dart';
 import 'package:rivero/core/ingestion/mandate_tracker.dart';
+import 'package:rivero/core/utils/amount_parser.dart';
 
 /// The one place where a transaction's money effects are applied:
 /// physical balance + expense-bucket spend. Every capture path (notification,
@@ -229,6 +230,93 @@ class LedgerService {
     if (spend != 0 && bucket != null) {
       await db.accountsDao.recordBucketSpend(bucket, spend);
     }
+  });
+
+  /// Whether [t] can have its amount, date or name corrected: not one leg
+  /// of a transfer or another pair (both legs must keep matching), and not a
+  /// history-only import.
+  static bool canEdit(LedgerTransaction t) =>
+      !t.isInternalTransfer && t.linkedTransactionId == null && !historyOnly(t);
+
+  /// Corrects what a payment was: its amount (a positive amount; the entry
+  /// keeps its direction), when it happened, or who it was with. If it
+  /// already counted, its old balance, budget and category effects are undone
+  /// and the corrected ones applied, so balances move by the difference.
+  /// Autopay roll-forward and ATM cash moves are not redone. Throws a
+  /// [StateError] for entries [canEdit] refuses.
+  Future<void> edit(
+    String transactionId, {
+    int? amountMinorUnits,
+    DateTime? timestamp,
+    String? merchant,
+  }) => db.transaction(() async {
+    final t = await db.transactionsDao.getTransactionById(transactionId);
+    if (t == null) return;
+    if (!canEdit(t)) {
+      throw StateError('A transfer or imported entry cannot be edited');
+    }
+    if (amountMinorUnits != null &&
+        (amountMinorUnits <= 0 || amountMinorUnits > maxAmountMinorUnits)) {
+      throw ArgumentError.value(amountMinorUnits, 'amountMinorUnits');
+    }
+    final signed = amountMinorUnits == null
+        ? t.amountMinorUnits
+        : (t.amountMinorUnits < 0 ? -amountMinorUnits : amountMinorUnits);
+    final name = merchant?.trim();
+    final when = timestamp ?? t.transactionTimestamp;
+    if (signed == t.amountMinorUnits &&
+        when == t.transactionTimestamp &&
+        (name == null || name.isEmpty || name == t.merchant)) {
+      return;
+    }
+    final applied =
+        t.transactionState == TransactionState.confirmed ||
+        t.transactionState == TransactionState.reconciled;
+    if (applied) {
+      if (await _movesBalance(t)) {
+        await db.accountsDao.adjustAccountBalance(
+          t.physicalAccountId,
+          -(t.appliedMinorUnits ?? t.amountMinorUnits),
+        );
+      }
+      final spend = await _budgetSpend(t);
+      final bucket = t.allocationBucketId ?? await _defaultExpenseBucketId();
+      if (spend != 0 && bucket != null) {
+        await db.accountsDao.recordBucketSpend(bucket, -spend);
+      }
+      await _markCategoryPaid(t, sign: -1);
+    }
+    await (db.update(
+      db.transactions,
+    )..where((x) => x.id.equals(transactionId))).write(
+      TransactionsCompanion(
+        amountMinorUnits: Value(signed),
+        transactionTimestamp: Value(when),
+        merchant: name == null || name.isEmpty
+            ? const Value.absent()
+            : Value(name.length > 120 ? name.substring(0, 120) : name),
+      ),
+    );
+    if (!applied) return;
+    final now = (await db.transactionsDao.getTransactionById(transactionId))!;
+    var moved = 0;
+    if (await _movesBalance(now)) {
+      final before = await _balance(now.physicalAccountId);
+      await db.accountsDao.adjustAccountBalance(
+        now.physicalAccountId,
+        now.amountMinorUnits,
+      );
+      moved = await _balance(now.physicalAccountId) - before;
+    }
+    await (db.update(db.transactions)..where((x) => x.id.equals(now.id))).write(
+      TransactionsCompanion(appliedMinorUnits: Value(moved)),
+    );
+    final spend = await _budgetSpend(now);
+    final bucket = now.allocationBucketId ?? await _defaultExpenseBucketId();
+    if (spend != 0 && bucket != null) {
+      await db.accountsDao.recordBucketSpend(bucket, spend);
+    }
+    await _markCategoryPaid(now, sign: 1);
   });
 
   /// Ids of entries Rivero creates in pairs (plan moves, card-bill legs,

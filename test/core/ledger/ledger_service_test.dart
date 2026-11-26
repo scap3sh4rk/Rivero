@@ -123,6 +123,70 @@ void main() {
     expect(await balance('bank'), 100000 + 9000000 - 80000 + 30000);
   });
 
+  test(
+    'editing a counted spend moves balance and budget by the difference',
+    () async {
+      await db.accountsDao.updateAccountBalance('bank', 100000);
+      await txn('e', 'bank', -50000, TransactionType.expense);
+      await ledger.confirm('e');
+      await ledger.edit(
+        'e',
+        amountMinorUnits: 60000,
+        timestamp: DateTime(2026, 11, 13, 9),
+        merchant: ' Swiggy ',
+      );
+      final t = (await db.transactionsDao.getTransactionById('e'))!;
+      expect(t.amountMinorUnits, -60000); // still a spend
+      expect(t.merchant, 'Swiggy');
+      expect(t.transactionTimestamp, DateTime(2026, 11, 13, 9));
+      expect(await balance('bank'), 40000);
+      expect(await spent(), 60000);
+      // Deleting it afterwards undoes exactly the corrected amount.
+      await ledger.remove('e');
+      expect(await balance('bank'), 100000);
+      expect(await spent(), 0);
+    },
+  );
+
+  test('editing a waiting entry only changes the entry', () async {
+    await db.accountsDao.updateAccountBalance('bank', 100000);
+    await txn('e', 'bank', -50000, TransactionType.expense);
+    await ledger.edit('e', amountMinorUnits: 70000);
+    expect(await balance('bank'), 100000);
+    await ledger.confirm('e');
+    expect(await balance('bank'), 30000);
+    expect(await spent(), 70000);
+  });
+
+  test('money in stays money in when its amount is corrected', () async {
+    await txn('i', 'bank', 900000, TransactionType.income);
+    await ledger.confirm('i');
+    await ledger.edit('i', amountMinorUnits: 1000000);
+    expect(await balance('bank'), 1000000);
+    expect(await spent(), 0);
+  });
+
+  test(
+    'a transfer leg cannot be edited; nonsense amounts are refused',
+    () async {
+      final t = await txn('a', 'bank', -50000, TransactionType.expense);
+      expect(LedgerService.canEdit(t), isTrue);
+      expect(
+        () => ledger.edit('a', amountMinorUnits: 0),
+        throwsA(isA<ArgumentError>()),
+      );
+      await (db.update(db.transactions)..where((x) => x.id.equals('a'))).write(
+        const TransactionsCompanion(isInternalTransfer: Value(true)),
+      );
+      final leg = (await db.transactionsDao.getTransactionById('a'))!;
+      expect(LedgerService.canEdit(leg), isFalse);
+      expect(
+        () => ledger.edit('a', amountMinorUnits: 1000),
+        throwsA(isA<StateError>()),
+      );
+    },
+  );
+
   test('deleting a confirmed expense gives back balance and budget', () async {
     await db.accountsDao.updateAccountBalance('bank', 100000);
     await txn('e', 'bank', -50000, TransactionType.expense);
